@@ -1,6 +1,7 @@
 package db
 
 import (
+	"fmt"
 	"math/big"
 	"path/filepath"
 
@@ -16,21 +17,35 @@ type Store struct {
 	db ethdb.Database
 }
 
-func NewStore(config *Config) (*Store, error) {
-	var db ethdb.Database
-	var err error
-	if config.FileName == "" {
-		db = rawdb.NewMemoryDatabase()
-	} else {
-		freezer := config.DatabaseFreezer
-		if config.DatabaseFreezer == "" {
-			freezer = filepath.Join(config.FileName, "ancient")
-		}
-		db, err = rawdb.NewLevelDBDatabaseWithFreezer(config.FileName, config.DatabaseCache, config.DatabaseHandles, freezer, config.Namespace, false)
-		if err != nil {
-			return nil, err
-		}
+func NewMemoryStore() *Store {
+	return &Store{
+		db: rawdb.NewMemoryDatabase(),
 	}
+}
+
+func NewStore(config *Config, home string) (*Store, error) {
+	var (
+		db      ethdb.Database
+		err     error
+		dbPath  = config.DBPath
+		freezer = config.DatabaseFreezer
+	)
+
+	if dbPath == "" {
+		if home == "" {
+			return nil, fmt.Errorf("either Home or DB path has to be provided")
+		}
+		dbPath = filepath.Join(home, "db")
+	}
+
+	if config.DatabaseFreezer == "" {
+		freezer = filepath.Join(dbPath, "ancient")
+	}
+	db, err = rawdb.NewLevelDBDatabaseWithFreezer(dbPath, config.DatabaseCache, config.DatabaseHandles, freezer, config.Namespace, false)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Store{
 		db: db,
 	}, nil

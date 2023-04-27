@@ -6,7 +6,7 @@ import (
 )
 
 type Config struct {
-	FileName        string `json:"file_name"`
+	DBPath          string `json:"db_path"`
 	Namespace       string `json:"namespace"`
 	DatabaseHandles int    `json:"database_handles"`
 	DatabaseCache   int    `json:"database_cache"`
@@ -23,7 +23,7 @@ func DefaultConfig() *Config {
 
 func (c *Config) SetCliContext(ctx *cli.Context) {
 	if ctx.GlobalIsSet(flags.DBDataDir.Name) {
-		c.FileName = ctx.GlobalString(flags.DBDataDir.Name)
+		c.DBPath = ctx.GlobalString(flags.DBDataDir.Name)
 	}
 	if ctx.GlobalIsSet(flags.DBNamespace.Name) {
 		c.Namespace = ctx.GlobalString(flags.DBNamespace.Name)

@@ -9,12 +9,11 @@ func prefixEnvVar(name string) string {
 }
 
 var (
-	/* Required Flags */
-	L1NodeAddr = cli.StringFlag{
-		Name:   "l1.rpc",
-		Usage:  "Address of L1 User JSON-RPC endpoint to use (eth namespace required)",
-		EnvVar: prefixEnvVar("L1_ETH_RPC"),
-		//Required: true,
+	Home = cli.StringFlag{
+		Name:     "home",
+		Usage:    "home directory for l2-node",
+		EnvVar:   prefixEnvVar("HOME"),
+		Required: false,
 	}
 
 	L2EthAddr = cli.StringFlag{
@@ -40,6 +39,12 @@ var (
 	}
 
 	/* Optional Flags */
+	L1NodeAddr = cli.StringFlag{
+		Name:   "l1.rpc",
+		Usage:  "Address of L1 User JSON-RPC endpoint to use (eth namespace required)",
+		EnvVar: prefixEnvVar("L1_ETH_RPC"),
+	}
+
 	L1Confirmations = cli.Int64Flag{
 		Name:   "l1.confirmations",
 		Usage:  "Number of confirmations on L1 needed for finalization",
@@ -87,9 +92,9 @@ var (
 
 	// db options
 	DBDataDir = cli.StringFlag{
-		Name:     "db.data-dir",
+		Name:     "db.dir",
 		Usage:    "Directory of the data",
-		EnvVar:   prefixEnvVar("DB_DATA_DIR"),
+		EnvVar:   prefixEnvVar("DB_DIR"),
 		Required: false,
 	}
 
@@ -125,6 +130,13 @@ var (
 		Name:     "sequencer",
 		Usage:    "Enable the sequencer mode",
 		EnvVar:   prefixEnvVar("SEQUENCER"),
+		Required: false,
+	}
+
+	TendermintConfigPathFlag = &cli.StringFlag{
+		Name:     "tdm.config",
+		Usage:    "Directory of tendermint config file",
+		EnvVar:   prefixEnvVar("TDM_CONFIG"),
 		Required: false,
 	}
 

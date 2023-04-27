@@ -5,14 +5,17 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 
 	"github.com/bebop-labs/l2-node/db"
 	"github.com/bebop-labs/l2-node/flags"
-	"github.com/bebop-labs/l2-node/mock"
 	"github.com/bebop-labs/l2-node/node"
+	"github.com/bebop-labs/l2-node/sequencer"
+	"github.com/bebop-labs/l2-node/sequencer/mock"
 	"github.com/bebop-labs/l2-node/sync"
 	"github.com/scroll-tech/go-ethereum/log"
+	tmnode "github.com/tendermint/tendermint/node"
 	"github.com/urfave/cli"
 )
 
@@ -41,25 +44,33 @@ func L2NodeMain(ctx *cli.Context) error {
 		executor *node.Executor
 		syncer   *sync.Syncer
 		ms       *mock.Sequencer
+		tmNode   *tmnode.Node
 
 		nodeConfig = node.DefaultConfig()
 	)
-	sequencer := ctx.GlobalBool(flags.SequencerEnabledFlag.Name)
-	mockSequencer := ctx.GlobalBool(flags.MockEnabledFlag.Name)
-	if sequencer && mockSequencer {
+	isSequencer := ctx.GlobalBool(flags.SequencerEnabledFlag.Name)
+	isMockSequencer := ctx.GlobalBool(flags.MockEnabledFlag.Name)
+	if isSequencer && isMockSequencer {
 		return fmt.Errorf("the sequencer and mockSequencer can not be enabled both")
 	}
 	if err = nodeConfig.SetCliContext(ctx); err != nil {
 		return err
 	}
-	if sequencer {
-		dbConfig := db.DefaultConfig()
-		dbConfig.SetCliContext(ctx)
-		store, err := db.NewStore(dbConfig)
+	if isSequencer {
+		home, err := homeDir(ctx)
 		if err != nil {
 			return err
 		}
 
+		// configure store
+		dbConfig := db.DefaultConfig()
+		dbConfig.SetCliContext(ctx)
+		store, err := db.NewStore(dbConfig, home)
+		if err != nil {
+			return err
+		}
+
+		// launch syncer
 		syncConfig := sync.DefaultConfig()
 		if err = syncConfig.SetCliContext(ctx); err != nil {
 			return err
@@ -70,9 +81,19 @@ func L2NodeMain(ctx *cli.Context) error {
 		}
 		syncer.Start()
 
+		// launch executor
 		executor, err = node.NewSequencerExecutor(nodeConfig, syncer)
 		if err != nil {
 			return fmt.Errorf("failed to create executor, error: %v", err)
+		}
+
+		// launch tendermint node
+		tmNode, err = sequencer.SetupNode(ctx, home, executor)
+		if err != nil {
+			return fmt.Errorf("failed to setup consensus node, error: %v", err)
+		}
+		if err := tmNode.Start(); err != nil {
+			return fmt.Errorf("failed to start consensus node, error: %v", err)
 		}
 	} else {
 		executor, err = node.NewExecutor(nodeConfig)
@@ -81,7 +102,7 @@ func L2NodeMain(ctx *cli.Context) error {
 		}
 	}
 
-	if mockSequencer {
+	if isMockSequencer {
 		ms, err = mock.NewSequencer(executor)
 		if err != nil {
 			return err
@@ -98,12 +119,27 @@ func L2NodeMain(ctx *cli.Context) error {
 	}...)
 	<-interruptChannel
 
-	if syncer != nil {
-		syncer.Stop()
-	}
 	if ms != nil {
 		ms.Stop()
 	}
+	if tmNode != nil {
+		tmNode.Stop()
+	}
+	if syncer != nil {
+		syncer.Stop()
+	}
 
 	return nil
+}
+
+func homeDir(ctx *cli.Context) (string, error) {
+	home := ctx.GlobalString(flags.Home.Name)
+	if home == "" {
+		userHome, err := os.UserHomeDir()
+		if err != nil {
+			return "", err
+		}
+		home = filepath.Join(userHome, ".l2node")
+	}
+	return home, nil
 }

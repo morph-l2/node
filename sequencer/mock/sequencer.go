@@ -2,10 +2,11 @@ package mock
 
 import (
 	"context"
-	"github.com/bebop-labs/l2-node/node"
-	"github.com/scroll-tech/go-ethereum/log"
 	"math/big"
 	"time"
+
+	"github.com/bebop-labs/l2-node/node"
+	"github.com/scroll-tech/go-ethereum/log"
 )
 
 type Sequencer struct {
