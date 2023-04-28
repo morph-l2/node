@@ -5,12 +5,12 @@ import (
 	"math/big"
 	"path/filepath"
 
-	"github.com/bebop-labs/l2-node/sync"
+	"github.com/bebop-labs/l2-node/types"
 	"github.com/scroll-tech/go-ethereum/core/rawdb"
 	"github.com/scroll-tech/go-ethereum/ethdb"
 	"github.com/scroll-tech/go-ethereum/log"
 	"github.com/scroll-tech/go-ethereum/rlp"
-	"github.com/syndtr/goleveldb/leveldb/errors"
+	"github.com/syndtr/goleveldb/leveldb"
 )
 
 type Store struct {
@@ -53,7 +53,7 @@ func NewStore(config *Config, home string) (*Store, error) {
 
 func (s *Store) ReadLatestSyncedL1Height() *uint64 {
 	data, err := s.db.Get(syncedL1HeightKey)
-	if err != nil && err != errors.ErrNotFound {
+	if err != nil && isNotFoundErr(err) {
 		log.Crit("Failed to read synced L1 block number from database", "err", err)
 	}
 	if len(data) == 0 {
@@ -69,12 +69,12 @@ func (s *Store) ReadLatestSyncedL1Height() *uint64 {
 	return &value
 }
 
-func (s *Store) ReadL1MessagesInRange(start, end uint64) []sync.L1Message {
+func (s *Store) ReadL1MessagesInRange(start, end uint64) []types.L1Message {
 	if start > end {
 		return nil
 	}
-	expectedCount := start - end + 1
-	messages := make([]sync.L1Message, 0, expectedCount)
+	expectedCount := end - start + 1
+	messages := make([]types.L1Message, 0, expectedCount)
 	it := IterateL1MessagesFrom(s.db, start)
 	defer it.Release()
 
@@ -88,15 +88,15 @@ func (s *Store) ReadL1MessagesInRange(start, end uint64) []sync.L1Message {
 	return messages
 }
 
-func (s *Store) ReadL1MessageByIndex(index uint64) *sync.L1Message {
+func (s *Store) ReadL1MessageByIndex(index uint64) *types.L1Message {
 	data, err := s.db.Get(L1MessageKey(index))
-	if err != nil && err != errors.ErrNotFound {
+	if err != nil && isNotFoundErr(err) {
 		log.Crit("Failed to read L1 message from database", "err", err)
 	}
 	if len(data) == 0 {
 		return nil
 	}
-	var l1Msg sync.L1Message
+	var l1Msg types.L1Message
 	if err := rlp.DecodeBytes(data, &l1Msg); err != nil {
 		log.Crit("Invalid L1 message RLP", "data", data, "err", err)
 	}
@@ -110,7 +110,7 @@ func (s *Store) WriteLatestSyncedL1Height(latest uint64) {
 	}
 }
 
-func (s *Store) WriteSyncedL1Messages(messages []sync.L1Message, latest uint64) error {
+func (s *Store) WriteSyncedL1Messages(messages []types.L1Message, latestSynced uint64) error {
 	if len(messages) == 0 {
 		return nil
 	}
@@ -124,10 +124,13 @@ func (s *Store) WriteSyncedL1Messages(messages []sync.L1Message, latest uint64) 
 		if err := batch.Put(L1MessageKey(enqueueIndex), bytes); err != nil {
 			log.Crit("Failed to store L1 message", "err", err)
 		}
-		latest = msg.L1Height
 	}
-	if err := batch.Put(syncedL1HeightKey, new(big.Int).SetUint64(latest).Bytes()); err != nil {
+	if err := batch.Put(syncedL1HeightKey, new(big.Int).SetUint64(latestSynced).Bytes()); err != nil {
 		log.Crit("Failed to update synced L1 height", "err", err)
 	}
 	return batch.Write()
+}
+
+func isNotFoundErr(err error) bool {
+	return err == leveldb.ErrNotFound || err == types.ErrMemoryDBNotFound
 }

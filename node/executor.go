@@ -85,7 +85,7 @@ func (e *Executor) RequestBlockData(height int64) (txs [][]byte, l2Config, zkCon
 	if len(l2Block.Transactions) == 0 {
 		return
 	}
-	bm := &blsMessage{
+	bm := &types.BLSMessage{
 		ParentHash: l2Block.ParentHash,
 		Miner:      l2Block.Miner,
 		Number:     l2Block.Number,
@@ -96,7 +96,7 @@ func (e *Executor) RequestBlockData(height int64) (txs [][]byte, l2Config, zkCon
 	if l2Config, err = bm.MarshalBinary(); err != nil {
 		return
 	}
-	nbm := &nonBLSMessage{
+	nbm := &types.NonBLSMessage{
 		StateRoot:   l2Block.StateRoot,
 		GasUsed:     l2Block.GasUsed,
 		ReceiptRoot: l2Block.ReceiptRoot,
@@ -119,11 +119,11 @@ func (e *Executor) CheckBlockData(txs [][]byte, l2Config, zkConfig []byte) (vali
 	if len(txs) == 0 || l2Config == nil || zkConfig == nil {
 		return false, nil
 	}
-	bm := new(blsMessage)
+	bm := new(types.BLSMessage)
 	if err := bm.UnmarshalBinary(zkConfig); err != nil {
 		return false, err
 	}
-	nbm := new(nonBLSMessage)
+	nbm := new(types.NonBLSMessage)
 	if err := nbm.UnmarshalBinary(l2Config); err != nil {
 		return false, err
 	}
@@ -158,11 +158,11 @@ func (e *Executor) DeliverBlock(txs [][]byte, l2Config, zkConfig []byte, validat
 	if len(txs) == 0 || l2Config == nil || zkConfig == nil {
 		return currentBlockNumber, nil
 	}
-	bm := new(blsMessage)
+	bm := new(types.BLSMessage)
 	if err := bm.UnmarshalBinary(zkConfig); err != nil {
 		return currentBlockNumber, err
 	}
-	nbm := new(nonBLSMessage)
+	nbm := new(types.NonBLSMessage)
 	if err := nbm.UnmarshalBinary(l2Config); err != nil {
 		return currentBlockNumber, err
 	}

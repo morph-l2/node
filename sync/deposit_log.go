@@ -4,10 +4,11 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/bebop-labs/l2-node/types"
 	"github.com/hashicorp/go-multierror"
 	"github.com/holiman/uint256"
 	"github.com/scroll-tech/go-ethereum/common"
-	"github.com/scroll-tech/go-ethereum/core/types"
+	eth "github.com/scroll-tech/go-ethereum/core/types"
 	"github.com/scroll-tech/go-ethereum/crypto"
 	"github.com/scroll-tech/go-ethereum/log"
 )
@@ -18,11 +19,11 @@ var (
 	DepositEventVersion0 = common.Hash{}
 )
 
-func deriveFromReceipt(receipts []*types.Receipt, depositContractAddr common.Address) ([]L1Message, error) {
-	var out []L1Message
+func deriveFromReceipt(receipts []*eth.Receipt, depositContractAddr common.Address) ([]types.L1Message, error) {
+	var out []types.L1Message
 	var result error
 	for i, rec := range receipts {
-		if rec.Status != types.ReceiptStatusSuccessful {
+		if rec.Status != eth.ReceiptStatusSuccessful {
 			continue
 		}
 		for j, lg := range rec.Logs {
@@ -31,9 +32,8 @@ func deriveFromReceipt(receipts []*types.Receipt, depositContractAddr common.Add
 				if err != nil {
 					result = multierror.Append(result, fmt.Errorf("malformatted L1 deposit log in receipt %d, log %d: %w", i, j, err))
 				} else {
-					out = append(out, L1Message{
+					out = append(out, types.L1Message{
 						L1MessageTx: *msg,
-						L1Height:    lg.BlockNumber,
 						L1TxHash:    lg.TxHash,
 					})
 				}
@@ -55,7 +55,7 @@ func deriveFromReceipt(receipts []*types.Receipt, depositContractAddr common.Add
 //	);
 //
 // Additionally, the event log-index and
-func UnmarshalDepositLogEvent(ev *types.Log) (*types.L1MessageTx, error) {
+func UnmarshalDepositLogEvent(ev *eth.Log) (*eth.L1MessageTx, error) {
 	if len(ev.Topics) != 4 {
 		return nil, fmt.Errorf("expected 4 event topics (event identity, indexed from, indexed to, indexed version), got %d", len(ev.Topics))
 	}
@@ -97,7 +97,7 @@ func UnmarshalDepositLogEvent(ev *types.Log) (*types.L1MessageTx, error) {
 	// and then padded to 32 bytes by the EVM.
 	opaqueData := ev.Data[64 : 64+opaqueContentLength.Uint64()]
 
-	var tx *types.L1MessageTx
+	var tx *eth.L1MessageTx
 	var err error
 	switch version {
 	case DepositEventVersion0:
@@ -111,8 +111,8 @@ func UnmarshalDepositLogEvent(ev *types.Log) (*types.L1MessageTx, error) {
 	return tx, nil
 }
 
-func unmarshalDepositVersion0(to common.Address, opaqueData []byte) (*types.L1MessageTx, error) {
-	var message types.L1MessageTx
+func unmarshalDepositVersion0(to common.Address, opaqueData []byte) (*eth.L1MessageTx, error) {
+	var message eth.L1MessageTx
 	if len(opaqueData) < 32+32+8+1 {
 		return nil, fmt.Errorf("unexpected opaqueData length: %d", len(opaqueData))
 	}

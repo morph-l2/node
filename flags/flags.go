@@ -38,7 +38,12 @@ var (
 		Destination: new(string),
 	}
 
-	/* Optional Flags */
+	MaxL1MessageNumPerBlock = cli.Uint64Flag{
+		Name:   "maxL1MessageNumPerBlock",
+		Usage:  "The max number allowed for L1 message type transactions to involve in one block",
+		EnvVar: prefixEnvVar("MAX_L1_MESSAGE_NUM_PER_BLOCK"),
+	}
+
 	L1NodeAddr = cli.StringFlag{
 		Name:   "l1.rpc",
 		Usage:  "Address of L1 User JSON-RPC endpoint to use (eth namespace required)",
@@ -59,10 +64,9 @@ var (
 	}
 
 	SyncStartHeight = cli.Uint64Flag{
-		Name:     "sync.startHeight",
-		Usage:    "Block height where syncer start to fetch",
-		EnvVar:   prefixEnvVar("SYNC_START_HEIGHT"),
-		Required: true,
+		Name:   "sync.startHeight",
+		Usage:  "Block height where syncer start to fetch",
+		EnvVar: prefixEnvVar("SYNC_START_HEIGHT"),
 	}
 
 	SyncPollInterval = cli.DurationFlag{
@@ -83,76 +87,80 @@ var (
 		EnvVar: prefixEnvVar("SYNC_FETCH_BLOCK_RANGE"),
 	}
 
-	MaxL1MessageNumPerBlock = cli.Uint64Flag{
-		Name:     "maxL1MessageNumPerBlock",
-		Usage:    "The max number allowed for L1 message type transactions to involve in one block",
-		EnvVar:   prefixEnvVar("MAX_L1_MESSAGE_NUM_PER_BLOCK"),
-		Required: false,
-	}
-
 	// db options
 	DBDataDir = cli.StringFlag{
-		Name:     "db.dir",
-		Usage:    "Directory of the data",
-		EnvVar:   prefixEnvVar("DB_DIR"),
-		Required: false,
+		Name:   "db.dir",
+		Usage:  "Directory of the data",
+		EnvVar: prefixEnvVar("DB_DIR"),
 	}
 
 	DBNamespace = cli.StringFlag{
-		Name:     "db.namespace",
-		Usage:    "Database namespace",
-		EnvVar:   prefixEnvVar("DB_NAMESPACE"),
-		Required: false,
+		Name:   "db.namespace",
+		Usage:  "Database namespace",
+		EnvVar: prefixEnvVar("DB_NAMESPACE"),
 	}
 
 	DBHandles = cli.IntFlag{
-		Name:     "db.handles",
-		Usage:    "Database handles",
-		EnvVar:   prefixEnvVar("DB_HANDLES"),
-		Required: false,
+		Name:   "db.handles",
+		Usage:  "Database handles",
+		EnvVar: prefixEnvVar("DB_HANDLES"),
 	}
 
 	DBCache = cli.IntFlag{
-		Name:     "db.cache",
-		Usage:    "Database cache",
-		EnvVar:   prefixEnvVar("DB_CACHE"),
-		Required: false,
+		Name:   "db.cache",
+		Usage:  "Database cache",
+		EnvVar: prefixEnvVar("DB_CACHE"),
 	}
 
 	DBFreezer = cli.StringFlag{
-		Name:     "db.freezer",
-		Usage:    "Database freezer",
-		EnvVar:   prefixEnvVar("DB_FREEZER"),
-		Required: false,
+		Name:   "db.freezer",
+		Usage:  "Database freezer",
+		EnvVar: prefixEnvVar("DB_FREEZER"),
 	}
 
-	SequencerEnabledFlag = &cli.BoolFlag{
-		Name:     "sequencer",
-		Usage:    "Enable the sequencer mode",
-		EnvVar:   prefixEnvVar("SEQUENCER"),
-		Required: false,
+	SequencerEnabled = &cli.BoolFlag{
+		Name:   "sequencer",
+		Usage:  "Enable the sequencer mode",
+		EnvVar: prefixEnvVar("SEQUENCER"),
 	}
 
-	TendermintConfigPathFlag = &cli.StringFlag{
-		Name:     "tdm.config",
-		Usage:    "Directory of tendermint config file",
-		EnvVar:   prefixEnvVar("TDM_CONFIG"),
-		Required: false,
+	TendermintConfigPath = &cli.StringFlag{
+		Name:   "tdm.config",
+		Usage:  "Directory of tendermint config file",
+		EnvVar: prefixEnvVar("TDM_CONFIG"),
 	}
 
-	MockEnabledFlag = &cli.BoolFlag{
-		Name:     "mock",
-		Usage:    "Enable mock",
-		EnvVar:   prefixEnvVar("MOCK_SEQUENCER"),
-		Required: false,
+	MockEnabled = &cli.BoolFlag{
+		Name:   "mock",
+		Usage:  "Enable mock; If enabled, we start a simulated sequencer to manage the block production, just for dev/test use",
+		EnvVar: prefixEnvVar("MOCK_SEQUENCER"),
 	}
 )
 
-var requiredFlags = []cli.Flag{
+var Flags = []cli.Flag{
+	Home,
 	L1NodeAddr,
+	L1Confirmations,
 	L2EthAddr,
 	L2EngineAddr,
 	L2EngineJWTSecret,
-}
+	MaxL1MessageNumPerBlock,
 
-var Flags = append(requiredFlags, MockEnabledFlag)
+	// sync optioins
+	SyncDepositContractAddr,
+	SyncStartHeight,
+	SyncPollInterval,
+	SyncLogProgressInterval,
+	SyncFetchBlockRange,
+
+	// db options
+	DBDataDir,
+	DBNamespace,
+	DBHandles,
+	DBCache,
+	DBFreezer,
+
+	SequencerEnabled,
+	TendermintConfigPath,
+	MockEnabled,
+}

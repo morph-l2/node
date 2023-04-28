@@ -28,7 +28,7 @@ func NewBridgeClient(l1Client *ethclient.Client, depositContractAddress common.A
 	}
 }
 
-func (c *BridgeClient) L1Messages(ctx context.Context, from, to uint64) ([]L1Message, error) {
+func (c *BridgeClient) L1Messages(ctx context.Context, from, to uint64) ([]types.L1Message, error) {
 	query := ethereum.FilterQuery{
 		FromBlock: big.NewInt(0).SetUint64(from),
 		ToBlock:   big.NewInt(0).SetUint64(to),
@@ -50,15 +50,14 @@ func (c *BridgeClient) L1Messages(ctx context.Context, from, to uint64) ([]L1Mes
 		return nil, nil
 	}
 
-	txs := make([]L1Message, len(logs), len(logs))
+	txs := make([]types.L1Message, len(logs), len(logs))
 	for i, lg := range logs {
 		l1MessageTx, err := UnmarshalDepositLogEvent(&lg)
 		if err != nil {
 			return nil, err
 		}
-		l1Message := L1Message{
+		l1Message := types.L1Message{
 			L1MessageTx: *l1MessageTx,
-			L1Height:    lg.BlockNumber,
 			L1TxHash:    lg.TxHash,
 		}
 		txs[i] = l1Message
@@ -66,7 +65,7 @@ func (c *BridgeClient) L1Messages(ctx context.Context, from, to uint64) ([]L1Mes
 	return txs, nil
 }
 
-func (c *BridgeClient) L1MessagesFromTxHash(ctx context.Context, txHash common.Hash) ([]L1Message, error) {
+func (c *BridgeClient) L1MessagesFromTxHash(ctx context.Context, txHash common.Hash) ([]types.L1Message, error) {
 	receipt, err := c.l1Client.TransactionReceipt(ctx, txHash)
 	if err != nil {
 		return nil, err

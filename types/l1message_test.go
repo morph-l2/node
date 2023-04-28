@@ -1,4 +1,4 @@
-package sync
+package types
 
 import (
 	"github.com/scroll-tech/go-ethereum/core/types"
@@ -21,7 +21,6 @@ func TestL1Message(t *testing.T) {
 			Data:       []byte("0x1a2b3c"),
 			Sender:     common.BigToAddress(big.NewInt(202)),
 		},
-		L1Height: 1000,
 		L1TxHash: common.BigToHash(big.NewInt(1111)),
 	}
 	bytes, err := rlp.EncodeToBytes(&msg)
@@ -37,6 +36,5 @@ func TestL1Message(t *testing.T) {
 	require.EqualValues(t, msg.Value, actual.Value)
 	require.EqualValues(t, msg.Data, actual.Data)
 	require.EqualValues(t, msg.Sender, actual.Sender)
-	require.EqualValues(t, msg.L1Height, actual.L1Height)
 	require.EqualValues(t, msg.L1TxHash, actual.L1TxHash)
 }

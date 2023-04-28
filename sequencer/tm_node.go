@@ -25,7 +25,7 @@ var logger = log.NewTMLogger(log.NewSyncWriter(os.Stdout))
 func SetupNode(ctx *cli.Context, home string, executor *node.Executor) (*tmnode.Node, error) {
 	var (
 		tmCfg      *config.Config
-		configPath = ctx.GlobalString(flags.TendermintConfigPathFlag.Name)
+		configPath = ctx.GlobalString(flags.TendermintConfigPath.Name)
 	)
 	if configPath == "" {
 		if home == "" {

@@ -3,10 +3,12 @@ package sync
 import (
 	"context"
 	"errors"
+	"time"
+
+	"github.com/bebop-labs/l2-node/types"
 	"github.com/scroll-tech/go-ethereum/common"
 	"github.com/scroll-tech/go-ethereum/ethclient"
 	"github.com/scroll-tech/go-ethereum/log"
-	"time"
 )
 
 type Syncer struct {
@@ -144,7 +146,7 @@ func (s *Syncer) fetchL1Messages() {
 	}
 }
 
-func (s *Syncer) GetL1Message(index uint64, txHash common.Hash) (*L1Message, error) {
+func (s *Syncer) GetL1Message(index uint64, txHash common.Hash) (*types.L1Message, error) {
 	l1Message := s.db.ReadL1MessageByIndex(index)
 	if l1Message != nil {
 		return l1Message, nil
@@ -163,6 +165,6 @@ func (s *Syncer) GetL1Message(index uint64, txHash common.Hash) (*L1Message, err
 	return nil, nil
 }
 
-func (s *Syncer) ReadL1MessagesInRange(start, end uint64) []L1Message {
+func (s *Syncer) ReadL1MessagesInRange(start, end uint64) []types.L1Message {
 	return s.db.ReadL1MessagesInRange(start, end)
 }

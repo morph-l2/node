@@ -48,8 +48,8 @@ func L2NodeMain(ctx *cli.Context) error {
 
 		nodeConfig = node.DefaultConfig()
 	)
-	isSequencer := ctx.GlobalBool(flags.SequencerEnabledFlag.Name)
-	isMockSequencer := ctx.GlobalBool(flags.MockEnabledFlag.Name)
+	isSequencer := ctx.GlobalBool(flags.SequencerEnabled.Name)
+	isMockSequencer := ctx.GlobalBool(flags.MockEnabled.Name)
 	if isSequencer && isMockSequencer {
 		return fmt.Errorf("the sequencer and mockSequencer can not be enabled both")
 	}
@@ -81,7 +81,7 @@ func L2NodeMain(ctx *cli.Context) error {
 		}
 		syncer.Start()
 
-		// launch executor
+		// create executor
 		executor, err = node.NewSequencerExecutor(nodeConfig, syncer)
 		if err != nil {
 			return fmt.Errorf("failed to create executor, error: %v", err)

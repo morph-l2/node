@@ -18,4 +18,6 @@ var (
 	ErrInvalidL1Message = errors.New("invalid L1 message")
 
 	ErrWrongBlockNumber = errors.New("wrong block number")
+
+	ErrMemoryDBNotFound = errors.New("not found")
 )

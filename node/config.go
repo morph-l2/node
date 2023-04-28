@@ -18,9 +18,6 @@ import (
 type Config struct {
 	L2                      *types.L2Config `json:"l2"`
 	MaxL1MessageNumPerBlock uint64          `json:"max_l1_message_num_per_block"`
-
-	// if enabled, we start a simulated sequencer to manage the block production, just for dev/test use
-	Mock bool `json:"mock"`
 }
 
 func DefaultConfig() *Config {

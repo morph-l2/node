@@ -2,7 +2,7 @@ package db
 
 import (
 	"encoding/binary"
-	"github.com/bebop-labs/l2-node/sync"
+	"github.com/bebop-labs/l2-node/types"
 	"github.com/scroll-tech/go-ethereum/ethdb"
 	"github.com/scroll-tech/go-ethereum/log"
 	"github.com/scroll-tech/go-ethereum/rlp"
@@ -50,9 +50,9 @@ func (it *L1MessageIterator) EnqueueIndex() uint64 {
 }
 
 // L1Message returns the current L1 message.
-func (it *L1MessageIterator) L1Message() sync.L1Message {
+func (it *L1MessageIterator) L1Message() types.L1Message {
 	data := it.inner.Value()
-	var l1Msg sync.L1Message
+	var l1Msg types.L1Message
 	if err := rlp.DecodeBytes(data, &l1Msg); err != nil {
 		log.Crit("Invalid L1 message RLP", "data", data, "err", err)
 	}
