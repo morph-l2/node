@@ -35,7 +35,7 @@ func NewStore(config *Config, home string) (*Store, error) {
 		if home == "" {
 			return nil, fmt.Errorf("either Home or DB path has to be provided")
 		}
-		dbPath = filepath.Join(home, "db")
+		dbPath = filepath.Join(home, "l2-data")
 	}
 
 	if config.DatabaseFreezer == "" {

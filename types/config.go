@@ -4,6 +4,8 @@ import (
 	"github.com/scroll-tech/go-ethereum/rpc"
 )
 
+var DefaultHomeDir = ".l2node"
+
 type L1Config struct {
 	Addr          string          `json:"addr"`
 	Confirmations rpc.BlockNumber `json:"confirmations"`

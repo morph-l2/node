@@ -31,10 +31,10 @@ func SetupNode(ctx *cli.Context, home string, executor *node.Executor) (*tmnode.
 		if home == "" {
 			return nil, fmt.Errorf("either Home or Config Path has to be provided")
 		}
-		configPath = filepath.Join(home, "config")
+		configPath = filepath.Join(home, "tendermint", "config")
 	}
 	viper.AddConfigPath(configPath)
-	viper.SetConfigName("tm-config")
+	viper.SetConfigName("config")
 	if err := viper.ReadInConfig(); err != nil {
 		return nil, err
 	}

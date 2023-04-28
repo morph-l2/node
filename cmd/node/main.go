@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/bebop-labs/l2-node/types"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -139,7 +140,7 @@ func homeDir(ctx *cli.Context) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		home = filepath.Join(userHome, ".l2node")
+		home = filepath.Join(userHome, types.DefaultHomeDir)
 	}
 	return home, nil
 }
