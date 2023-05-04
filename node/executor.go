@@ -184,7 +184,16 @@ func (e *Executor) DeliverBlock(txs [][]byte, l2Config, zkConfig []byte, validat
 		Extra:        nbm.Extra,
 	}
 
-	err = e.authClient.NewL2Block(context.Background(), l2Block)
+	signers := make([][]byte, 0)
+	for _, v := range validators {
+		signers = append(signers, v.Bytes())
+	}
+
+	blsData := &eth.BLSData{
+		BLSSigners:   signers,
+		BLSSignature: blsSignatures[0], // todo
+	}
+	err = e.authClient.NewL2Block(context.Background(), l2Block, blsData)
 	if err != nil {
 		return currentBlockNumber, err
 	}
