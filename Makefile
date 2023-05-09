@@ -8,18 +8,20 @@ LDFLAGS := -ldflags "$(LDFLAGSSTRING)"
 .PHONY: l2node tendermint clean
 
 l2node:
-	if [ ! -d build ]; then mkdir build; fi
-	env GO111MODULE=on CGO_ENABLED=1 go build -o build/l2node -v $(LDFLAGS) ./cmd/node
+	if [ ! -d build/bin ]; then mkdir -p build/bin; fi
+	go mod tidy
+	env GO111MODULE=on CGO_ENABLED=1 go build -o build/bin/l2node -v $(LDFLAGS) ./cmd/node
 
 tendermint:
-	if [ ! -d build ]; then mkdir build; fi
-	env GO111MODULE=on CGO_ENABLED=1 go build -o build/tendermint -v $(LDFLAGS) ./cmd/tendermint
+	if [ ! -d build/bin ]; then mkdir -p build/bin; fi
+	go mod tidy
+	env GO111MODULE=on CGO_ENABLED=1 go build -o build/bin/tendermint -v $(LDFLAGS) ./cmd/tendermint
 
 all: l2node tendermint
 
 tm-init:
-	if [ ! -d build/tm ]; then mkdir build/tm; fi
-	./build/tendermint init --home build/tm
+	if [ ! -d build/tendermint ]; then mkdir -p build/tendermint; fi
+	./build/bin/tendermint init --home build/tendermint
 
 run:
 	sh run.sh

@@ -7,4 +7,4 @@ export L2_NODE_L1_ETH_RPC=https://arb1.arbitrum.io/rpc
 export L2_NODE_SYNC_DEPOSIT_CONTRACT_ADDRESS=0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9
 export L2_NODE_SYNC_START_HEIGHT=88854536
 
-./build/l2node --sequencer --home build
+./build/bin/l2node --sequencer --home build

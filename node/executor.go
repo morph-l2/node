@@ -97,7 +97,7 @@ func (e *Executor) RequestBlockData(height int64) (txs [][]byte, l2Config, zkCon
 		BaseFee:    l2Block.BaseFee,
 		Timestamp:  l2Block.Timestamp,
 	}
-	if l2Config, err = bm.MarshalBinary(); err != nil {
+	if zkConfig, err = bm.MarshalBinary(); err != nil {
 		return
 	}
 	nbm := &types.NonBLSMessage{
@@ -108,7 +108,7 @@ func (e *Executor) RequestBlockData(height int64) (txs [][]byte, l2Config, zkCon
 		Extra:       l2Block.Extra,
 		L1Messages:  l1Messages,
 	}
-	if zkConfig, err = nbm.MarshalBinary(); err != nil {
+	if l2Config, err = nbm.MarshalBinary(); err != nil {
 		return
 	}
 	txs = l2Block.Transactions
@@ -157,7 +157,9 @@ func (e *Executor) CheckBlockData(txs [][]byte, l2Config, zkConfig []byte) (vali
 		LogsBloom:    nbm.LogsBloom,
 		Extra:        nbm.Extra,
 	}
-	return e.authClient.ValidateL2Block(context.Background(), l2Block)
+	validated, err := e.authClient.ValidateL2Block(context.Background(), l2Block)
+	log.Info("CheckBlockData response", "validated", validated, "error", err)
+	return validated, err
 }
 
 // validators []tdm.Address,
