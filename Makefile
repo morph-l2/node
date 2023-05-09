@@ -18,7 +18,8 @@ tendermint:
 all: l2node tendermint
 
 tm-init:
-	./build/tendermint init
+	if [ ! -d build/tm ]; then mkdir build/tm; fi
+	./build/tendermint init --home build/tm
 
 run:
 	sh run.sh
