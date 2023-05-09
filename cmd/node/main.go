@@ -29,7 +29,7 @@ func main() {
 	)
 	app := cli.NewApp()
 	app.Flags = flags.Flags
-	app.Name = "l2-node"
+	app.Name = "l2node"
 	app.Action = L2NodeMain
 	err := app.Run(os.Args)
 	if err != nil {

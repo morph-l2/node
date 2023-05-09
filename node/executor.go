@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/tendermint/tendermint/blssignatures"
+	"github.com/tendermint/tendermint/ethutil/hex"
 	"math/big"
 
 	"github.com/bebop-labs/l2-node/sync"
@@ -69,6 +71,7 @@ func (e *Executor) RequestBlockData(height int64) (txs [][]byte, l2Config, zkCon
 		err = fmt.Errorf("RequestBlockData is not alllowed to be called")
 		return
 	}
+	log.Info("RequestBlockData request", "height", height)
 	// read the l1 messages
 	l1Messages := e.syncer.ReadL1MessagesInRange(e.latestProcessedL1Index+1, e.latestProcessedL1Index+e.maxL1MsgNumPerBlock)
 	transactions := make(eth.Transactions, len(l1Messages), len(l1Messages))
@@ -82,6 +85,7 @@ func (e *Executor) RequestBlockData(height int64) (txs [][]byte, l2Config, zkCon
 		log.Error("failed to assemble block", "height", height, "error", err)
 		return
 	}
+	log.Info("AssembleL2Block returns l2Block", "tx length", len(l2Block.Transactions))
 	if len(l2Block.Transactions) == 0 {
 		return
 	}
@@ -108,6 +112,10 @@ func (e *Executor) RequestBlockData(height int64) (txs [][]byte, l2Config, zkCon
 		return
 	}
 	txs = l2Block.Transactions
+	log.Info("RequestBlockData response",
+		"txs.length", len(txs),
+		"l2Config", hex.EncodeToHex(l2Config),
+		"zkConfig", hex.EncodeToHex(zkConfig))
 	return
 }
 
@@ -116,6 +124,10 @@ func (e *Executor) CheckBlockData(txs [][]byte, l2Config, zkConfig []byte) (vali
 		err = fmt.Errorf("CheckBlockData is not alllowed to be called")
 		return
 	}
+	log.Info("CheckBlockData requests",
+		"txs.length", len(txs),
+		"l2Config", hex.EncodeToHex(l2Config),
+		"zkConfig", hex.EncodeToHex(zkConfig))
 	if len(txs) == 0 || l2Config == nil || zkConfig == nil {
 		return false, nil
 	}
@@ -150,6 +162,11 @@ func (e *Executor) CheckBlockData(txs [][]byte, l2Config, zkConfig []byte) (vali
 
 // validators []tdm.Address,
 func (e *Executor) DeliverBlock(txs [][]byte, l2Config, zkConfig []byte, validators []tdm.Address, blsSignatures [][]byte) (int64, error) {
+	log.Info("DeliverBlock request", "txs length", len(txs),
+		"l2Config", hex.EncodeToHex(l2Config),
+		"zkConfig", hex.EncodeToHex(zkConfig),
+		"validator length", len(validators),
+		"blsSignatures length", len(blsSignatures))
 	height, err := e.ethClient.BlockNumber(context.Background())
 	if err != nil {
 		return 0, err
@@ -189,20 +206,30 @@ func (e *Executor) DeliverBlock(txs [][]byte, l2Config, zkConfig []byte, validat
 		signers = append(signers, v.Bytes())
 	}
 
+	sigs := make([]blssignatures.Signature, len(blsSignatures), len(blsSignatures))
+	for i, bz := range blsSignatures {
+		sig, err := blssignatures.SignatureFromBytes(bz)
+		if err != nil {
+			log.Error("failed to recover bytes to signature", "error", err)
+			return currentBlockNumber + 1, err
+		}
+		sigs[i] = sig
+	}
+	aggregatedSig := blssignatures.AggregateSignatures(sigs)
+
 	blsData := &eth.BLSData{
 		BLSSigners:   signers,
-		BLSSignature: blsSignatures[0], // todo
+		BLSSignature: blssignatures.SignatureToBytes(aggregatedSig),
 	}
 	err = e.authClient.NewL2Block(context.Background(), l2Block, blsData)
 	if err != nil {
-		return currentBlockNumber, err
+		log.Error("failed to NewL2Block", "error", err)
+		return currentBlockNumber + 1, err
 	}
-
-	// todo store validators and signatures with block number for submitter to use
 
 	// impossible getting an error here
 	_ = e.updateLatestProcessedL1Index(txs)
-	return currentBlockNumber, nil
+	return currentBlockNumber + 1, nil
 }
 
 func (e *Executor) AuthClient() *authclient.Client {

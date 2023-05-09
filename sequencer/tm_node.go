@@ -44,7 +44,8 @@ func SetupNode(ctx *cli.Context, home string, executor *node.Executor) (*tmnode.
 		return nil, err
 	}
 
-	tmCfg.SetRoot(home)
+	tmHome := filepath.Join(home, "tendermint")
+	tmCfg.SetRoot(tmHome)
 	if err := tmCfg.ValidateBasic(); err != nil {
 		return nil, fmt.Errorf("error in config file: %w", err)
 	}
@@ -68,13 +69,14 @@ func SetupNode(ctx *cli.Context, home string, executor *node.Executor) (*tmnode.
 		return nil, fmt.Errorf("failed to load bls priv key")
 	}
 
-	var app types.Application
+	//var app types.Application
 	n, err := tmnode.NewNode(
 		tmCfg,
+		executor,
 		privval.LoadOrGenFilePV(tmCfg.PrivValidatorKeyFile(), tmCfg.PrivValidatorStateFile()),
 		&blsPrivKey,
 		nodeKey,
-		proxy.NewLocalClientCreator(app),
+		proxy.NewLocalClientCreator(types.NewBaseApplication()),
 		tmnode.DefaultGenesisDocProviderFunc(tmCfg),
 		tmnode.DefaultDBProvider,
 		tmnode.DefaultMetricsProvider(tmCfg.Instrumentation),

@@ -53,7 +53,7 @@ func NewStore(config *Config, home string) (*Store, error) {
 
 func (s *Store) ReadLatestSyncedL1Height() *uint64 {
 	data, err := s.db.Get(syncedL1HeightKey)
-	if err != nil && isNotFoundErr(err) {
+	if err != nil && !isNotFoundErr(err) {
 		log.Crit("Failed to read synced L1 block number from database", "err", err)
 	}
 	if len(data) == 0 {
@@ -90,7 +90,7 @@ func (s *Store) ReadL1MessagesInRange(start, end uint64) []types.L1Message {
 
 func (s *Store) ReadL1MessageByIndex(index uint64) *types.L1Message {
 	data, err := s.db.Get(L1MessageKey(index))
-	if err != nil && isNotFoundErr(err) {
+	if err != nil && !isNotFoundErr(err) {
 		log.Crit("Failed to read L1 message from database", "err", err)
 	}
 	if len(data) == 0 {
