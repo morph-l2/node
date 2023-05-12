@@ -162,8 +162,7 @@ func (e *Executor) CheckBlockData(txs [][]byte, l2Config, zkConfig []byte) (vali
 	return validated, err
 }
 
-// validators []tdm.Address,
-func (e *Executor) DeliverBlock(txs [][]byte, l2Config, zkConfig []byte, validators []tdm.Address, blsSignatures [][]byte) (int64, error) {
+func (e *Executor) DeliverBlock(txs [][]byte, l2Config, zkConfig []byte, validators []tdm.Address, blsSignatures [][]byte) error {
 	log.Info("DeliverBlock request", "txs length", len(txs),
 		"l2Config", hex.EncodeToHex(l2Config),
 		"zkConfig", hex.EncodeToHex(zkConfig),
@@ -171,26 +170,26 @@ func (e *Executor) DeliverBlock(txs [][]byte, l2Config, zkConfig []byte, validat
 		"blsSignatures length", len(blsSignatures))
 	height, err := e.ethClient.BlockNumber(context.Background())
 	if err != nil {
-		return 0, err
+		return err
 	}
 	//currentBlockNumber := int64(height)
 	if len(txs) == 0 || l2Config == nil || zkConfig == nil {
-		return 0, nil
+		return nil
 	}
 	bm := new(types.BLSMessage)
 	if err := bm.UnmarshalBinary(zkConfig); err != nil {
-		return 0, err
+		return err
 	}
 	nbm := new(types.NonBLSMessage)
 	if err := nbm.UnmarshalBinary(l2Config); err != nil {
-		return 0, err
+		return err
 	}
 	if bm.Number <= height {
 		log.Warn("ignore it, the block was delivered", "block number", bm.Number)
-		return 0, nil
+		return nil
 	}
 	if bm.Number > height+1 {
-		return 0, types.ErrWrongBlockNumber
+		return types.ErrWrongBlockNumber
 	}
 	l2Block := &catalyst.ExecutableL2Data{
 		ParentHash:   bm.ParentHash,
@@ -217,7 +216,7 @@ func (e *Executor) DeliverBlock(txs [][]byte, l2Config, zkConfig []byte, validat
 		sig, err := blssignatures.SignatureFromBytes(bz)
 		if err != nil {
 			log.Error("failed to recover bytes to signature", "error", err)
-			return 0, err
+			return err
 		}
 		sigs[i] = sig
 	}
@@ -230,12 +229,12 @@ func (e *Executor) DeliverBlock(txs [][]byte, l2Config, zkConfig []byte, validat
 	err = e.authClient.NewL2Block(context.Background(), l2Block, blsData)
 	if err != nil {
 		log.Error("failed to NewL2Block", "error", err)
-		return 0, err
+		return err
 	}
 
 	// impossible getting an error here
 	_ = e.updateLatestProcessedL1Index(txs)
-	return 0, nil
+	return nil
 }
 
 func (e *Executor) AuthClient() *authclient.Client {
