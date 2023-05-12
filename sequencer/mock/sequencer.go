@@ -5,7 +5,7 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/bebop-labs/l2-node/node"
+	"github.com/morphism-labs/node/core"
 	"github.com/scroll-tech/go-ethereum/log"
 )
 

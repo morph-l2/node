@@ -5,19 +5,19 @@ LDFLAGSSTRING +=-X main.GitCommit=$(GITCOMMIT)
 LDFLAGSSTRING +=-X main.GitDate=$(GITDATE)
 LDFLAGS := -ldflags "$(LDFLAGSSTRING)"
 
-.PHONY: l2node tendermint clean
+.PHONY: morphnode tendermint clean
 
-l2node:
+morphnode:
 	if [ ! -d build/bin ]; then mkdir -p build/bin; fi
-	go mod tidy
-	env GO111MODULE=on CGO_ENABLED=1 go build -o build/bin/l2node -v $(LDFLAGS) ./cmd/node
+	go mod download
+	env GO111MODULE=on CGO_ENABLED=1 go build -o build/bin/morphnode -v $(LDFLAGS) ./cmd/node
 
 tendermint:
 	if [ ! -d build/bin ]; then mkdir -p build/bin; fi
-	go mod tidy
+	go mod download
 	env GO111MODULE=on CGO_ENABLED=1 go build -o build/bin/tendermint -v $(LDFLAGS) ./cmd/tendermint
 
-all: l2node tendermint
+all: morphnode tendermint
 
 tm-init:
 	if [ ! -d build/tendermint ]; then mkdir -p build/tendermint; fi

@@ -1,6 +1,6 @@
 package sync
 
-import "github.com/bebop-labs/l2-node/types"
+import "github.com/morphism-labs/node/types"
 
 type Database interface {
 	Reader

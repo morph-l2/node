@@ -5,7 +5,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/bebop-labs/l2-node/types"
+	"github.com/morphism-labs/node/types"
 	"github.com/scroll-tech/go-ethereum/common"
 	"github.com/scroll-tech/go-ethereum/ethclient"
 	"github.com/scroll-tech/go-ethereum/log"

@@ -2,7 +2,7 @@ package flags
 
 import "github.com/urfave/cli"
 
-const envVarPrefix = "L2_NODE_"
+const envVarPrefix = "MORPH_NODE_"
 
 func prefixEnvVar(name string) string {
 	return envVarPrefix + name
@@ -11,7 +11,7 @@ func prefixEnvVar(name string) string {
 var (
 	Home = cli.StringFlag{
 		Name:     "home",
-		Usage:    "home directory for l2-node",
+		Usage:    "home directory for morph-node",
 		EnvVar:   prefixEnvVar("HOME"),
 		Required: false,
 	}

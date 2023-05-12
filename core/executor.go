@@ -8,8 +8,8 @@ import (
 	"github.com/tendermint/tendermint/ethutil/hex"
 	"math/big"
 
-	"github.com/bebop-labs/l2-node/sync"
-	"github.com/bebop-labs/l2-node/types"
+	"github.com/morphism-labs/node/sync"
+	"github.com/morphism-labs/node/types"
 	eth "github.com/scroll-tech/go-ethereum/core/types"
 	"github.com/scroll-tech/go-ethereum/eth/catalyst"
 	"github.com/scroll-tech/go-ethereum/ethclient"
@@ -173,20 +173,24 @@ func (e *Executor) DeliverBlock(txs [][]byte, l2Config, zkConfig []byte, validat
 	if err != nil {
 		return 0, err
 	}
-	currentBlockNumber := int64(height)
+	//currentBlockNumber := int64(height)
 	if len(txs) == 0 || l2Config == nil || zkConfig == nil {
-		return currentBlockNumber, nil
+		return 0, nil
 	}
 	bm := new(types.BLSMessage)
 	if err := bm.UnmarshalBinary(zkConfig); err != nil {
-		return currentBlockNumber, err
+		return 0, err
 	}
 	nbm := new(types.NonBLSMessage)
 	if err := nbm.UnmarshalBinary(l2Config); err != nil {
-		return currentBlockNumber, err
+		return 0, err
 	}
-	if height+1 != bm.Number {
-		return currentBlockNumber, types.ErrWrongBlockNumber
+	if bm.Number <= height {
+		log.Warn("ignore it, the block was delivered", "block number", bm.Number)
+		return 0, nil
+	}
+	if bm.Number > height+1 {
+		return 0, types.ErrWrongBlockNumber
 	}
 	l2Block := &catalyst.ExecutableL2Data{
 		ParentHash:   bm.ParentHash,
@@ -213,7 +217,7 @@ func (e *Executor) DeliverBlock(txs [][]byte, l2Config, zkConfig []byte, validat
 		sig, err := blssignatures.SignatureFromBytes(bz)
 		if err != nil {
 			log.Error("failed to recover bytes to signature", "error", err)
-			return currentBlockNumber + 1, err
+			return 0, err
 		}
 		sigs[i] = sig
 	}
@@ -226,12 +230,12 @@ func (e *Executor) DeliverBlock(txs [][]byte, l2Config, zkConfig []byte, validat
 	err = e.authClient.NewL2Block(context.Background(), l2Block, blsData)
 	if err != nil {
 		log.Error("failed to NewL2Block", "error", err)
-		return currentBlockNumber + 1, err
+		return 0, err
 	}
 
 	// impossible getting an error here
 	_ = e.updateLatestProcessedL1Index(txs)
-	return currentBlockNumber + 1, nil
+	return 0, nil
 }
 
 func (e *Executor) AuthClient() *authclient.Client {

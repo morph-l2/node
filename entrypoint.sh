@@ -1,5 +1,5 @@
 DATA_DIR=/data
-L2_CHAINDATA_DIR="$DATA_DIR/l2-data"
+L2_CHAINDATA_DIR="$DATA_DIR/node-data"
 TM_CHAINDATA_DIR="$DATA_DIR/tendermint"
 GENESIS_FILE_PATH="${GENESIS_FILE_PATH:-/genesis.json}"
 

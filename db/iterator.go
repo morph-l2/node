@@ -2,7 +2,7 @@ package db
 
 import (
 	"encoding/binary"
-	"github.com/bebop-labs/l2-node/types"
+	"github.com/morphism-labs/node/types"
 	"github.com/scroll-tech/go-ethereum/ethdb"
 	"github.com/scroll-tech/go-ethereum/log"
 	"github.com/scroll-tech/go-ethereum/rlp"

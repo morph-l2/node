@@ -4,8 +4,8 @@ import (
 	"errors"
 	"time"
 
-	"github.com/bebop-labs/l2-node/flags"
-	"github.com/bebop-labs/l2-node/types"
+	"github.com/morphism-labs/node/flags"
+	"github.com/morphism-labs/node/types"
 	"github.com/scroll-tech/go-ethereum/common"
 	"github.com/scroll-tech/go-ethereum/rpc"
 	"github.com/urfave/cli"

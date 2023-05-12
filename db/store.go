@@ -5,7 +5,7 @@ import (
 	"math/big"
 	"path/filepath"
 
-	"github.com/bebop-labs/l2-node/types"
+	"github.com/morphism-labs/node/types"
 	"github.com/scroll-tech/go-ethereum/core/rawdb"
 	"github.com/scroll-tech/go-ethereum/ethdb"
 	"github.com/scroll-tech/go-ethereum/log"
@@ -35,7 +35,7 @@ func NewStore(config *Config, home string) (*Store, error) {
 		if home == "" {
 			return nil, fmt.Errorf("either Home or DB path has to be provided")
 		}
-		dbPath = filepath.Join(home, "l2-data")
+		dbPath = filepath.Join(home, "node-data")
 	}
 
 	if config.DatabaseFreezer == "" {

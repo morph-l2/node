@@ -3,18 +3,18 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/bebop-labs/l2-node/types"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"syscall"
 
-	"github.com/bebop-labs/l2-node/db"
-	"github.com/bebop-labs/l2-node/flags"
-	"github.com/bebop-labs/l2-node/node"
-	"github.com/bebop-labs/l2-node/sequencer"
-	"github.com/bebop-labs/l2-node/sequencer/mock"
-	"github.com/bebop-labs/l2-node/sync"
+	"github.com/morphism-labs/node/core"
+	"github.com/morphism-labs/node/db"
+	"github.com/morphism-labs/node/flags"
+	"github.com/morphism-labs/node/sequencer"
+	"github.com/morphism-labs/node/sequencer/mock"
+	"github.com/morphism-labs/node/sync"
+	"github.com/morphism-labs/node/types"
 	"github.com/scroll-tech/go-ethereum/log"
 	tmnode "github.com/tendermint/tendermint/node"
 	"github.com/urfave/cli"
@@ -29,7 +29,7 @@ func main() {
 	)
 	app := cli.NewApp()
 	app.Flags = flags.Flags
-	app.Name = "l2node"
+	app.Name = "morphnode"
 	app.Action = L2NodeMain
 	err := app.Run(os.Args)
 	if err != nil {
@@ -38,7 +38,7 @@ func main() {
 }
 
 func L2NodeMain(ctx *cli.Context) error {
-	log.Info("Initializing L2 Node")
+	log.Info("Initializing morphism node")
 
 	var (
 		err      error

@@ -1,4 +1,4 @@
-module github.com/bebop-labs/l2-node
+module github.com/morphism-labs/node
 
 go 1.20
 

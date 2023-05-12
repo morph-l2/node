@@ -1,7 +1,7 @@
 package db
 
 import (
-	"github.com/bebop-labs/l2-node/flags"
+	"github.com/morphism-labs/node/flags"
 	"github.com/urfave/cli"
 )
 
@@ -15,7 +15,7 @@ type Config struct {
 
 func DefaultConfig() *Config {
 	return &Config{
-		Namespace:       "l2node",
+		Namespace:       "node",
 		DatabaseHandles: 256,
 		DatabaseCache:   256,
 	}

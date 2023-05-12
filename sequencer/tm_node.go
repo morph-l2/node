@@ -5,8 +5,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/bebop-labs/l2-node/flags"
-	"github.com/bebop-labs/l2-node/node"
+	"github.com/morphism-labs/node/core"
+	"github.com/morphism-labs/node/flags"
 	"github.com/spf13/viper"
 	"github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/blssignatures"
