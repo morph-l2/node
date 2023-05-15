@@ -46,7 +46,7 @@ func TestNewExecutor(t *testing.T) {
 
 func PrepareContext() *cli.Context {
 	env := map[string]string{
-		"l1.rpc":                   "http://127.0.0.1:8545",
+		"l1.rpc":                   "https://arb1.arbitrum.io/rpc",
 		"sync.depositContractAddr": "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
 		"l2.engine":                "http://127.0.0.1:8551",
 		"l2.eth":                   "http://127.0.0.1:8545",
