@@ -12,4 +12,4 @@ else
   echo "$L2_CHAINDATA_DIR exists."
 fi
 
-l2node --sequencer --home $DATA_DIR
+morphnode --sequencer --home $DATA_DIR
