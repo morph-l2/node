@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/morphism-labs/node/types/bindings"
 	"github.com/tendermint/tendermint/blssignatures"
 	"github.com/tendermint/tendermint/ethutil/hex"
 	"math/big"
@@ -39,11 +40,20 @@ func NewSequencerExecutor(config *Config, syncer *sync.Syncer) (*Executor, error
 	if err != nil {
 		return nil, err
 	}
-	latestProcessedL1Index := uint64(0) // todo it needs to be queried from l2 geth
+	cdmCaller, err := bindings.NewL1CrossDomainMessengerCaller(config.L2CrossDomainMessengerAddress, eClient)
+	if err != nil {
+		return nil, err
+	}
+	latestProcessedL1Index, err := cdmCaller.ReceiveNonce(nil)
+	if err != nil {
+		log.Error("failed to get ReceiveNonce", "error", err)
+		latestProcessedL1Index = big.NewInt(0)
+		err = nil // todo for testing consideration, ignore the err. will remove when we have the pre-deployed contracts integrated
+	}
 	return &Executor{
 		authClient:             aClient,
 		ethClient:              eClient,
-		latestProcessedL1Index: latestProcessedL1Index,
+		latestProcessedL1Index: latestProcessedL1Index.Uint64(),
 		maxL1MsgNumPerBlock:    config.MaxL1MessageNumPerBlock,
 		syncer:                 syncer,
 	}, err
@@ -188,6 +198,9 @@ func (e *Executor) DeliverBlock(txs [][]byte, l2Config, zkConfig []byte, validat
 		log.Warn("ignore it, the block was delivered", "block number", bm.Number)
 		return nil
 	}
+
+	// We only accept the continuous blocks for now.
+	// It acts like full sync. Snap sync is not enabled until the Geth enables snapshot with zkTrie
 	if bm.Number > height+1 {
 		return types.ErrWrongBlockNumber
 	}

@@ -34,7 +34,7 @@ type Config struct {
 func DefaultConfig() *Config {
 	return &Config{
 		L1: &types.L1Config{
-			Confirmations: rpc.SafeBlockNumber,
+			Confirmations: rpc.FinalizedBlockNumber,
 		},
 		PollInterval:        DefaultPollInterval,
 		LogProgressInterval: DefaultLogProgressInterval,

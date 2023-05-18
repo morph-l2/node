@@ -44,6 +44,12 @@ var (
 		EnvVar: prefixEnvVar("MAX_L1_MESSAGE_NUM_PER_BLOCK"),
 	}
 
+	L2CrossDomainMessengerContractAddr = cli.StringFlag{
+		Name:   "l2CDMContractAddr",
+		Usage:  "L2CrossDomainMessenger contract address",
+		EnvVar: prefixEnvVar("L2_CDM_CONTRACT_ADDRESS"),
+	}
+
 	L1NodeAddr = cli.StringFlag{
 		Name:   "l1.rpc",
 		Usage:  "Address of L1 User JSON-RPC endpoint to use (eth namespace required)",
@@ -145,6 +151,7 @@ var Flags = []cli.Flag{
 	L2EngineAddr,
 	L2EngineJWTSecret,
 	MaxL1MessageNumPerBlock,
+	L2CrossDomainMessengerContractAddr,
 
 	// sync optioins
 	SyncDepositContractAddr,

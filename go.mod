@@ -90,7 +90,7 @@ require (
 	github.com/rs/cors v1.8.2 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/sasha-s/go-deadlock v0.3.1 // indirect
-	github.com/scroll-tech/zktrie v0.5.2 // indirect
+	github.com/scroll-tech/zktrie v0.5.3 // indirect
 	github.com/shirou/gopsutil v3.21.4-0.20210419000835-c7a38de76ee5+incompatible // indirect
 	github.com/spf13/afero v1.8.2 // indirect
 	github.com/spf13/cast v1.5.0 // indirect
@@ -123,6 +123,6 @@ require (
 
 replace (
 	github.com/btcsuite/btcd => github.com/btcsuite/btcd v0.20.1-beta
-	github.com/scroll-tech/go-ethereum => github.com/bebop-labs/go-ethereum v1.10.14-0.20230504122007-c1e857d13a7b
+	github.com/scroll-tech/go-ethereum => github.com/morphism-labs/go-ethereum v1.10.14-0.20230518044234-d49ea7d7a77f
 	github.com/tendermint/tendermint => github.com/bebop-labs/tendermint v0.0.0-20230510104110-523b436c18ca
 )

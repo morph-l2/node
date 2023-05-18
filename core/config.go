@@ -2,6 +2,7 @@ package node
 
 import (
 	"crypto/rand"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -16,14 +17,16 @@ import (
 )
 
 type Config struct {
-	L2                      *types.L2Config `json:"l2"`
-	MaxL1MessageNumPerBlock uint64          `json:"max_l1_message_num_per_block"`
+	L2                            *types.L2Config `json:"l2"`
+	L2CrossDomainMessengerAddress common.Address  `json:"cross_domain_messenger_address"`
+	MaxL1MessageNumPerBlock       uint64          `json:"max_l1_message_num_per_block"`
 }
 
 func DefaultConfig() *Config {
 	return &Config{
-		L2:                      new(types.L2Config),
-		MaxL1MessageNumPerBlock: 100,
+		L2:                            new(types.L2Config),
+		MaxL1MessageNumPerBlock:       100,
+		L2CrossDomainMessengerAddress: common.HexToAddress("0x4200000000000000000000000000000000000007"),
 	}
 }
 
@@ -59,6 +62,14 @@ func (c *Config) SetCliContext(ctx *cli.Context) error {
 		c.MaxL1MessageNumPerBlock = ctx.GlobalUint64(flags.MaxL1MessageNumPerBlock.Name)
 		if c.MaxL1MessageNumPerBlock == 0 {
 			return fmt.Errorf("MaxL1MessageNumPerBlock must be above 0")
+		}
+	}
+
+	if ctx.GlobalIsSet(flags.L2CrossDomainMessengerContractAddr.Name) {
+		addr := common.HexToAddress(ctx.GlobalString(flags.L2CrossDomainMessengerContractAddr.Name))
+		c.L2CrossDomainMessengerAddress = addr
+		if len(c.L2CrossDomainMessengerAddress.Bytes()) == 0 {
+			return errors.New("invalid SyncDepositContractAddr")
 		}
 	}
 	return nil
