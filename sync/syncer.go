@@ -39,7 +39,10 @@ func NewSyncer(ctx context.Context, db Database, config *Config) (*Syncer, error
 	latestSynced := db.ReadLatestSyncedL1Height()
 	if latestSynced == nil {
 		if config.StartHeight == 0 {
-			return nil, errors.New("sync start height cannot be nil")
+			log.Warn("!!!Missing `sync.startHeight` configured!!!  Detected that it is your first time to start the node as a sequencer, it is dangerous not setting `sync.startHeight`, as it may lost some previous L1Messages.")
+			if config.StartHeight, err = l1Client.BlockNumber(context.Background()); err != nil {
+				return nil, err
+			}
 		}
 		h := config.StartHeight - 1
 		latestSynced = &h
