@@ -18,8 +18,7 @@ func TestNewSequencerExecutor(t *testing.T) {
 	//syncer
 	syncConfig := sync.DefaultConfig()
 	syncConfig.SetCliContext(ctx)
-	dbConfig := db.DefaultConfig()
-	store, err := db.NewStore(dbConfig, "/app")
+	store := db.NewMemoryStore()
 	store.WriteLatestSyncedL1Height(100)
 	syncer, err := sync.NewSyncer(context.Background(), store, syncConfig)
 	require.NotNil(t, syncer)

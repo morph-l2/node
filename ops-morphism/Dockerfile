@@ -3,7 +3,7 @@ FROM golang:1.20-alpine as builder
 
 RUN apk add --no-cache gcc musl-dev linux-headers git make
 
-ADD . /node
+COPY .. /node
 RUN cd /node && make all
 
 FROM alpine:latest
@@ -11,7 +11,7 @@ FROM alpine:latest
 RUN apk add --no-cache ca-certificates
 COPY --from=builder /node/build/bin/morphnode /usr/local/bin/
 COPY --from=builder /node/build/bin/tendermint /usr/local/bin/
-COPY entrypoint.sh /entrypoint.sh
+COPY --from=builder /node/ops-morphism/entrypoint.sh /entrypoint.sh
 
 VOLUME ["/data"]
 

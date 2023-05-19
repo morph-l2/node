@@ -1,11 +1,12 @@
 version: '3.4'
 
 volumes:
-  l2_data:
+  sequencer_geth_data:
+  sequencer_node_data:
 
 
 services:
-  morph-geth:
+  sequencer_geth:
     image: go-ethereum-morph-geth:latest
     ports:
       - "8545:8545"
@@ -13,29 +14,31 @@ services:
       - "8551:8551"
       - "30303:30303"
     volumes:
-      - "${PWD}/../go-ethereum/db:/db"
+      - "sequencer_geth_data:/db"
       - "${PWD}/jwt-secret.txt:/config/jwt-secret.txt"
-      - "${PWD}/../go-ethereum/genesis_l2.json:/genesis.json"
+      - "${PWD}/../../go-ethereum/genesis_l2.json:/genesis.json"
     entrypoint: # pass the L2 specific flags by overriding the entry-point and adding extra arguments
       - "/bin/sh"
       - "/entrypoint.sh"
       - "--authrpc.jwtsecret=/config/jwt-secret.txt"
 
-  morph-node:
+  sequencer_node:
     depends_on:
-      - morph-geth
+      - sequencer_geth
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: ./ops-morphism/Dockerfile
+    ports:
+      - "26656:26656"
     environment:
-      - MORPH_NODE_L2_ETH_RPC=http://morph-geth:8545
-      - MORPH_NODE_L2_ENGINE_RPC=http://morph-geth:8551
+      - MORPH_NODE_L2_ETH_RPC=http://sequencer_geth:8545
+      - MORPH_NODE_L2_ENGINE_RPC=http://sequencer_geth:8551
       - MORPH_NODE_L2_ENGINE_AUTH=jwt-secret.txt
       - MORPH_NODE_L1_ETH_RPC=https://arb1.arbitrum.io/rpc
       - MORPH_NODE_SYNC_DEPOSIT_CONTRACT_ADDRESS=0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9
-      - MORPH_NODE_SYNC_START_HEIGHT=88854536
+      ## - MORPH_NODE_SYNC_START_HEIGHT=88854536
     volumes:
-      - "${PWD}/build:/data"
+      - "sequencer_node_data:/data"
       - "${PWD}/jwt-secret.txt:/jwt-secret.txt"
     entrypoint:
       - "/bin/sh"

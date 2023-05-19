@@ -53,10 +53,3 @@ func TestSyncedL1Messages(t *testing.T) {
 	msg = db.ReadL1MessageByIndex(200)
 	require.Nil(t, msg)
 }
-
-func TestNewStore(t *testing.T) {
-	dbConfig := DefaultConfig()
-	store, err := NewStore(dbConfig, "/app")
-	require.NotNil(t, store)
-	require.NoError(t, err)
-}

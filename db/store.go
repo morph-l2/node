@@ -132,5 +132,5 @@ func (s *Store) WriteSyncedL1Messages(messages []types.L1Message, latestSynced u
 }
 
 func isNotFoundErr(err error) bool {
-	return err == leveldb.ErrNotFound || err == types.ErrMemoryDBNotFound
+	return err.Error() == leveldb.ErrNotFound.Error() || err.Error() == types.ErrMemoryDBNotFound.Error()
 }

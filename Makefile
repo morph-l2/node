@@ -5,7 +5,7 @@ LDFLAGSSTRING +=-X main.GitCommit=$(GITCOMMIT)
 LDFLAGSSTRING +=-X main.GitDate=$(GITDATE)
 LDFLAGS := -ldflags "$(LDFLAGSSTRING)"
 
-.PHONY: morphnode tendermint clean
+.PHONY: all morphnode tendermint tm-init clean
 
 morphnode:
 	if [ ! -d build/bin ]; then mkdir -p build/bin; fi
@@ -33,6 +33,24 @@ clean:
 
 test:
 	go test -v ./...
+
+dev-up:
+	cd ops-morphism && docker-compose up -d sequencer_node
+.PHONY: dev-up
+
+dev-down:
+	cd ops-morphism && docker-compose down
+.PHONY: dev-down
+
+dev-clean:
+	cd ops-morphism && docker-compose down
+	docker image ls '*morph*' --format='{{.Repository}}' | xargs -r docker rmi
+	docker volume ls --filter name=ops-morphism --format='{{.Name}}' | xargs -r docker volume rm
+.PHONY: devnet-clean
+
+
+
+
 
 
 
