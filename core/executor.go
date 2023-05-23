@@ -226,6 +226,7 @@ func (e *Executor) DeliverBlock(txs [][]byte, l2Config, zkConfig []byte, validat
 
 	sigs := make([]blssignatures.Signature, len(blsSignatures), len(blsSignatures))
 	for i, bz := range blsSignatures {
+		log.Error("the bls hex bytes", "hex", hex.EncodeToHex(bz))
 		sig, err := blssignatures.SignatureFromBytes(bz)
 		if err != nil {
 			log.Error("failed to recover bytes to signature", "error", err)

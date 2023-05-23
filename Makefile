@@ -20,16 +20,14 @@ tendermint:
 all: morphnode tendermint
 
 tm-init:
-	if [ ! -d build/tendermint ]; then mkdir -p build/tendermint; fi
-	./build/bin/tendermint init --home build/tendermint
+	if [ ! -d build ]; then mkdir -p build; fi
+	./build/bin/tendermint init --home build
 
 run:
-	sh run.sh
-
+	cd ops-morphism && sh run.sh
 
 clean:
 	rm -r build
-
 
 test:
 	go test -v ./...
@@ -44,8 +42,8 @@ dev-down:
 
 dev-clean:
 	cd ops-morphism && docker-compose down
-	docker image ls '*morph*' --format='{{.Repository}}' | xargs -r docker rmi
-	docker volume ls --filter name=ops-morphism --format='{{.Name}}' | xargs -r docker volume rm
+	docker image ls '*morphism*' --format='{{.Repository}}' | xargs -r docker rmi
+	docker volume ls --filter name=ops-morphism* --format='{{.Name}}' | xargs -r docker volume rm
 .PHONY: devnet-clean
 
 

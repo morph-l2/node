@@ -31,7 +31,7 @@ func SetupNode(ctx *cli.Context, home string, executor *node.Executor) (*tmnode.
 		if home == "" {
 			return nil, fmt.Errorf("either Home or Config Path has to be provided")
 		}
-		configPath = filepath.Join(home, "tendermint", "config")
+		configPath = filepath.Join(home, "config")
 	}
 	viper.AddConfigPath(configPath)
 	viper.SetConfigName("config")
@@ -44,8 +44,7 @@ func SetupNode(ctx *cli.Context, home string, executor *node.Executor) (*tmnode.
 		return nil, err
 	}
 
-	tmHome := filepath.Join(home, "tendermint")
-	tmCfg.SetRoot(tmHome)
+	tmCfg.SetRoot(home)
 	if err := tmCfg.ValidateBasic(); err != nil {
 		return nil, fmt.Errorf("error in config file: %w", err)
 	}

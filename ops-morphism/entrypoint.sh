@@ -1,14 +1,13 @@
 DATA_DIR=/data
-TM_CHAINDATA_DIR="$DATA_DIR/tendermint"
-# GENESIS_FILE_PATH="${GENESIS_FILE_PATH:-/genesis.json}"
+TM_CONFIG_DIR="$DATA_DIR/config"
 
-if [ ! -d "$TM_CHAINDATA_DIR" ]; then
-  echo "$TM_CHAINDATA_DIR missing, running init"
+if [ ! -d "$TM_CONFIG_DIR" ]; then
+  echo "$TM_CONFIG_DIR missing, running init"
   echo "Initializing tendermint."
-  mkdir -p $TM_CHAINDATA_DIR;
-  tendermint init --home $TM_CHAINDATA_DIR
+  mkdir -p $TM_CONFIG_DIR;
+  tendermint init --home $DATA_DIR
 else
-  echo "$TM_CHAINDATA_DIR exists."
+  echo "$TM_CONFIG_DIR exists."
 fi
 
 morphnode --sequencer --home $DATA_DIR

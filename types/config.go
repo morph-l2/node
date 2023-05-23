@@ -4,7 +4,7 @@ import (
 	"github.com/scroll-tech/go-ethereum/rpc"
 )
 
-var DefaultHomeDir = ".l2node"
+var DefaultHomeDir = ".morphnode"
 
 type L1Config struct {
 	Addr          string          `json:"addr"`

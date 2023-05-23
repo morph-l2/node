@@ -8,6 +8,7 @@ import (
 	cmd "github.com/tendermint/tendermint/cmd/tendermint/commands"
 	"github.com/tendermint/tendermint/cmd/tendermint/commands/debug"
 	"github.com/tendermint/tendermint/libs/cli"
+	nm "github.com/tendermint/tendermint/node"
 )
 
 func main() {
@@ -32,8 +33,9 @@ func main() {
 		debug.DebugCmd,
 		cli.NewCompletionCmd(rootCmd, true),
 	)
+	rootCmd.AddCommand(cmd.NewRunNodeCmd(nm.DefaultNewNode))
 
-	command := cli.PrepareBaseCmd(rootCmd, "TM", os.ExpandEnv(filepath.Join("$HOME", types.DefaultHomeDir, "tendermint")))
+	command := cli.PrepareBaseCmd(rootCmd, "TM", os.ExpandEnv(filepath.Join("$HOME", types.DefaultHomeDir)))
 	if err := command.Execute(); err != nil {
 		panic(err)
 	}

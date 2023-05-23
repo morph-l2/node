@@ -4,10 +4,9 @@ volumes:
   sequencer_geth_data:
   sequencer_node_data:
 
-
 services:
   sequencer_geth:
-    image: go-ethereum-morph-geth:latest
+    image: morphism-geth:latest
     ports:
       - "8545:8545"
       - "8546:8546"
@@ -20,7 +19,6 @@ services:
     entrypoint: # pass the L2 specific flags by overriding the entry-point and adding extra arguments
       - "/bin/sh"
       - "/entrypoint.sh"
-      - "--authrpc.jwtsecret=/config/jwt-secret.txt"
 
   sequencer_node:
     depends_on:
