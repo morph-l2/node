@@ -15,7 +15,7 @@ services:
     volumes:
       - "sequencer_geth_data:/db"
       - "${PWD}/jwt-secret.txt:/config/jwt-secret.txt"
-      - "${PWD}/../../go-ethereum/genesis_l2.json:/genesis.json"
+      - "${PWD}/genesis_geth.json:/genesis.json"
     entrypoint: # pass the L2 specific flags by overriding the entry-point and adding extra arguments
       - "/bin/sh"
       - "/entrypoint.sh"
@@ -42,11 +42,11 @@ services:
       - "/bin/sh"
       - "/entrypoint.sh"
 
-  sequencer-txsubmitter:
+  tx-submitter:
     depends_on:
       - sequencer_geth
       - sequencer_node
-    image: sequencer-txsubmitter:latest
+    image: tx-submitter:latest
     command: rollup
     environment:
       - PRIVATE_KEY=ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
