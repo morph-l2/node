@@ -43,3 +43,21 @@ services:
     entrypoint:
       - "/bin/sh"
       - "/entrypoint.sh"
+
+  sequencer-txsubmitter:
+    depends_on:
+      - sequencer_geth
+      - sequencer_node
+    image: sequencer-txsubmitter:latest
+    command: rollup
+    environment:
+      - PRIVATE_KEY=ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+      - L2_RPC_URL=http://sequencer_geth:8545
+      - L1_RPC_URL=http://ec2-18-237-143-251.us-west-2.compute.amazonaws.com:8545
+      - CONTRACT_ADDRESS=0x6900000000000000000000000000000000000010
+      - EVENT_NAME=SubmitBatches
+      - ROLLUP_FUNC_NAME=SubmitBatches
+      - BATCH_BLOCK_NUM=1
+      - BATCH_NUM=1
+      - FIRST_TIME=true
+      - CHAIN_ID=900
