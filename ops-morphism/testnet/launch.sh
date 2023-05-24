@@ -1,7 +1,7 @@
 #!/bin/bash
 
 export MORPH_NODE_L2_ENGINE_AUTH=ops-morphism/jwt-secret.txt
-export MORPH_NODE_L1_ETH_RPC=https://arb1.arbitrum.io/rpc
+export MORPH_NODE_L1_ETH_RPC=https://eth-goerli.g.alchemy.com/v2/hmGN_z77oy7LlFgPivFuKF893Iog5AOV
 export MORPH_NODE_SYNC_DEPOSIT_CONTRACT_ADDRESS=0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9
 
 nohup ./build/bin/morphnode --sequencer --home ./mytestnet/node0 --l2.eth=http://127.0.0.1:8545 --l2.engine=http://127.0.0.1:8551 > ./mytestnet/node0.log 2>&1 &
