@@ -4,7 +4,7 @@ FROM golang:1.20-alpine as builder
 RUN apk add --no-cache gcc musl-dev linux-headers git make
 
 COPY .. /node
-RUN cd /node && make all
+RUN cd /node && make build
 
 FROM alpine:latest
 

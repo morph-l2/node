@@ -36,22 +36,22 @@ test:
 	go test -v ./...
 
 devnet-up:
-	cd ops-morphism && docker-compose up -d sequencer_node
+	cd ops-morphism && docker compose up -d sequencer_node
 .PHONY: dev-up
 
 devnet-down:
-	cd ops-morphism && docker-compose down
+	cd ops-morphism && docker compose down
 .PHONY: dev-down
 
 devnet-clean:
-	cd ops-morphism && docker-compose down
+	cd ops-morphism && docker compose down
 	docker image ls '*morphism*' --format='{{.Repository}}' | xargs -r docker rmi
 	docker volume ls --filter name=ops-morphism* --format='{{.Name}}' | xargs -r docker volume rm
 .PHONY: devnet-clean
 
 testnet-up: build
 	sh ./ops-morphism/testnet/tendermint-setup.sh
-	cd ops-morphism/testnet && docker-compose up -d
+	cd ops-morphism/testnet && docker compose up -d
 	sh ./ops-morphism/testnet/launch.sh
 .PHONY: testnet-up
 
@@ -63,7 +63,7 @@ testnet-down:
 	else \
 		echo "No processes found"; \
 	fi
-	cd ops-morphism/testnet && docker-compose down
+	cd ops-morphism/testnet && docker compose down
 .PHONY: testnet-down
 
 testnet-clean: testnet-down
