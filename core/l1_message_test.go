@@ -70,7 +70,6 @@ func TestExecutor_validateL1Messages(t *testing.T) {
 		GasUsed:     50000000,
 		ReceiptRoot: common.BigToHash(big.NewInt(2222)),
 		LogsBloom:   []byte("0x1a2b3c4d"),
-		Extra:       []byte("0x5e6f0000"),
 		L1Messages:  []types.L1Message{msg},
 	}
 

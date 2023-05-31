@@ -18,6 +18,7 @@ func TestBLSMessage(t *testing.T) {
 		GasLimit:   1000000000,
 		BaseFee:    big.NewInt(3e9),
 		Timestamp:  uint64(time.Now().Unix()),
+		Extra:      []byte("0x5e6f0000"),
 	}
 	b, err := c.MarshalBinary()
 	require.NoError(t, err)
@@ -32,6 +33,7 @@ func TestBLSMessage(t *testing.T) {
 	require.EqualValues(t, actualC.GasLimit, c.GasLimit)
 	require.EqualValues(t, actualC.BaseFee, c.BaseFee)
 	require.EqualValues(t, actualC.Timestamp, c.Timestamp)
+	require.EqualValues(t, actualC.Extra, c.Extra)
 }
 
 func TestNonBLSMessage(t *testing.T) {
@@ -52,7 +54,6 @@ func TestNonBLSMessage(t *testing.T) {
 		GasUsed:     50000000,
 		ReceiptRoot: common.BigToHash(big.NewInt(2222)),
 		LogsBloom:   []byte("0x1a2b3c4d"),
-		Extra:       []byte("0x5e6f0000"),
 		L1Messages:  []L1Message{msg},
 	}
 	b, err := c.MarshalBinary()
@@ -66,7 +67,6 @@ func TestNonBLSMessage(t *testing.T) {
 	require.EqualValues(t, actualC.GasUsed, c.GasUsed)
 	require.EqualValues(t, actualC.ReceiptRoot, c.ReceiptRoot)
 	require.EqualValues(t, actualC.LogsBloom, c.LogsBloom)
-	require.EqualValues(t, actualC.Extra, c.Extra)
 	require.EqualValues(t, len(c.L1Messages), len(actualC.L1Messages))
 	require.EqualValues(t, c.L1Messages[0].QueueIndex, actualC.L1Messages[0].QueueIndex)
 	require.EqualValues(t, c.L1Messages[0].Gas, actualC.L1Messages[0].Gas)

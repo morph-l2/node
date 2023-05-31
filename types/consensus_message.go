@@ -15,6 +15,7 @@ type BLSMessage struct {
 	GasLimit   uint64         `json:"gasLimit"       gencodec:"required"`
 	BaseFee    *big.Int       `json:"baseFeePerGas"  gencodec:"required"`
 	Timestamp  uint64         `json:"timestamp"      gencodec:"required"`
+	Extra      []byte         `json:"extraData"`
 }
 
 func (bm *BLSMessage) MarshalBinary() ([]byte, error) {
@@ -36,7 +37,6 @@ type NonBLSMessage struct {
 	ReceiptRoot common.Hash `json:"receiptsRoot"`
 	LogsBloom   []byte      `json:"logsBloom"`
 
-	Extra      []byte      `json:"extraData"`
 	L1Messages []L1Message `json:"l1Messages"`
 }
 

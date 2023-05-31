@@ -106,6 +106,7 @@ func (e *Executor) RequestBlockData(height int64) (txs [][]byte, l2Config, zkCon
 		GasLimit:   l2Block.GasLimit,
 		BaseFee:    l2Block.BaseFee,
 		Timestamp:  l2Block.Timestamp,
+		Extra:      l2Block.Extra,
 	}
 	if zkConfig, err = bm.MarshalBinary(); err != nil {
 		return
@@ -115,7 +116,6 @@ func (e *Executor) RequestBlockData(height int64) (txs [][]byte, l2Config, zkCon
 		GasUsed:     l2Block.GasUsed,
 		ReceiptRoot: l2Block.ReceiptRoot,
 		LogsBloom:   l2Block.LogsBloom,
-		Extra:       l2Block.Extra,
 		L1Messages:  l1Messages,
 	}
 	if l2Config, err = nbm.MarshalBinary(); err != nil {
@@ -160,12 +160,12 @@ func (e *Executor) CheckBlockData(txs [][]byte, l2Config, zkConfig []byte) (vali
 		GasLimit:     bm.GasLimit,
 		BaseFee:      bm.BaseFee,
 		Timestamp:    bm.Timestamp,
+		Extra:        bm.Extra,
 		Transactions: txs,
 		StateRoot:    nbm.StateRoot,
 		GasUsed:      nbm.GasUsed,
 		ReceiptRoot:  nbm.ReceiptRoot,
 		LogsBloom:    nbm.LogsBloom,
-		Extra:        nbm.Extra,
 	}
 	validated, err := e.authClient.ValidateL2Block(context.Background(), l2Block)
 	log.Info("CheckBlockData response", "validated", validated, "error", err)
@@ -211,12 +211,12 @@ func (e *Executor) DeliverBlock(txs [][]byte, l2Config, zkConfig []byte, validat
 		GasLimit:     bm.GasLimit,
 		BaseFee:      bm.BaseFee,
 		Timestamp:    bm.Timestamp,
+		Extra:        bm.Extra,
 		Transactions: txs,
 		StateRoot:    nbm.StateRoot,
 		GasUsed:      nbm.GasUsed,
 		ReceiptRoot:  nbm.ReceiptRoot,
 		LogsBloom:    nbm.LogsBloom,
-		Extra:        nbm.Extra,
 	}
 
 	signers := make([][]byte, 0)
