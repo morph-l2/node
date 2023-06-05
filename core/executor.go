@@ -4,18 +4,21 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/morphism-labs/node/types/bindings"
-	"github.com/tendermint/tendermint/blssignatures"
-	"github.com/tendermint/tendermint/ethutil/hex"
 	"math/big"
+	"strings"
+	"time"
 
 	"github.com/morphism-labs/node/sync"
 	"github.com/morphism-labs/node/types"
+	"github.com/morphism-labs/node/types/bindings"
 	eth "github.com/scroll-tech/go-ethereum/core/types"
+	"github.com/scroll-tech/go-ethereum/crypto/bls12381"
 	"github.com/scroll-tech/go-ethereum/eth/catalyst"
 	"github.com/scroll-tech/go-ethereum/ethclient"
 	"github.com/scroll-tech/go-ethereum/ethclient/authclient"
 	"github.com/scroll-tech/go-ethereum/log"
+	"github.com/tendermint/tendermint/blssignatures"
+	"github.com/tendermint/tendermint/ethutil/hex"
 	"github.com/tendermint/tendermint/l2node"
 	tdm "github.com/tendermint/tendermint/types"
 )
@@ -46,9 +49,18 @@ func NewSequencerExecutor(config *Config, syncer *sync.Syncer) (*Executor, error
 	}
 	latestProcessedL1Index, err := cdmCaller.ReceiveNonce(nil)
 	if err != nil {
-		log.Error("failed to get ReceiveNonce", "error", err)
-		latestProcessedL1Index = big.NewInt(0)
-		err = nil // todo for testing consideration, ignore the err. will remove when we have the pre-deployed contracts integrated
+		var count = 0
+		for err != nil && strings.Contains(err.Error(), "connection refused") {
+			time.Sleep(5 * time.Second)
+			count++
+			log.Warn("connection refused, try again", "retryCount", count)
+			latestProcessedL1Index, err = cdmCaller.ReceiveNonce(nil)
+		}
+		if err != nil {
+			log.Error("failed to get ReceiveNonce", "error", err)
+			latestProcessedL1Index = big.NewInt(0)
+			err = nil // todo for testing consideration, ignore the err. will remove when we have the pre-deployed contracts integrated
+		}
 	}
 	return &Executor{
 		authClient:             aClient,
@@ -238,7 +250,7 @@ func (e *Executor) DeliverBlock(txs [][]byte, l2Config, zkConfig []byte, validat
 
 	blsData := &eth.BLSData{
 		BLSSigners:   signers,
-		BLSSignature: blssignatures.SignatureToBytes(aggregatedSig),
+		BLSSignature: bls12381.NewG1().EncodePoint(aggregatedSig),
 	}
 	err = e.authClient.NewL2Block(context.Background(), l2Block, blsData)
 	if err != nil {
