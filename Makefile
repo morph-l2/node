@@ -49,6 +49,11 @@ devnet-clean:
 	docker volume ls --filter name=ops-morphism* --format='{{.Name}}' | xargs -r docker volume rm
 .PHONY: devnet-clean
 
+devnet-reset:
+	cd ops-morphism && docker compose down
+	docker volume ls --filter name=ops-morphism* --format='{{.Name}}' | xargs -r docker volume rm
+.PHONY: devnet-reset
+
 testnet-up: build
 	sh ./ops-morphism/testnet/tendermint-setup.sh
 	cd ops-morphism/testnet && docker compose up -d
