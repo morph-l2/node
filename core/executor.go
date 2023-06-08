@@ -13,7 +13,6 @@ import (
 	"github.com/morphism-labs/node/types/bindings"
 	eth "github.com/scroll-tech/go-ethereum/core/types"
 	"github.com/scroll-tech/go-ethereum/crypto/bls12381"
-	"github.com/scroll-tech/go-ethereum/eth/catalyst"
 	"github.com/scroll-tech/go-ethereum/ethclient"
 	"github.com/scroll-tech/go-ethereum/ethclient/authclient"
 	"github.com/scroll-tech/go-ethereum/log"
@@ -26,6 +25,7 @@ import (
 type Executor struct {
 	authClient             *authclient.Client
 	ethClient              *ethclient.Client
+	bc                     BlockConverter
 	latestProcessedL1Index uint64
 	maxL1MsgNumPerBlock    uint64
 	syncer                 *sync.Syncer // needed when it is configured as a sequencer
@@ -65,6 +65,7 @@ func NewSequencerExecutor(config *Config, syncer *sync.Syncer) (*Executor, error
 	return &Executor{
 		authClient:             aClient,
 		ethClient:              eClient,
+		bc:                     &Version2Converter{},
 		latestProcessedL1Index: latestProcessedL1Index.Uint64(),
 		maxL1MsgNumPerBlock:    config.MaxL1MessageNumPerBlock,
 		syncer:                 syncer,
@@ -93,7 +94,7 @@ func (e *Executor) RequestBlockData(height int64) (txs [][]byte, l2Config, zkCon
 		err = fmt.Errorf("RequestBlockData is not alllowed to be called")
 		return
 	}
-	log.Info("RequestBlockData request", "height", height)
+	log.Info("======>RequestBlockData request", "height", height)
 	// read the l1 messages
 	l1Messages := e.syncer.ReadL1MessagesInRange(e.latestProcessedL1Index+1, e.latestProcessedL1Index+e.maxL1MsgNumPerBlock)
 	transactions := make(eth.Transactions, len(l1Messages), len(l1Messages))
@@ -108,29 +109,9 @@ func (e *Executor) RequestBlockData(height int64) (txs [][]byte, l2Config, zkCon
 		return
 	}
 	log.Info("AssembleL2Block returns l2Block", "tx length", len(l2Block.Transactions))
-	if len(l2Block.Transactions) == 0 {
-		return
-	}
-	bm := &types.BLSMessage{
-		ParentHash: l2Block.ParentHash,
-		Miner:      l2Block.Miner,
-		Number:     l2Block.Number,
-		GasLimit:   l2Block.GasLimit,
-		BaseFee:    l2Block.BaseFee,
-		Timestamp:  l2Block.Timestamp,
-		Extra:      l2Block.Extra,
-	}
-	if zkConfig, err = bm.MarshalBinary(); err != nil {
-		return
-	}
-	nbm := &types.NonBLSMessage{
-		StateRoot:   l2Block.StateRoot,
-		GasUsed:     l2Block.GasUsed,
-		ReceiptRoot: l2Block.ReceiptRoot,
-		LogsBloom:   l2Block.LogsBloom,
-		L1Messages:  l1Messages,
-	}
-	if l2Config, err = nbm.MarshalBinary(); err != nil {
+
+	if zkConfig, l2Config, err = e.bc.Separate(l2Block, l1Messages); err != nil {
+		log.Info("failed to convert l2Block to separated bytes", "error", err)
 		return
 	}
 	txs = l2Block.Transactions
@@ -146,113 +127,93 @@ func (e *Executor) CheckBlockData(txs [][]byte, l2Config, zkConfig []byte) (vali
 		err = fmt.Errorf("CheckBlockData is not alllowed to be called")
 		return
 	}
-	log.Info("CheckBlockData requests",
+	log.Info("======>CheckBlockData requests",
 		"txs.length", len(txs),
-		"l2Config", hex.EncodeToHex(l2Config),
-		"zkConfig", hex.EncodeToHex(zkConfig))
-	if len(txs) == 0 || l2Config == nil || zkConfig == nil {
+		"l2Config length", len(l2Config),
+		"zkConfig length", len(zkConfig))
+	if l2Config == nil || zkConfig == nil {
+		log.Error("l2Config and zkConfig cannot be nil")
 		return false, nil
 	}
-	bm := new(types.BLSMessage)
-	if err := bm.UnmarshalBinary(zkConfig); err != nil {
-		return false, err
-	}
-	nbm := new(types.NonBLSMessage)
-	if err := nbm.UnmarshalBinary(l2Config); err != nil {
+	l2Block, l1Messages, err := e.bc.Recover(zkConfig, l2Config)
+	if err != nil {
+		log.Error("failed to recover block from separated bytes", "err", err)
 		return false, err
 	}
 
-	if err := e.validateL1Messages(txs, nbm); err != nil {
+	if err := e.validateL1Messages(txs, l1Messages); err != nil {
 		return false, err
 	}
-	l2Block := &catalyst.ExecutableL2Data{
-		ParentHash:   bm.ParentHash,
-		Miner:        bm.Miner,
-		Number:       bm.Number,
-		GasLimit:     bm.GasLimit,
-		BaseFee:      bm.BaseFee,
-		Timestamp:    bm.Timestamp,
-		Extra:        bm.Extra,
-		Transactions: txs,
-		StateRoot:    nbm.StateRoot,
-		GasUsed:      nbm.GasUsed,
-		ReceiptRoot:  nbm.ReceiptRoot,
-		LogsBloom:    nbm.LogsBloom,
-	}
+
+	l2Block.Transactions = txs
 	validated, err := e.authClient.ValidateL2Block(context.Background(), l2Block)
 	log.Info("CheckBlockData response", "validated", validated, "error", err)
 	return validated, err
 }
 
 func (e *Executor) DeliverBlock(txs [][]byte, l2Config, zkConfig []byte, validators []tdm.Address, blsSignatures [][]byte) error {
-	log.Info("DeliverBlock request", "txs length", len(txs),
-		"l2Config", hex.EncodeToHex(l2Config),
-		"zkConfig", hex.EncodeToHex(zkConfig),
+	log.Info("======>DeliverBlock request", "txs length", len(txs),
+		"l2Config length", len(l2Config),
+		"zkConfig length ", len(zkConfig),
 		"validator length", len(validators),
 		"blsSignatures length", len(blsSignatures))
 	height, err := e.ethClient.BlockNumber(context.Background())
 	if err != nil {
 		return err
 	}
-	//currentBlockNumber := int64(height)
-	if len(txs) == 0 || l2Config == nil || zkConfig == nil {
+	if l2Config == nil || zkConfig == nil {
+		log.Error("l2Config and zkConfig cannot be nil")
 		return nil
 	}
-	bm := new(types.BLSMessage)
-	if err := bm.UnmarshalBinary(zkConfig); err != nil {
+
+	l2Block, _, err := e.bc.Recover(zkConfig, l2Config)
+	if err != nil {
+		log.Error("failed to recover block from separated bytes", "err", err)
 		return err
 	}
-	nbm := new(types.NonBLSMessage)
-	if err := nbm.UnmarshalBinary(l2Config); err != nil {
-		return err
-	}
-	if bm.Number <= height {
-		log.Warn("ignore it, the block was delivered", "block number", bm.Number)
+	l2Block.Transactions = txs
+
+	if l2Block.Number <= height {
+		log.Warn("ignore it, the block was delivered", "block number", l2Block.Number)
 		return nil
 	}
 
 	// We only accept the continuous blocks for now.
 	// It acts like full sync. Snap sync is not enabled until the Geth enables snapshot with zkTrie
-	if bm.Number > height+1 {
+	if l2Block.Number > height+1 {
 		return types.ErrWrongBlockNumber
-	}
-	l2Block := &catalyst.ExecutableL2Data{
-		ParentHash:   bm.ParentHash,
-		Miner:        bm.Miner,
-		Number:       bm.Number,
-		GasLimit:     bm.GasLimit,
-		BaseFee:      bm.BaseFee,
-		Timestamp:    bm.Timestamp,
-		Extra:        bm.Extra,
-		Transactions: txs,
-		StateRoot:    nbm.StateRoot,
-		GasUsed:      nbm.GasUsed,
-		ReceiptRoot:  nbm.ReceiptRoot,
-		LogsBloom:    nbm.LogsBloom,
 	}
 
 	signers := make([][]byte, 0)
 	for _, v := range validators {
-		signers = append(signers, v.Bytes())
-	}
-
-	sigs := make([]blssignatures.Signature, len(blsSignatures), len(blsSignatures))
-	for i, bz := range blsSignatures {
-		log.Error("the bls hex bytes", "hex", hex.EncodeToHex(bz))
-		sig, err := blssignatures.SignatureFromBytes(bz)
-		if err != nil {
-			log.Error("failed to recover bytes to signature", "error", err)
-			return err
+		if len(v) > 0 {
+			signers = append(signers, v.Bytes())
 		}
-		sigs[i] = sig
 	}
-	aggregatedSig := blssignatures.AggregateSignatures(sigs)
 
-	blsData := &eth.BLSData{
-		BLSSigners:   signers,
-		BLSSignature: bls12381.NewG1().EncodePoint(aggregatedSig),
+	var blsData eth.BLSData
+	if len(blsSignatures) > 0 {
+		sigs := make([]blssignatures.Signature, 0)
+		for _, bz := range blsSignatures {
+			if len(bz) > 0 {
+				sig, err := blssignatures.SignatureFromBytes(bz)
+				if err != nil {
+					log.Error("failed to recover bytes to signature", "error", err)
+					return err
+				}
+				sigs = append(sigs, sig)
+			}
+		}
+		if len(sigs) > 0 {
+			aggregatedSig := blssignatures.AggregateSignatures(sigs)
+			blsData = eth.BLSData{
+				BLSSigners:   signers,
+				BLSSignature: bls12381.NewG1().EncodePoint(aggregatedSig),
+			}
+		}
 	}
-	err = e.authClient.NewL2Block(context.Background(), l2Block, blsData)
+
+	err = e.authClient.NewL2Block(context.Background(), l2Block, &blsData)
 	if err != nil {
 		log.Error("failed to NewL2Block", "error", err)
 		return err
