@@ -64,7 +64,7 @@ func NewSequencerExecutor(config *Config, syncer *sync.Syncer) (*Executor, error
 	return &Executor{
 		authClient:             aClient,
 		ethClient:              eClient,
-		bc:                     &Version2Converter{},
+		bc:                     &Version1Converter{},
 		latestProcessedL1Index: latestProcessedL1Index.Uint64(),
 		maxL1MsgNumPerBlock:    config.MaxL1MessageNumPerBlock,
 		syncer:                 syncer,
@@ -132,7 +132,7 @@ func (e *Executor) CheckBlockData(txs [][]byte, l2Config, zkConfig []byte) (vali
 		log.Error("l2Config and zkConfig cannot be nil")
 		return false, nil
 	}
-	l2Block, l1Messages, err := e.bc.Recover(zkConfig, l2Config)
+	l2Block, l1Messages, err := e.bc.Recover(zkConfig, l2Config, txs)
 	if err != nil {
 		log.Error("failed to recover block from separated bytes", "err", err)
 		return false, err
@@ -142,7 +142,6 @@ func (e *Executor) CheckBlockData(txs [][]byte, l2Config, zkConfig []byte) (vali
 		return false, err
 	}
 
-	l2Block.Transactions = txs
 	validated, err := e.authClient.ValidateL2Block(context.Background(), l2Block)
 	log.Info("CheckBlockData response", "validated", validated, "error", err)
 	return validated, err
@@ -163,12 +162,11 @@ func (e *Executor) DeliverBlock(txs [][]byte, l2Config, zkConfig []byte, validat
 		return nil
 	}
 
-	l2Block, _, err := e.bc.Recover(zkConfig, l2Config)
+	l2Block, _, err := e.bc.Recover(zkConfig, l2Config, txs)
 	if err != nil {
 		log.Error("failed to recover block from separated bytes", "err", err)
 		return err
 	}
-	l2Block.Transactions = txs
 
 	if l2Block.Number <= height {
 		log.Warn("ignore it, the block was delivered", "block number", l2Block.Number)
