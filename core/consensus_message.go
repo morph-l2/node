@@ -10,6 +10,16 @@ type BlockConverter interface {
 	Recover(blsMsg []byte, restMsg []byte) (l2Block *catalyst.ExecutableL2Data, l1Message []types.L1Message, err error)
 }
 
+type Version1Converter struct{}
+
+func (bc *Version1Converter) Separate(l2Block *catalyst.ExecutableL2Data, l1Msg []types.L1Message) (blsMsg []byte, restMsg []byte, err error) {
+	return nil, nil, nil
+}
+
+func (bc *Version1Converter) Recover(blsMsg []byte, restMsg []byte) (*catalyst.ExecutableL2Data, []types.L1Message, error) {
+	return nil, nil, nil
+}
+
 type Version2Converter struct{}
 
 func (bc *Version2Converter) Separate(l2Block *catalyst.ExecutableL2Data, l1Msg []types.L1Message) (blsMsg []byte, restMsg []byte, err error) {

@@ -17,7 +17,6 @@ import (
 	"github.com/scroll-tech/go-ethereum/ethclient/authclient"
 	"github.com/scroll-tech/go-ethereum/log"
 	"github.com/tendermint/tendermint/blssignatures"
-	"github.com/tendermint/tendermint/ethutil/hex"
 	"github.com/tendermint/tendermint/l2node"
 	tdm "github.com/tendermint/tendermint/types"
 )
@@ -116,9 +115,7 @@ func (e *Executor) RequestBlockData(height int64) (txs [][]byte, l2Config, zkCon
 	}
 	txs = l2Block.Transactions
 	log.Info("RequestBlockData response",
-		"txs.length", len(txs),
-		"l2Config", hex.EncodeToHex(l2Config),
-		"zkConfig", hex.EncodeToHex(zkConfig))
+		"txs.length", len(txs))
 	return
 }
 
