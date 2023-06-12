@@ -23,6 +23,8 @@ sed -i '' 's#proxy_app = "tcp://127.0.0.1:26658"#proxy_app = "tcp://127.0.0.1:56
 sed -i '' 's#laddr = "tcp://127.0.0.1:26657"#laddr = "tcp://127.0.0.1:56657"#g' ./mytestnet/node3/config/config.toml
 sed -i '' 's#laddr = "tcp://0.0.0.0:26656"#laddr = "tcp://0.0.0.0:56656"#g' ./mytestnet/node3/config/config.toml
 
+sed -i '' 's#create_empty_blocks_interval = "0s"#create_empty_blocks_interval = "5s"#g' ./mytestnet/node0/config/config.toml ./mytestnet/node1/config/config.toml ./mytestnet/node2/config/config.toml ./mytestnet/node3/config/config.toml
+
 sed -i '' 's/@node0:26656/@127.0.0.1:26656/g' ./mytestnet/node0/config/config.toml ./mytestnet/node1/config/config.toml ./mytestnet/node2/config/config.toml ./mytestnet/node3/config/config.toml
 sed -i '' 's/@node1:26656/@127.0.0.1:36656/g' ./mytestnet/node0/config/config.toml ./mytestnet/node1/config/config.toml ./mytestnet/node2/config/config.toml ./mytestnet/node3/config/config.toml
 sed -i '' 's/@node2:26656/@127.0.0.1:46656/g' ./mytestnet/node0/config/config.toml ./mytestnet/node1/config/config.toml ./mytestnet/node2/config/config.toml ./mytestnet/node3/config/config.toml

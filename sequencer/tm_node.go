@@ -13,6 +13,7 @@ import (
 	"github.com/tendermint/tendermint/config"
 	tmflags "github.com/tendermint/tendermint/libs/cli/flags"
 	"github.com/tendermint/tendermint/libs/log"
+	tmos "github.com/tendermint/tendermint/libs/os"
 	tmnode "github.com/tendermint/tendermint/node"
 	"github.com/tendermint/tendermint/p2p"
 	"github.com/tendermint/tendermint/privval"
@@ -63,6 +64,9 @@ func SetupNode(ctx *cli.Context, home string, executor *node.Executor) (*tmnode.
 		return nil, err
 	}
 
+	if !tmos.FileExists(tmCfg.BLSKey) {
+		blssignatures.GenFileBLSKey().Save(tmCfg.BLSKeyFile())
+	}
 	blsPrivKey, err := blssignatures.PrivateKeyFromBytes(blssignatures.LoadBLSKey(tmCfg.BLSKeyFile()).PrivKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load bls priv key")

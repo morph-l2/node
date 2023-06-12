@@ -23,9 +23,9 @@ func (e *Executor) updateLatestProcessedL1Index(txs [][]byte) error {
 	return nil
 }
 
-func (e *Executor) validateL1Messages(txs [][]byte, nbm *types.NonBLSMessage) error {
-	cache := make(map[uint64]common.Hash, len(nbm.L1Messages))
-	for _, msg := range nbm.L1Messages {
+func (e *Executor) validateL1Messages(txs [][]byte, l1Msgs []types.L1Message) error {
+	cache := make(map[uint64]common.Hash, len(l1Msgs))
+	for _, msg := range l1Msgs {
 		cache[msg.QueueIndex] = msg.L1TxHash
 	}
 

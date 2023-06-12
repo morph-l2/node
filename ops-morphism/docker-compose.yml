@@ -27,7 +27,7 @@ services:
       - "30303:30303"
     volumes:
       - "sequencer_geth_data:/db"
-      - "${PWD}/jwt-secret.txt:/config/jwt-secret.txt"
+      - "${PWD}/jwt-secret.txt:/jwt-secret.txt"
       - "${PWD}/genesis_geth.json:/genesis.json"
     entrypoint: # pass the L2 specific flags by overriding the entry-point and adding extra arguments
       - "/bin/sh"
@@ -42,6 +42,7 @@ services:
     ports:
       - "26656:26656"
     environment:
+      - EMPTY_BLOCK_DELAY=true
       - MORPH_NODE_L2_ETH_RPC=http://sequencer_geth:8545
       - MORPH_NODE_L2_ENGINE_RPC=http://sequencer_geth:8551
       - MORPH_NODE_L2_ENGINE_AUTH=jwt-secret.txt
