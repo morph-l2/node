@@ -36,7 +36,8 @@ test:
 	go test -v ./...
 
 devnet-up:
-	cd ops-morphism && docker compose up -d sequencer_node
+	cd ops-morphism && docker compose up -d
+	#cd ops-morphism && docker compose up -d l1 && docker compose up -d sequencer_node
 .PHONY: dev-up
 
 devnet-down:

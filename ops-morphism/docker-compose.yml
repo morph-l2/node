@@ -3,8 +3,21 @@ version: '3.4'
 volumes:
   sequencer_geth_data:
   sequencer_node_data:
+  l1_data:
 
 services:
+  l1:
+    build:
+      context: .
+      dockerfile: Dockerfile.l1
+    ports:
+      - "9545:8545"
+      - "9060:6060"
+    volumes:
+      - "l1_data:/db"
+      - "${PWD}/genesis_l1.json:/genesis.json"
+      - "${PWD}/test-jwt-secret.txt:/config/test-jwt-secret.txt"
+
   sequencer_geth:
     image: morphism-geth:latest
     ports:
@@ -33,7 +46,7 @@ services:
       - MORPH_NODE_L2_ENGINE_RPC=http://sequencer_geth:8551
       - MORPH_NODE_L2_ENGINE_AUTH=jwt-secret.txt
       ## todo need to replace it to a public network
-      - MORPH_NODE_L1_ETH_RPC=http://ec2-18-237-143-251.us-west-2.compute.amazonaws.com:8545
+      - MORPH_NODE_L1_ETH_RPC=http://l1:8545
       - MORPH_NODE_SYNC_DEPOSIT_CONTRACT_ADDRESS=0x6900000000000000000000000000000000000001
       ## - MORPH_NODE_SYNC_START_HEIGHT=88854536
     volumes:
@@ -42,21 +55,21 @@ services:
     entrypoint:
       - "/bin/sh"
       - "/entrypoint.sh"
-
-  tx-submitter:
-    depends_on:
-      - sequencer_geth
-      - sequencer_node
-    image: tx-submitter:latest
-    command: rollup
-    environment:
-      - TX_SUBMITTER_L1_PRIVATE_KEY=ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
-      - TX_SUBMITTER_L2_RPC_URL=http://sequencer_geth:8545
-      - TX_SUBMITTER_L1_RPC_URL=http://ec2-18-237-143-251.us-west-2.compute.amazonaws.com:8545
-      - TX_SUBMITTER_ZKEVM_CONTRACT_ADDRESS=0x6900000000000000000000000000000000000010
-      - TX_SUBMITTER_EVENT_NAME=SubmitBatches
-      - TX_SUBMITTER_ROLLUP_FUNC_NAME=SubmitBatches
-      - TX_SUBMITTER_BATCH_BLOCK_NUM=1
-      - TX_SUBMITTER_BATCH_NUM=1
-      - TX_SUBMITTER_FIRST_TIME=true
-      - TX_SUBMITTER_CHAIN_ID=900
+#
+#  tx-submitter:
+#    depends_on:
+#      - sequencer_geth
+#      - sequencer_node
+#    image: tx-submitter:latest
+#    command: rollup
+#    environment:
+#      - TX_SUBMITTER_L1_PRIVATE_KEY=ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+#      - TX_SUBMITTER_L2_RPC_URL=http://sequencer_geth:8545
+#      - TX_SUBMITTER_L1_RPC_URL=http://ec2-18-237-143-251.us-west-2.compute.amazonaws.com:8545
+#      - TX_SUBMITTER_ZKEVM_CONTRACT_ADDRESS=0x6900000000000000000000000000000000000010
+#      - TX_SUBMITTER_EVENT_NAME=SubmitBatches
+#      - TX_SUBMITTER_ROLLUP_FUNC_NAME=SubmitBatches
+#      - TX_SUBMITTER_BATCH_BLOCK_NUM=1
+#      - TX_SUBMITTER_BATCH_NUM=1
+#      - TX_SUBMITTER_FIRST_TIME=true
+#      - TX_SUBMITTER_CHAIN_ID=900
