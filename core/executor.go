@@ -22,8 +22,7 @@ import (
 )
 
 type Executor struct {
-	authClient             *authclient.Client
-	ethClient              *ethclient.Client
+	l2Client               *types.RetryableClient
 	bc                     BlockConverter
 	latestProcessedL1Index uint64
 	maxL1MsgNumPerBlock    uint64
@@ -46,6 +45,7 @@ func NewSequencerExecutor(config *Config, syncer *sync.Syncer) (*Executor, error
 	if err != nil {
 		return nil, err
 	}
+
 	latestProcessedL1Index, err := cdmCaller.ReceiveNonce(nil)
 	if err != nil {
 		var count = 0
@@ -62,8 +62,7 @@ func NewSequencerExecutor(config *Config, syncer *sync.Syncer) (*Executor, error
 		}
 	}
 	return &Executor{
-		authClient:             aClient,
-		ethClient:              eClient,
+		l2Client:               types.NewRetryableClient(aClient, eClient),
 		bc:                     &Version1Converter{},
 		latestProcessedL1Index: latestProcessedL1Index.Uint64(),
 		maxL1MsgNumPerBlock:    config.MaxL1MessageNumPerBlock,
@@ -81,8 +80,8 @@ func NewExecutor(config *Config) (*Executor, error) {
 		return nil, err
 	}
 	return &Executor{
-		authClient: aClient,
-		ethClient:  eClient,
+		l2Client: types.NewRetryableClient(aClient, eClient),
+		bc:       &Version1Converter{},
 	}, err
 }
 
@@ -102,7 +101,7 @@ func (e *Executor) RequestBlockData(height int64) (txs [][]byte, l2Config, zkCon
 		transactions[i] = transaction
 	}
 
-	l2Block, err := e.authClient.AssembleL2Block(context.Background(), big.NewInt(height), transactions)
+	l2Block, err := e.l2Client.AssembleL2Block(context.Background(), big.NewInt(height), transactions)
 	if err != nil {
 		log.Error("failed to assemble block", "height", height, "error", err)
 		return
@@ -120,10 +119,6 @@ func (e *Executor) RequestBlockData(height int64) (txs [][]byte, l2Config, zkCon
 }
 
 func (e *Executor) CheckBlockData(txs [][]byte, l2Config, zkConfig []byte) (valid bool, err error) {
-	if e.syncer == nil {
-		err = fmt.Errorf("CheckBlockData is not alllowed to be called")
-		return
-	}
 	log.Info("======>CheckBlockData requests",
 		"txs.length", len(txs),
 		"l2Config length", len(l2Config),
@@ -142,7 +137,7 @@ func (e *Executor) CheckBlockData(txs [][]byte, l2Config, zkConfig []byte) (vali
 		return false, err
 	}
 
-	validated, err := e.authClient.ValidateL2Block(context.Background(), l2Block)
+	validated, err := e.l2Client.ValidateL2Block(context.Background(), l2Block)
 	log.Info("CheckBlockData response", "validated", validated, "error", err)
 	return validated, err
 }
@@ -153,7 +148,7 @@ func (e *Executor) DeliverBlock(txs [][]byte, l2Config, zkConfig []byte, validat
 		"zkConfig length ", len(zkConfig),
 		"validator length", len(validators),
 		"blsSignatures length", len(blsSignatures))
-	height, err := e.ethClient.BlockNumber(context.Background())
+	height, err := e.l2Client.BlockNumber(context.Background())
 	if err != nil {
 		return err
 	}
@@ -208,7 +203,7 @@ func (e *Executor) DeliverBlock(txs [][]byte, l2Config, zkConfig []byte, validat
 		}
 	}
 
-	err = e.authClient.NewL2Block(context.Background(), l2Block, &blsData)
+	err = e.l2Client.NewL2Block(context.Background(), l2Block, &blsData)
 	if err != nil {
 		log.Error("failed to NewL2Block", "error", err)
 		return err
@@ -219,10 +214,6 @@ func (e *Executor) DeliverBlock(txs [][]byte, l2Config, zkConfig []byte, validat
 	return nil
 }
 
-func (e *Executor) AuthClient() *authclient.Client {
-	return e.authClient
-}
-
-func (e *Executor) EthClient() *ethclient.Client {
-	return e.ethClient
+func (e *Executor) L2Client() *types.RetryableClient {
+	return e.l2Client
 }

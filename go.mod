@@ -3,6 +3,7 @@ module github.com/morphism-labs/node
 go 1.20
 
 require (
+	github.com/cenkalti/backoff/v4 v4.1.3
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/hashicorp/golang-lru v0.5.5-0.20210104140557-80c98217689d
 	github.com/holiman/uint256 v1.2.2-0.20230321075855-87b91420868c
