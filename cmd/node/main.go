@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/morphism-labs/node/sequencer"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -12,9 +11,11 @@ import (
 	"github.com/morphism-labs/node/core"
 	"github.com/morphism-labs/node/db"
 	"github.com/morphism-labs/node/flags"
+	"github.com/morphism-labs/node/sequencer"
 	"github.com/morphism-labs/node/sequencer/mock"
 	"github.com/morphism-labs/node/sync"
 	"github.com/morphism-labs/node/types"
+	"github.com/morphism-labs/node/validator"
 	"github.com/scroll-tech/go-ethereum/log"
 	tmnode "github.com/tendermint/tendermint/node"
 	"github.com/urfave/cli"
@@ -88,6 +89,18 @@ func L2NodeMain(ctx *cli.Context) error {
 		}
 
 	} else {
+		validatorCfg := validator.NewConfig()
+		if err := validatorCfg.SetCliContext(ctx); err != nil {
+			return fmt.Errorf("validator set cli context error: %v", err)
+		}
+		validator, err := validator.NewValidator(validatorCfg)
+		if err != nil {
+			return fmt.Errorf("new validator client error: %v", err)
+		}
+
+		// TODO
+		validator.ChallengeState(0)
+
 		executor, err = node.NewExecutor(nodeConfig)
 		if err != nil {
 			return fmt.Errorf("failed to create executor, error: %v", err)

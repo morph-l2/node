@@ -56,6 +56,12 @@ var (
 		EnvVar: prefixEnvVar("L1_ETH_RPC"),
 	}
 
+	L1ChainID = cli.Uint64Flag{
+		Name:   "l1.chain-id",
+		Usage:  "L1 Chain ID",
+		EnvVar: prefixEnvVar("L1_CHAIN_ID"),
+	}
+
 	L1Confirmations = cli.Int64Flag{
 		Name:   "l1.confirmations",
 		Usage:  "Number of confirmations on L1 needed for finalization",
@@ -141,11 +147,26 @@ var (
 		Usage:  "Enable mock; If enabled, we start a simulated sequencer to manage the block production, just for dev/test use",
 		EnvVar: prefixEnvVar("MOCK_SEQUENCER"),
 	}
+
+	// validator
+	ValidatorPrivateKey = cli.StringFlag{
+		Name:   "validator.privateKey",
+		Usage:  "Private Key corresponding to SUBSIDY Owner",
+		EnvVar: prefixEnvVar("VALIDATOR_PRIVATE_KEY"),
+		Value:  "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+	}
+
+	ZKEvmContractAddress = cli.StringFlag{
+		Name:   "validator.zkEvmAddress",
+		Usage:  "Address of ZK evm contract",
+		EnvVar: "ZK_EVM_ADDRESS",
+	}
 )
 
 var Flags = []cli.Flag{
 	Home,
 	L1NodeAddr,
+	L1ChainID,
 	L1Confirmations,
 	L2EthAddr,
 	L2EngineAddr,
@@ -170,4 +191,7 @@ var Flags = []cli.Flag{
 	SequencerEnabled,
 	TendermintConfigPath,
 	MockEnabled,
+
+	// validator
+	ValidatorPrivateKey,
 }
