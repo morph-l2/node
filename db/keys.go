@@ -6,7 +6,7 @@ var (
 	syncedL1HeightKey = []byte("LastSyncedL1Height")
 	L1MessagePrefix   = []byte("l1")
 
-	derivationL1HeightKey = []byte("LastSyncedL1Height")
+	derivationL1HeightKey = []byte("LastDerivationL1Height")
 )
 
 // encodeBlockNumber encodes an L1 enqueue index as big endian uint64

@@ -10,6 +10,7 @@ import (
 
 	"github.com/morphism-labs/node/core"
 	"github.com/morphism-labs/node/db"
+	"github.com/morphism-labs/node/derivation"
 	"github.com/morphism-labs/node/flags"
 	"github.com/morphism-labs/node/sequencer"
 	"github.com/morphism-labs/node/sequencer/mock"
@@ -62,15 +63,14 @@ func L2NodeMain(ctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
+	// configure store
+	dbConfig := db.DefaultConfig()
+	dbConfig.SetCliContext(ctx)
+	store, err := db.NewStore(dbConfig, home)
+	if err != nil {
+		return err
+	}
 	if isSequencer {
-		// configure store
-		dbConfig := db.DefaultConfig()
-		dbConfig.SetCliContext(ctx)
-		store, err := db.NewStore(dbConfig, home)
-		if err != nil {
-			return err
-		}
-
 		// launch syncer
 		syncConfig := sync.DefaultConfig()
 		if err = syncConfig.SetCliContext(ctx); err != nil {
@@ -90,17 +90,17 @@ func L2NodeMain(ctx *cli.Context) error {
 
 	} else {
 		validatorCfg := validator.NewConfig()
-		if err := validatorCfg.SetCliContext(ctx); err != nil {
-			return fmt.Errorf("validator set cli context error: %v", err)
-		}
-		validator, err := validator.NewValidator(validatorCfg)
+		vt, err := validator.NewValidator(validatorCfg)
 		if err != nil {
 			return fmt.Errorf("new validator client error: %v", err)
 		}
-
-		// TODO
-		validator.ChallengeState(0)
-
+		if err := validatorCfg.SetCliContext(ctx); err != nil {
+			return fmt.Errorf("validator set cli context error: %v", err)
+		}
+		derivationCfg := derivation.DefaultConfig()
+		derivationCfg.SetCliContext(ctx)
+		dv, err := derivation.NewDerivationClient(context.Background(), derivationCfg, store, vt)
+		dv.Start()
 		executor, err = node.NewExecutor(nodeConfig)
 		if err != nil {
 			return fmt.Errorf("failed to create executor, error: %v", err)

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	nodecommon "github.com/morphism-labs/node/common"
+	"github.com/morphism-labs/node/validator"
 	"github.com/scroll-tech/go-ethereum/eth/catalyst"
 	"math/big"
 	"time"
@@ -22,7 +23,7 @@ import (
 
 var (
 	// TODO edit
-	ZKEvmEventABI      = "TransactionDeposited(address,address,uint256,bytes)"
+	ZKEvmEventABI      = "SubmitBatches(address,address,uint256,bytes)"
 	ZKEvmEventABIHash  = crypto.Keccak256Hash([]byte(ZKEvmEventABI))
 	ZKEvmEventVersion0 = common.Hash{}
 )
@@ -30,12 +31,15 @@ var (
 type Derivation struct {
 	ctx                  context.Context
 	l1Client             *ethclient.Client
-	ZKEvmContractAddress common.Address
+	ZKEvmContractAddress *common.Address
 	confirmations        rpc.BlockNumber
 	l2Client             *types.RetryableClient
+	validator            *validator.Validator
 
 	latestDerivation uint64
 	db               Database
+
+	cancel context.CancelFunc
 
 	fetchBlockRange     uint64
 	pollInterval        time.Duration
@@ -43,20 +47,37 @@ type Derivation struct {
 	stop                chan struct{}
 }
 
-func NewDerivationClient(l1Client *ethclient.Client, l2Cfg *types.L2Config, zkEvmContractAddress common.Address, confirmations rpc.BlockNumber) (*Derivation, error) {
-	aClient, err := authclient.DialContext(context.Background(), l2Cfg.EngineAddr, l2Cfg.JwtSecret)
+func NewDerivationClient(ctx context.Context, cfg *Config, db Database, validator *validator.Validator) (*Derivation, error) {
+	l1Client, err := ethclient.Dial(cfg.L1.Addr)
 	if err != nil {
 		return nil, err
 	}
-	eClient, err := ethclient.Dial(l2Cfg.EthAddr)
+	aClient, err := authclient.DialContext(context.Background(), cfg.L2.EngineAddr, cfg.L2.JwtSecret)
 	if err != nil {
 		return nil, err
+	}
+	eClient, err := ethclient.Dial(cfg.L2.EthAddr)
+	if err != nil {
+		return nil, err
+	}
+	ctx, cancel := context.WithCancel(ctx)
+	latestDerivation := db.ReadLatestDerivationL1Height()
+	if latestDerivation == nil {
+		db.WriteLatestDerivationL1Height(cfg.StartHeight)
 	}
 	return &Derivation{
+		ctx:                  ctx,
+		db:                   db,
 		l1Client:             l1Client,
-		ZKEvmContractAddress: zkEvmContractAddress,
-		confirmations:        confirmations,
+		validator:            validator,
+		ZKEvmContractAddress: cfg.ZKEvmContractAddress,
+		confirmations:        cfg.L1.Confirmations,
 		l2Client:             types.NewRetryableClient(aClient, eClient),
+		cancel:               cancel,
+		stop:                 make(chan struct{}),
+		fetchBlockRange:      cfg.FetchBlockRange,
+		pollInterval:         cfg.PollInterval,
+		logProgressInterval:  cfg.LogProgressInterval,
 	}, nil
 }
 
@@ -81,12 +102,26 @@ func (d *Derivation) Start() {
 	}()
 }
 
+func (d *Derivation) Stop() {
+	if d == nil {
+		return
+	}
+
+	log.Info("Stopping sync service")
+
+	if d.cancel != nil {
+		d.cancel()
+	}
+	<-d.stop
+	log.Info("Sync service is stopped")
+}
+
 func (d *Derivation) FetchZkEvmData(ctx context.Context, from, to uint64) ([]*Batch, error) {
 	query := ethereum.FilterQuery{
 		FromBlock: big.NewInt(0).SetUint64(from),
 		ToBlock:   big.NewInt(0).SetUint64(to),
 		Addresses: []common.Address{
-			d.ZKEvmContractAddress,
+			*d.ZKEvmContractAddress,
 		},
 		Topics: [][]common.Hash{
 			{ZKEvmEventABIHash},
@@ -136,18 +171,28 @@ func (d *Derivation) DerivationBlock(ctx context.Context) {
 	}
 	for _, batch := range batches {
 		for _, blockData := range batch.BlockDatas {
+			latestBlockNumber, err := d.l2Client.BlockNumber(ctx)
+			if err != nil {
+				return
+			}
+			if blockData.ExecutableL2Data.Number <= latestBlockNumber {
+				continue
+			}
 			if err := d.l2Client.NewL2Block(ctx, blockData.ExecutableL2Data, blockData.blsData); err != nil {
-				if errors.Is(err, fmt.Errorf("stateRoot is invalid")) {
-					// TODO query challenge state
-					// challenge
-
+				if errors.Is(err, fmt.Errorf("stateRoot is invalid")) && d.validator != nil {
+					{
+						if err := d.validator.ChallengeState(blockData.BatchIndex); err != nil {
+							log.Error("challenge state failed", "error", err)
+						}
+					}
 				} else {
 					log.Error("NewL2Block failed", "error", err)
 				}
-				d.db.WriteLatestDerivationL1Height(batch.L1BlockNumber)
-
+				return
 			}
 		}
+		// Update after a Batch is complete
+		d.db.WriteLatestDerivationL1Height(batch.L1BlockNumber)
 	}
 }
 
