@@ -51,6 +51,24 @@ func NewStore(config *Config, home string) (*Store, error) {
 	}, nil
 }
 
+func (s *Store) ReadLatestDerivationL1Height() *uint64 {
+	data, err := s.db.Get(derivationL1HeightKey)
+	if err != nil && !isNotFoundErr(err) {
+		log.Crit("Failed to read synced L1 block number from database", "err", err)
+	}
+	if len(data) == 0 {
+		return nil
+	}
+
+	number := new(big.Int).SetBytes(data)
+	if !number.IsUint64() {
+		log.Crit("Unexpected synced L1 block number in database", "number", number)
+	}
+
+	value := number.Uint64()
+	return &value
+}
+
 func (s *Store) ReadLatestSyncedL1Height() *uint64 {
 	data, err := s.db.Get(syncedL1HeightKey)
 	if err != nil && !isNotFoundErr(err) {
@@ -102,6 +120,12 @@ func (s *Store) ReadL1MessageByIndex(index uint64) *types.L1Message {
 	}
 	return &l1Msg
 
+}
+
+func (s *Store) WriteLatestDerivationL1Height(latest uint64) {
+	if err := s.db.Put(derivationL1HeightKey, new(big.Int).SetUint64(latest).Bytes()); err != nil {
+		log.Crit("Failed to update synced L1 height", "err", err)
+	}
 }
 
 func (s *Store) WriteLatestSyncedL1Height(latest uint64) {
