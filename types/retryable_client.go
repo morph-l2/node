@@ -83,6 +83,24 @@ func (rc *RetryableClient) NewL2Block(ctx context.Context, executableL2Data *cat
 	return
 }
 
+func (rc *RetryableClient) NewSafeL2Block(ctx context.Context, safeL2Data *catalyst.SafeL2Data, blsData *eth.BLSData) (ret *eth.Header, err error) {
+	if retryErr := backoff.Retry(func() error {
+		resp, respErr := rc.authClient.NewSafeL2Block(ctx, safeL2Data, blsData)
+		if respErr != nil {
+			log.Warn("failed to NewSafeL2Block", "error", err)
+			if strings.Contains(respErr.Error(), ConnectionRefused) {
+				return respErr
+			}
+			err = respErr
+		}
+		ret = resp
+		return nil
+	}, rc.b); retryErr != nil {
+		return nil, retryErr
+	}
+	return
+}
+
 func (rc *RetryableClient) BlockNumber(ctx context.Context) (ret uint64, err error) {
 	if retryErr := backoff.Retry(func() error {
 		resp, respErr := rc.ethClient.BlockNumber(ctx)

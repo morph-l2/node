@@ -17,7 +17,7 @@ type BlockConverter interface {
 type Version1Converter struct{}
 
 func (bc *Version1Converter) Separate(l2Block *catalyst.ExecutableL2Data, l1Msg []types.L1Message) ([]byte, []byte, error) {
-	// 32 + 32 + 8 + 8 + 32 + 8 + 2 + 2
+	// Hash(32) || ParentHash(32) || Number(8) || Timestamp(8) || BaseFee(32) || GasLimit(8) || numTxs(2) || numL1Msg(2)
 	blsBytes := make([]byte, 124)
 	copy(blsBytes[:32], l2Block.Hash.Bytes())
 	copy(blsBytes[32:64], l2Block.ParentHash.Bytes())
