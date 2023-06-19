@@ -175,10 +175,10 @@ func (d *Derivation) DerivationBlock(ctx context.Context) {
 			if err != nil {
 				return
 			}
-			if blockData.ExecutableL2Data.Number <= latestBlockNumber {
+			if blockData.SafeL2Data.Number <= latestBlockNumber {
 				continue
 			}
-			if err := d.l2Client.NewL2Block(ctx, blockData.ExecutableL2Data, blockData.blsData); err != nil {
+			if _, err := d.l2Client.NewSafeL2Block(ctx, blockData.SafeL2Data, blockData.blsData); err != nil {
 				if errors.Is(err, fmt.Errorf("stateRoot is invalid")) && d.validator != nil {
 					{
 						if err := d.validator.ChallengeState(blockData.BatchIndex); err != nil {
@@ -202,9 +202,9 @@ type Batch struct {
 }
 
 type BlockData struct {
-	BatchIndex       uint64
-	ExecutableL2Data *catalyst.ExecutableL2Data
-	blsData          *eth.BLSData
+	BatchIndex uint64
+	SafeL2Data *catalyst.SafeL2Data
+	blsData    *eth.BLSData
 }
 
 // TODO
