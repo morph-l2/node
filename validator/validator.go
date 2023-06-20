@@ -67,7 +67,7 @@ func (v *Validator) ChallengeState(batchIndex uint64) error {
 	if err != nil {
 		return err
 	}
-	log.Info("L1 transaction confirmed", "hash", tx.Hash().Hex(),
+	log.Info("Validator has already started the challenge", "hash", tx.Hash().Hex(),
 		"gas-used", receipt.GasUsed, "blocknumber", receipt.BlockNumber)
 	return nil
 }

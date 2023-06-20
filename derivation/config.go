@@ -48,35 +48,35 @@ func (c *Config) SetCliContext(ctx *cli.Context) error {
 		c.L1.Confirmations = rpc.BlockNumber(ctx.GlobalInt64(flags.L1Confirmations.Name))
 	}
 
-	if ctx.GlobalIsSet(flags.SyncDepositContractAddr.Name) {
-		addr := common.HexToAddress(ctx.GlobalString(flags.SyncDepositContractAddr.Name))
+	if ctx.GlobalIsSet(flags.ZKEvmContractAddress.Name) {
+		addr := common.HexToAddress(ctx.GlobalString(flags.ZKEvmContractAddress.Name))
 		c.ZKEvmContractAddress = &addr
 		if len(c.ZKEvmContractAddress.Bytes()) == 0 {
-			return errors.New("invalid SyncDepositContractAddr")
+			return errors.New("invalid DerivationDepositContractAddr")
 		}
 	}
 
-	if ctx.GlobalIsSet(flags.SyncStartHeight.Name) {
-		c.StartHeight = ctx.GlobalUint64(flags.SyncStartHeight.Name)
+	if ctx.GlobalIsSet(flags.DerivationStartHeight.Name) {
+		c.StartHeight = ctx.GlobalUint64(flags.DerivationStartHeight.Name)
 		if c.StartHeight == 0 {
-			return errors.New("invalid SyncStartHeight")
+			return errors.New("invalid DerivationStartHeight")
 		}
 	}
 
-	if ctx.GlobalIsSet(flags.SyncPollInterval.Name) {
-		c.PollInterval = ctx.GlobalDuration(flags.SyncPollInterval.Name)
+	if ctx.GlobalIsSet(flags.DerivationPollInterval.Name) {
+		c.PollInterval = ctx.GlobalDuration(flags.DerivationPollInterval.Name)
 		if c.PollInterval == 0 {
 			return errors.New("invalid pollInterval")
 		}
 	}
-	if ctx.GlobalIsSet(flags.SyncLogProgressInterval.Name) {
-		c.LogProgressInterval = ctx.GlobalDuration(flags.SyncLogProgressInterval.Name)
+	if ctx.GlobalIsSet(flags.DerivationLogProgressInterval.Name) {
+		c.LogProgressInterval = ctx.GlobalDuration(flags.DerivationLogProgressInterval.Name)
 		if c.LogProgressInterval == 0 {
 			return errors.New("invalid logProgressInterval")
 		}
 	}
-	if ctx.GlobalIsSet(flags.SyncFetchBlockRange.Name) {
-		c.FetchBlockRange = ctx.GlobalUint64(flags.SyncFetchBlockRange.Name)
+	if ctx.GlobalIsSet(flags.DerivationFetchBlockRange.Name) {
+		c.FetchBlockRange = ctx.GlobalUint64(flags.DerivationFetchBlockRange.Name)
 		if c.FetchBlockRange == 0 {
 			return errors.New("invalid fetchBlockRange")
 		}

@@ -1,9 +1,10 @@
 package derivation
 
 import (
+	"bytes"
 	"context"
-	"errors"
 	"fmt"
+
 	"math/big"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/morphism-labs/node/types"
 	"github.com/morphism-labs/node/validator"
 	"github.com/scroll-tech/go-ethereum"
+	"github.com/scroll-tech/go-ethereum/accounts/abi/bind"
 	"github.com/scroll-tech/go-ethereum/common"
 	eth "github.com/scroll-tech/go-ethereum/core/types"
 	"github.com/scroll-tech/go-ethereum/crypto"
@@ -23,14 +25,13 @@ import (
 
 var (
 	// TODO edit
-	ZKEvmEventABI      = "SubmitBatches(address,address,uint256,bytes)"
-	ZKEvmEventABIHash  = crypto.Keccak256Hash([]byte(ZKEvmEventABI))
-	ZKEvmEventVersion0 = common.Hash{}
+	ZKEvmEventTopic     = "SubmitBatches(address,address,uint256,bytes)"
+	ZKEvmEventTopicHash = crypto.Keccak256Hash([]byte(ZKEvmEventTopic))
 )
 
 type Derivation struct {
 	ctx                  context.Context
-	l1Client             *ethclient.Client
+	l1Client             DeployContractBackend
 	ZKEvmContractAddress *common.Address
 	confirmations        rpc.BlockNumber
 	l2Client             *types.RetryableClient
@@ -45,6 +46,12 @@ type Derivation struct {
 	pollInterval        time.Duration
 	logProgressInterval time.Duration
 	stop                chan struct{}
+}
+
+type DeployContractBackend interface {
+	bind.DeployBackend
+	bind.ContractBackend
+	ethereum.ChainReader
 }
 
 func NewDerivationClient(ctx context.Context, cfg *Config, db Database, validator *validator.Validator) (*Derivation, error) {
@@ -89,7 +96,7 @@ func (d *Derivation) Start() {
 
 		for {
 			// don't wait for ticker during startup
-			d.DerivationBlock(d.ctx)
+			d.derivationBlock(d.ctx)
 
 			select {
 			case <-d.ctx.Done():
@@ -107,16 +114,16 @@ func (d *Derivation) Stop() {
 		return
 	}
 
-	log.Info("Stopping sync service")
+	log.Info("Stopping Derivation service")
 
 	if d.cancel != nil {
 		d.cancel()
 	}
 	<-d.stop
-	log.Info("Sync service is stopped")
+	log.Info("Derivation service is stopped")
 }
 
-func (d *Derivation) FetchZkEvmData(ctx context.Context, from, to uint64) ([]*Batch, error) {
+func (d *Derivation) fetchZkEvmData(ctx context.Context, from, to uint64) ([]*Batch, error) {
 	query := ethereum.FilterQuery{
 		FromBlock: big.NewInt(0).SetUint64(from),
 		ToBlock:   big.NewInt(0).SetUint64(to),
@@ -124,7 +131,7 @@ func (d *Derivation) FetchZkEvmData(ctx context.Context, from, to uint64) ([]*Ba
 			*d.ZKEvmContractAddress,
 		},
 		Topics: [][]common.Hash{
-			{ZKEvmEventABIHash},
+			{ZKEvmEventTopicHash},
 		},
 	}
 	logs, err := d.l1Client.FilterLogs(ctx, query)
@@ -139,7 +146,7 @@ func (d *Derivation) FetchZkEvmData(ctx context.Context, from, to uint64) ([]*Ba
 
 	var batches []*Batch
 	for _, lg := range logs {
-		batch, err := UnmarshalZKEvmLogEvent(&lg)
+		batch, err := unmarshalZKEvmLogEvent(&lg)
 		if err != nil {
 			return nil, err
 		}
@@ -149,9 +156,9 @@ func (d *Derivation) FetchZkEvmData(ctx context.Context, from, to uint64) ([]*Ba
 	return batches, nil
 }
 
-func (d *Derivation) DerivationBlock(ctx context.Context) {
+func (d *Derivation) derivationBlock(ctx context.Context) {
 	latestDerivation := d.db.ReadLatestDerivationL1Height()
-	latest, err := nodecommon.GetLatestConfirmedBlockNumber(ctx, d.l1Client, d.confirmations)
+	latest, err := nodecommon.GetLatestConfirmedBlockNumber(ctx, d.l1Client.(*ethclient.Client), d.confirmations)
 	if err != nil {
 		log.Error("GetLatestConfirmedBlockNumber failed", "error", err)
 		return
@@ -159,12 +166,12 @@ func (d *Derivation) DerivationBlock(ctx context.Context) {
 	var end uint64
 	if latest <= *latestDerivation {
 		return
-	} else if latest-*latestDerivation >= 100 {
-		end = latest + 99
+	} else if latest-*latestDerivation >= d.fetchBlockRange {
+		end = latest + d.fetchBlockRange - 1
 	} else {
 		end = latest
 	}
-	batches, err := d.FetchZkEvmData(ctx, *latestDerivation, end)
+	batches, err := d.fetchZkEvmData(ctx, *latestDerivation, end)
 	if err != nil {
 		log.Error("FetchZkEvmData failed", "error", err)
 		return
@@ -178,15 +185,14 @@ func (d *Derivation) DerivationBlock(ctx context.Context) {
 			if blockData.SafeL2Data.Number <= latestBlockNumber {
 				continue
 			}
-			if _, err := d.l2Client.NewSafeL2Block(ctx, blockData.SafeL2Data, blockData.blsData); err != nil {
-				if errors.Is(err, fmt.Errorf("stateRoot is invalid")) && d.validator != nil {
-					{
-						if err := d.validator.ChallengeState(blockData.BatchIndex); err != nil {
-							log.Error("challenge state failed", "error", err)
-						}
-					}
-				} else {
-					log.Error("NewL2Block failed", "error", err)
+			header, err := d.l2Client.NewSafeL2Block(ctx, blockData.SafeL2Data, blockData.blsData)
+			if err != nil {
+				log.Error("NewL2Block failed", "error", err)
+				return
+			}
+			if !bytes.Equal(header.Root.Bytes(), blockData.StateRoot) && d.validator != nil {
+				if err := d.validator.ChallengeState(blockData.BatchIndex); err != nil {
+					log.Error("challenge state failed", "error", err)
 				}
 				return
 			}
@@ -205,9 +211,10 @@ type BlockData struct {
 	BatchIndex uint64
 	SafeL2Data *catalyst.SafeL2Data
 	blsData    *eth.BLSData
+	StateRoot  []byte
 }
 
 // TODO
-func UnmarshalZKEvmLogEvent(ev *eth.Log) (*Batch, error) {
+func unmarshalZKEvmLogEvent(ev *eth.Log) (*Batch, error) {
 	return nil, nil
 }

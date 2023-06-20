@@ -156,10 +156,35 @@ var (
 		Value:  "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
 	}
 
+	// derivation
 	ZKEvmContractAddress = cli.StringFlag{
-		Name:   "validator.zkEvmAddress",
+		Name:   "derivation.zkEvmAddress",
 		Usage:  "Address of ZK evm contract",
-		EnvVar: "ZK_EVM_ADDRESS",
+		EnvVar: prefixEnvVar("ZK_EVM_ADDRESS"),
+	}
+
+	DerivationStartHeight = cli.Uint64Flag{
+		Name:   "derivation.startHeight",
+		Usage:  "Block height where derivation start to fetch",
+		EnvVar: prefixEnvVar("DERIVATION_START_HEIGHT"),
+	}
+
+	DerivationPollInterval = cli.DurationFlag{
+		Name:   "derivation.pollInterval",
+		Usage:  "Frequency at which we query for rollup data",
+		EnvVar: prefixEnvVar("DERIVATION_POLL_INTERVAL"),
+	}
+
+	DerivationLogProgressInterval = cli.DurationFlag{
+		Name:   "derivation.logProgressInterval",
+		Usage:  "frequency at which we log progress",
+		EnvVar: prefixEnvVar("DERIVATION_LOG_PROGRESS_INTERVAL"),
+	}
+
+	DerivationFetchBlockRange = cli.Uint64Flag{
+		Name:   "derivation.fetchBlockRange",
+		Usage:  "Number of blocks that we collect in a single eth_getLogs query",
+		EnvVar: prefixEnvVar("DERIVATION_FETCH_BLOCK_RANGE"),
 	}
 )
 
@@ -194,4 +219,10 @@ var Flags = []cli.Flag{
 
 	// validator
 	ValidatorPrivateKey,
+
+	// derivation
+	DerivationStartHeight,
+	DerivationPollInterval,
+	DerivationLogProgressInterval,
+	DerivationFetchBlockRange,
 }

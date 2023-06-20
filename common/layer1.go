@@ -3,11 +3,19 @@ package common
 import (
 	"context"
 	"fmt"
+	"github.com/scroll-tech/go-ethereum"
+	"github.com/scroll-tech/go-ethereum/accounts/abi/bind"
 	"math/big"
 
 	"github.com/scroll-tech/go-ethereum/ethclient"
 	"github.com/scroll-tech/go-ethereum/rpc"
 )
+
+type DeployContractBackend interface {
+	bind.DeployBackend
+	bind.ContractBackend
+	ethereum.ChainReader
+}
 
 func GetLatestConfirmedBlockNumber(ctx context.Context, l1Client *ethclient.Client, confirmations rpc.BlockNumber) (uint64, error) {
 	// confirmation based on "safe" or "finalized" block tag

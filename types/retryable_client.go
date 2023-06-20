@@ -2,14 +2,15 @@ package types
 
 import (
 	"context"
+	"math/big"
+	"strings"
+
 	"github.com/cenkalti/backoff/v4"
 	eth "github.com/scroll-tech/go-ethereum/core/types"
 	"github.com/scroll-tech/go-ethereum/eth/catalyst"
 	"github.com/scroll-tech/go-ethereum/ethclient"
 	"github.com/scroll-tech/go-ethereum/ethclient/authclient"
 	"github.com/scroll-tech/go-ethereum/log"
-	"math/big"
-	"strings"
 )
 
 const ConnectionRefused = "connection refused"

@@ -98,8 +98,13 @@ func L2NodeMain(ctx *cli.Context) error {
 			return fmt.Errorf("validator set cli context error: %v", err)
 		}
 		derivationCfg := derivation.DefaultConfig()
-		derivationCfg.SetCliContext(ctx)
+		if err := derivationCfg.SetCliContext(ctx); err != nil {
+			return fmt.Errorf("derivation set cli context error: %v", err)
+		}
 		dv, err := derivation.NewDerivationClient(context.Background(), derivationCfg, store, vt)
+		if err != nil {
+			return fmt.Errorf("new derivation client error: %v", err)
+		}
 		dv.Start()
 		executor, err = node.NewExecutor(nodeConfig)
 		if err != nil {

@@ -1,10 +1,12 @@
-package validator
+package derivation
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"math/big"
 	"testing"
 
+	"github.com/morphism-labs/node/db"
 	"github.com/morphism-labs/node/types/bindings"
 	"github.com/scroll-tech/go-ethereum/accounts/abi/bind"
 	"github.com/scroll-tech/go-ethereum/accounts/abi/bind/backends"
@@ -13,26 +15,39 @@ import (
 	"github.com/scroll-tech/go-ethereum/core/rawdb"
 	"github.com/scroll-tech/go-ethereum/crypto"
 	"github.com/scroll-tech/go-ethereum/ethdb"
-	"github.com/scroll-tech/go-ethereum/log"
+	"github.com/scroll-tech/go-ethereum/rpc"
 	"github.com/stretchr/testify/require"
 )
 
-func TestValidator_ChallengeState(t *testing.T) {
+func TestDerivationBlock(t *testing.T) {
+	//prepare msg
 	key, _ := crypto.GenerateKey()
 	sim, _ := newSimulatedBackend(key)
-	opts, err := bind.NewKeyedTransactorWithChainID(key, big.NewInt(1))
+	opts, _ := bind.NewKeyedTransactorWithChainID(key, big.NewInt(1))
+	_, _, zkevm, err := bindings.DeployZKEVM(opts, sim, common.Address{}, common.Address{}, crypto.PubkeyToAddress(key.PublicKey))
 	require.NoError(t, err)
-	addr, _, zkevm, err := bindings.DeployZKEVM(opts, sim, common.Address{}, common.Address{}, crypto.PubkeyToAddress(key.PublicKey))
+	_, err = zkevm.SubmitBatches(opts, []bindings.ZKEVMBatchData{})
 	require.NoError(t, err)
 	sim.Commit()
-	v := Validator{
-		cli:        sim,
-		privateKey: key,
-		l1ChainID:  big.NewInt(1),
-		contract:   &zkevm.ZKEVMTransactor,
+	context.Background()
+	dbConfig := db.DefaultConfig()
+	//dbConfig.SetCliContext(ctx)
+	store, err := db.NewStore(dbConfig, "test")
+	require.NoError(t, err)
+	ctx := context.Background()
+	d := Derivation{
+		ctx:                  ctx,
+		l1Client:             sim,
+		ZKEvmContractAddress: &common.Address{},
+		confirmations:        rpc.BlockNumber(5),
+		l2Client:             nil,
+		validator:            nil,
+		latestDerivation:     9,
+		db:                   store,
+		fetchBlockRange:      100,
 	}
-	err = v.ChallengeState(10)
-	log.Info("addr:", addr)
+
+	d.derivationBlock(ctx)
 	require.EqualError(t, err, "execution reverted: Batch not exist")
 }
 
