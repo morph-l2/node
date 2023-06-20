@@ -141,6 +141,19 @@ var (
 		Usage:  "Enable mock; If enabled, we start a simulated sequencer to manage the block production, just for dev/test use",
 		EnvVar: prefixEnvVar("MOCK_SEQUENCER"),
 	}
+
+	// Logger
+	LogLevel = &cli.StringFlag{
+		Name:   "log.level",
+		Usage:  "log level: debug, info(default), error, none",
+		EnvVar: prefixEnvVar("LOG_LEVEL"),
+	}
+
+	LogFormat = &cli.StringFlag{
+		Name:   "log.format",
+		Usage:  "log format: plain(default), json",
+		EnvVar: prefixEnvVar("LOG_FORMAT"),
+	}
 )
 
 var Flags = []cli.Flag{
@@ -170,4 +183,7 @@ var Flags = []cli.Flag{
 	SequencerEnabled,
 	TendermintConfigPath,
 	MockEnabled,
+
+	LogLevel,
+	LogFormat,
 }

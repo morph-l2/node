@@ -3,7 +3,9 @@ package sync
 import (
 	"context"
 	"flag"
+	tmlog "github.com/tendermint/tendermint/libs/log"
 	"math/big"
+	"os"
 	"testing"
 
 	"github.com/morphism-labs/node/db"
@@ -37,7 +39,7 @@ func TestSyncer_GetL1Message(t *testing.T) {
 	store.WriteLatestSyncedL1Height(100)
 	syncConfig := DefaultConfig()
 	syncConfig.SetCliContext(ctx)
-	syncer, err := NewSyncer(context.Background(), store, syncConfig)
+	syncer, err := NewSyncer(context.Background(), store, syncConfig, tmlog.NewTMLogger(tmlog.NewSyncWriter(os.Stdout)))
 	require.NotNil(t, syncer)
 	require.NoError(t, err)
 

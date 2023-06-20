@@ -10,21 +10,24 @@ import (
 	"github.com/scroll-tech/go-ethereum/common"
 	eth "github.com/scroll-tech/go-ethereum/core/types"
 	"github.com/scroll-tech/go-ethereum/ethclient"
-	"github.com/scroll-tech/go-ethereum/log"
 	"github.com/scroll-tech/go-ethereum/rpc"
+	tmlog "github.com/tendermint/tendermint/libs/log"
 )
 
 type BridgeClient struct {
 	l1Client               *ethclient.Client
 	depositContractAddress common.Address
 	confirmations          rpc.BlockNumber
+	logger                 tmlog.Logger
 }
 
-func NewBridgeClient(l1Client *ethclient.Client, depositContractAddress common.Address, confirmations rpc.BlockNumber) *BridgeClient {
+func NewBridgeClient(l1Client *ethclient.Client, depositContractAddress common.Address, confirmations rpc.BlockNumber, logger tmlog.Logger) *BridgeClient {
+	logger = logger.With("module", "bridge")
 	return &BridgeClient{
 		l1Client:               l1Client,
 		depositContractAddress: depositContractAddress,
 		confirmations:          confirmations,
+		logger:                 logger,
 	}
 }
 
@@ -42,7 +45,7 @@ func (c *BridgeClient) L1Messages(ctx context.Context, from, to uint64) ([]types
 
 	logs, err := c.l1Client.FilterLogs(ctx, query)
 	if err != nil {
-		log.Trace("eth_getLogs failed", "query", query, "err", err)
+		c.logger.Error("eth_getLogs failed", "query", query, "err", err)
 		return nil, fmt.Errorf("eth_getLogs failed: %w", err)
 	}
 
@@ -75,7 +78,7 @@ func (c *BridgeClient) L1MessagesFromTxHash(ctx context.Context, txHash common.H
 		return nil, err
 	}
 	if receipt.BlockNumber.Uint64() > latestConfirmed {
-		log.Warn("the target block has not been considered to be confirmed", "latestConfirmedHeight", latestConfirmed, "receiptAtBlockHeight", receipt.BlockNumber.Uint64())
+		c.logger.Error("the target block has not been considered to be confirmed", "latestConfirmedHeight", latestConfirmed, "receiptAtBlockHeight", receipt.BlockNumber.Uint64())
 		return nil, types.ErrNotConfirmedBlock
 	}
 	return deriveFromReceipt([]*eth.Receipt{receipt}, c.depositContractAddress)
