@@ -12,6 +12,11 @@ services:
       - "8546:8546"
       - "8551:8551"
       - "30303:30303"
+    healthcheck:
+      test: curl -f http://localhost:8545
+      interval: 1m30s
+      timeout: 5s
+      retries: 3
     volumes:
       - "sequencer_geth_data:${GETH_DATA_DIR}"
       - "${PWD}/jwt-secret.txt:${JWT_SECRET_PATH}"
@@ -22,10 +27,12 @@ services:
 
   sequencer_node:
     depends_on:
-      - sequencer_geth
+      sequencer_geth:
+        condition: service_started
     build:
       context: ..
       dockerfile: ./ops-morphism/Dockerfile
+    image: morphism-node:latest
     ports:
       - "26656:26656"
     environment:
@@ -40,14 +47,17 @@ services:
     volumes:
       - "sequencer_node_data:${NODE_DATA_DIR}"
       - "${PWD}/jwt-secret.txt:${JWT_SECRET_PATH}"
-    entrypoint:
-      - "/bin/sh"
-      - "/entrypoint.sh"
+    command: >
+      morphnode
+      --sequencer
+      --home $NODE_DATA_DIR
 
   tx-submitter:
     depends_on:
-      - sequencer_geth
-      - sequencer_node
+      sequencer_geth:
+        condition: service_started
+      sequencer_node:
+        condition: service_started
     image: tx-submitter:latest
     command: rollup
     environment:
