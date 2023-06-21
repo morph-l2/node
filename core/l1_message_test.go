@@ -3,7 +3,9 @@ package node
 import (
 	"bytes"
 	"context"
+	tmlog "github.com/tendermint/tendermint/libs/log"
 	"math/big"
+	"os"
 	"testing"
 
 	"github.com/morphism-labs/node/db"
@@ -65,13 +67,13 @@ func TestExecutor_validateL1Messages(t *testing.T) {
 		},
 		L1TxHash: common.BigToHash(big.NewInt(1111)),
 	}
-	nbm := types.NonBLSMessage{
-		StateRoot:   common.BigToHash(big.NewInt(1111)),
-		GasUsed:     50000000,
-		ReceiptRoot: common.BigToHash(big.NewInt(2222)),
-		LogsBloom:   []byte("0x1a2b3c4d"),
-		L1Messages:  []types.L1Message{msg},
-	}
+	//nbm := types.NonBLSMessage{
+	//	StateRoot:   common.BigToHash(big.NewInt(1111)),
+	//	GasUsed:     50000000,
+	//	ReceiptRoot: common.BigToHash(big.NewInt(2222)),
+	//	LogsBloom:   []byte("0x1a2b3c4d"),
+	//	L1Messages:  []types.L1Message{msg},
+	//}
 
 	//prepare context
 	ctx := PrepareContext()
@@ -81,7 +83,7 @@ func TestExecutor_validateL1Messages(t *testing.T) {
 	store.WriteLatestSyncedL1Height(100)
 	syncConfig := sync.DefaultConfig()
 	syncConfig.SetCliContext(ctx)
-	syncer, err := sync.NewSyncer(context.Background(), store, syncConfig)
+	syncer, err := sync.NewSyncer(context.Background(), store, syncConfig, tmlog.NewTMLogger(tmlog.NewSyncWriter(os.Stdout)))
 	require.NotNil(t, syncer)
 	require.NoError(t, err)
 
@@ -100,7 +102,7 @@ func TestExecutor_validateL1Messages(t *testing.T) {
 	var txs [][]byte = make([][]byte, 1)
 	txs[0] = buf.Bytes()
 
-	err = executor.validateL1Messages(txs, &nbm)
+	err = executor.validateL1Messages(txs, []types.L1Message{msg})
 	require.NoError(t, err)
 }
 

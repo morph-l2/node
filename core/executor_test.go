@@ -3,6 +3,8 @@ package node
 import (
 	"context"
 	"flag"
+	tmlog "github.com/tendermint/tendermint/libs/log"
+	"os"
 	"testing"
 
 	"github.com/morphism-labs/node/db"
@@ -20,7 +22,7 @@ func TestNewSequencerExecutor(t *testing.T) {
 	syncConfig.SetCliContext(ctx)
 	store := db.NewMemoryStore()
 	store.WriteLatestSyncedL1Height(100)
-	syncer, err := sync.NewSyncer(context.Background(), store, syncConfig)
+	syncer, err := sync.NewSyncer(context.Background(), store, syncConfig, tmlog.NewTMLogger(tmlog.NewSyncWriter(os.Stdout)))
 	require.NotNil(t, syncer)
 	require.NoError(t, err)
 	//SequencerExecutor

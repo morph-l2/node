@@ -12,7 +12,8 @@ import (
 	"github.com/morphism-labs/node/types"
 	"github.com/scroll-tech/go-ethereum/common"
 	"github.com/scroll-tech/go-ethereum/common/hexutil"
-	"github.com/scroll-tech/go-ethereum/log"
+	tmconfig "github.com/tendermint/tendermint/config"
+	tmlog "github.com/tendermint/tendermint/libs/log"
 	"github.com/urfave/cli"
 )
 
@@ -20,17 +21,35 @@ type Config struct {
 	L2                            *types.L2Config `json:"l2"`
 	L2CrossDomainMessengerAddress common.Address  `json:"cross_domain_messenger_address"`
 	MaxL1MessageNumPerBlock       uint64          `json:"max_l1_message_num_per_block"`
+	Logger                        tmlog.Logger    `json:"logger"`
 }
 
 func DefaultConfig() *Config {
 	return &Config{
 		L2:                            new(types.L2Config),
+		Logger:                        tmlog.NewTMLogger(tmlog.NewSyncWriter(os.Stdout)),
 		MaxL1MessageNumPerBlock:       100,
 		L2CrossDomainMessengerAddress: common.HexToAddress("0x4200000000000000000000000000000000000007"),
 	}
 }
 
 func (c *Config) SetCliContext(ctx *cli.Context) error {
+	// logger setting
+	logger := tmlog.NewTMLogger(tmlog.NewSyncWriter(os.Stdout))
+	if format := ctx.GlobalString(flags.LogFormat.Name); len(format) > 0 && format == tmconfig.LogFormatJSON {
+		logger = tmlog.NewTMJSONLogger(tmlog.NewSyncWriter(os.Stdout))
+	}
+
+	if ctx.GlobalIsSet(flags.LogLevel.Name) {
+		logLevel := ctx.GlobalString(flags.LogLevel.Name)
+		option, err := tmlog.AllowLevel(logLevel)
+		if err != nil {
+			return err
+		}
+		logger = tmlog.NewFilter(logger, option)
+	}
+	c.Logger = logger
+
 	l2EthAddr := ctx.GlobalString(flags.L2EthAddr.Name)
 	l2EngineAddr := ctx.GlobalString(flags.L2EngineAddr.Name)
 	fileName := ctx.GlobalString(flags.L2EngineJWTSecret.Name)
@@ -46,7 +65,7 @@ func (c *Config) SetCliContext(ctx *cli.Context) error {
 		}
 		copy(secret[:], jwtSecret)
 	} else {
-		log.Warn("Failed to read JWT secret from file, generating a new one now. Configure L2 geth with --authrpc.jwt-secret=" + fmt.Sprintf("%q", fileName))
+		logger.Info("Failed to read JWT secret from file, generating a new one now. Configure L2 geth with --authrpc.jwt-secret=" + fmt.Sprintf("%q", fileName))
 		if _, err := io.ReadFull(rand.Reader, secret[:]); err != nil {
 			return fmt.Errorf("failed to generate jwt secret: %w", err)
 		}
@@ -72,5 +91,6 @@ func (c *Config) SetCliContext(ctx *cli.Context) error {
 			return errors.New("invalid SyncDepositContractAddr")
 		}
 	}
+
 	return nil
 }

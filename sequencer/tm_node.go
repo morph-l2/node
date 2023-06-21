@@ -8,11 +8,11 @@ import (
 	"github.com/morphism-labs/node/core"
 	"github.com/morphism-labs/node/flags"
 	"github.com/spf13/viper"
-	"github.com/tendermint/tendermint/abci/types"
+	tmtypes "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/blssignatures"
 	"github.com/tendermint/tendermint/config"
 	tmflags "github.com/tendermint/tendermint/libs/cli/flags"
-	"github.com/tendermint/tendermint/libs/log"
+	tmlog "github.com/tendermint/tendermint/libs/log"
 	tmos "github.com/tendermint/tendermint/libs/os"
 	tmnode "github.com/tendermint/tendermint/node"
 	"github.com/tendermint/tendermint/p2p"
@@ -21,9 +21,7 @@ import (
 	"github.com/urfave/cli"
 )
 
-var logger = log.NewTMLogger(log.NewSyncWriter(os.Stdout))
-
-func SetupNode(ctx *cli.Context, home string, executor *node.Executor) (*tmnode.Node, error) {
+func SetupNode(ctx *cli.Context, home string, executor *node.Executor, logger tmlog.Logger) (*tmnode.Node, error) {
 	var (
 		tmCfg      *config.Config
 		configPath = ctx.GlobalString(flags.TendermintConfigPath.Name)
@@ -51,14 +49,14 @@ func SetupNode(ctx *cli.Context, home string, executor *node.Executor) (*tmnode.
 	}
 
 	if tmCfg.LogFormat == config.LogFormatJSON {
-		logger = log.NewTMJSONLogger(log.NewSyncWriter(os.Stdout))
+		logger = tmlog.NewTMJSONLogger(tmlog.NewSyncWriter(os.Stdout))
 	}
 	nodeLogger, err := tmflags.ParseLogLevel(tmCfg.LogLevel, logger, config.DefaultLogLevel)
 	if err != nil {
 		return nil, err
 	}
-
 	nodeLogger = nodeLogger.With("module", "main")
+
 	nodeKey, err := p2p.LoadOrGenNodeKey(tmCfg.NodeKeyFile())
 	if err != nil {
 		return nil, err
@@ -79,7 +77,7 @@ func SetupNode(ctx *cli.Context, home string, executor *node.Executor) (*tmnode.
 		privval.LoadOrGenFilePV(tmCfg.PrivValidatorKeyFile(), tmCfg.PrivValidatorStateFile()),
 		&blsPrivKey,
 		nodeKey,
-		proxy.NewLocalClientCreator(types.NewBaseApplication()),
+		proxy.NewLocalClientCreator(tmtypes.NewBaseApplication()),
 		tmnode.DefaultGenesisDocProviderFunc(tmCfg),
 		tmnode.DefaultDBProvider,
 		tmnode.DefaultMetricsProvider(tmCfg.Instrumentation),
