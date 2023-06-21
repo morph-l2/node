@@ -160,6 +160,17 @@ var (
 		Name:   "validator.zkEvmAddress",
 		Usage:  "Address of ZK evm contract",
 		EnvVar: "ZK_EVM_ADDRESS",
+	// Logger
+	LogLevel = &cli.StringFlag{
+		Name:   "log.level",
+		Usage:  "log level: debug, info(default), error, none",
+		EnvVar: prefixEnvVar("LOG_LEVEL"),
+	}
+
+	LogFormat = &cli.StringFlag{
+		Name:   "log.format",
+		Usage:  "log format: plain(default), json",
+		EnvVar: prefixEnvVar("LOG_FORMAT"),
 	}
 )
 
@@ -194,4 +205,6 @@ var Flags = []cli.Flag{
 
 	// validator
 	ValidatorPrivateKey,
+	LogLevel,
+	LogFormat,
 }

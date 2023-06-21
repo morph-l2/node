@@ -22,25 +22,18 @@ import (
 )
 
 func main() {
-	log.Root().SetHandler(
-		log.LvlFilterHandler(
-			log.LvlInfo,
-			log.StreamHandler(os.Stdout, log.LogfmtFormat()),
-		),
-	)
 	app := cli.NewApp()
 	app.Flags = flags.Flags
 	app.Name = "morphnode"
 	app.Action = L2NodeMain
 	err := app.Run(os.Args)
 	if err != nil {
-		log.Crit("Application failed", "message", err)
+		fmt.Println("Application failed, message: ", err)
+		os.Exit(1)
 	}
 }
 
 func L2NodeMain(ctx *cli.Context) error {
-	log.Info("Initializing morphism node")
-
 	var (
 		err      error
 		executor *node.Executor
@@ -76,7 +69,7 @@ func L2NodeMain(ctx *cli.Context) error {
 		if err = syncConfig.SetCliContext(ctx); err != nil {
 			return err
 		}
-		syncer, err = sync.NewSyncer(context.Background(), store, syncConfig)
+		syncer, err = sync.NewSyncer(context.Background(), store, syncConfig, nodeConfig.Logger)
 		if err != nil {
 			return fmt.Errorf("failed to create syncer, error: %v", err)
 		}
@@ -115,7 +108,7 @@ func L2NodeMain(ctx *cli.Context) error {
 		go ms.Start()
 	} else {
 		// launch tendermint node
-		if tmNode, err = sequencer.SetupNode(ctx, home, executor); err != nil {
+		if tmNode, err = sequencer.SetupNode(ctx, home, executor, nodeConfig.Logger); err != nil {
 			return fmt.Errorf("failed to setup consensus node, error: %v", err)
 		}
 		if err = tmNode.Start(); err != nil {

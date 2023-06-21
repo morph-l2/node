@@ -18,7 +18,6 @@ func TestBLSMessage(t *testing.T) {
 		GasLimit:   1000000000,
 		BaseFee:    big.NewInt(3e9),
 		Timestamp:  uint64(time.Now().Unix()),
-		Extra:      []byte("0x5e6f0000"),
 	}
 	b, err := c.MarshalBinary()
 	require.NoError(t, err)
@@ -33,7 +32,6 @@ func TestBLSMessage(t *testing.T) {
 	require.EqualValues(t, actualC.GasLimit, c.GasLimit)
 	require.EqualValues(t, actualC.BaseFee, c.BaseFee)
 	require.EqualValues(t, actualC.Timestamp, c.Timestamp)
-	require.EqualValues(t, actualC.Extra, c.Extra)
 }
 
 func TestNonBLSMessage(t *testing.T) {

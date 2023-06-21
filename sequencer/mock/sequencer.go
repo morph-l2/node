@@ -18,7 +18,7 @@ type Sequencer struct {
 }
 
 func NewSequencer(executor *node.Executor) (*Sequencer, error) {
-	currentBlock, err := executor.EthClient().BlockNumber(context.Background())
+	currentBlock, err := executor.L2Client().BlockNumber(context.Background())
 	if err != nil {
 		return nil, err
 	}
@@ -38,7 +38,7 @@ func (s *Sequencer) Start() {
 		select {
 		case <-blockTicker.C:
 			log.Info("start to build new block", "block number", s.currentBlock+1)
-			l2Data, err := s.engine.AuthClient().AssembleL2Block(context.Background(), big.NewInt(s.currentBlock+1), nil)
+			l2Data, err := s.engine.L2Client().AssembleL2Block(context.Background(), big.NewInt(s.currentBlock+1), nil)
 			if err != nil {
 				log.Error("error assembling block", "error", err)
 				continue
@@ -47,7 +47,7 @@ func (s *Sequencer) Start() {
 				log.Info("Not now: no txs found")
 				continue
 			}
-			pass, err := s.engine.AuthClient().ValidateL2Block(context.Background(), l2Data)
+			pass, err := s.engine.L2Client().ValidateL2Block(context.Background(), l2Data)
 			if err != nil {
 				log.Error("error validating block", "error", err)
 				continue
@@ -56,7 +56,7 @@ func (s *Sequencer) Start() {
 				log.Error("validating failed")
 				continue
 			}
-			if err := s.engine.AuthClient().NewL2Block(context.Background(), l2Data, nil); err != nil {
+			if err := s.engine.L2Client().NewL2Block(context.Background(), l2Data, nil); err != nil {
 				log.Error("error occurs when creating l2 block", "error", err)
 				continue
 			}

@@ -3,6 +3,7 @@ module github.com/morphism-labs/node
 go 1.20
 
 require (
+	github.com/cenkalti/backoff/v4 v4.1.3
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/hashicorp/golang-lru v0.5.5-0.20210104140557-80c98217689d
 	github.com/holiman/uint256 v1.2.2
@@ -123,6 +124,6 @@ require (
 
 replace (
 	github.com/btcsuite/btcd => github.com/btcsuite/btcd v0.20.1-beta
-	github.com/scroll-tech/go-ethereum => github.com/morphism-labs/go-ethereum v1.10.14-0.20230609084620-1c4a88fb87d3
+	github.com/scroll-tech/go-ethereum => github.com/morphism-labs/go-ethereum v1.10.14-0.20230616072426-a4a63e7bbda3
 	github.com/tendermint/tendermint => github.com/morphism-labs/tendermint v0.0.0-20230608143043-dfa62d1d6e02
 )

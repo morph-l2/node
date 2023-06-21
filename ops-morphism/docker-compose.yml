@@ -26,9 +26,9 @@ services:
       - "8551:8551"
       - "30303:30303"
     volumes:
-      - "sequencer_geth_data:/db"
-      - "${PWD}/jwt-secret.txt:/jwt-secret.txt"
-      - "${PWD}/genesis_geth.json:/genesis.json"
+      - "sequencer_geth_data:${GETH_DATA_DIR}"
+      - "${PWD}/jwt-secret.txt:${JWT_SECRET_PATH}"
+      - "${PWD}/genesis_geth.json:${GENESIS_FILE_PATH}"
     entrypoint: # pass the L2 specific flags by overriding the entry-point and adding extra arguments
       - "/bin/sh"
       - "/entrypoint.sh"
@@ -51,8 +51,8 @@ services:
       - MORPH_NODE_SYNC_DEPOSIT_CONTRACT_ADDRESS=0x6900000000000000000000000000000000000001
       ## - MORPH_NODE_SYNC_START_HEIGHT=88854536
     volumes:
-      - "sequencer_node_data:/data"
-      - "${PWD}/jwt-secret.txt:/jwt-secret.txt"
+      - "sequencer_node_data:${NODE_DATA_DIR}"
+      - "${PWD}/jwt-secret.txt:${JWT_SECRET_PATH}"
     entrypoint:
       - "/bin/sh"
       - "/entrypoint.sh"

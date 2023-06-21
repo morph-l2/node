@@ -49,3 +49,19 @@ func (nbm *NonBLSMessage) MarshalBinary() ([]byte, error) {
 func (nbm *NonBLSMessage) UnmarshalBinary(b []byte) error {
 	return rlp.DecodeBytes(b, nbm)
 }
+
+type RestMessage struct {
+	NonBLSMessage
+	Miner common.Address `json:"miner"`
+}
+
+func (rm *RestMessage) MarshalBinary() ([]byte, error) {
+	if rm == nil {
+		return nil, nil
+	}
+	return rlp.EncodeToBytes(rm)
+}
+
+func (rm *RestMessage) UnmarshalBinary(b []byte) error {
+	return rlp.DecodeBytes(b, rm)
+}
