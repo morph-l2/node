@@ -57,22 +57,15 @@ devnet-reset:
 testnet-up: build
 	sh ./ops-morphism/testnet/tendermint-setup.sh
 	cd ops-morphism/testnet && docker compose up -d
-	sh ./ops-morphism/testnet/launch.sh
 .PHONY: testnet-up
 
 testnet-down:
-	PIDS=$$(ps -ef | grep morphnode | grep -v grep | awk '{print $$2}'); \
-	if [ -n "$$PIDS" ]; then \
-		echo "Processes found: $$PIDS"; \
-		kill $$PIDS; \
-	else \
-		echo "No processes found"; \
-	fi
 	cd ops-morphism/testnet && docker compose down
 .PHONY: testnet-down
 
 testnet-clean: testnet-down
 	docker volume ls --filter "name=morph_data*" -q | xargs -r docker volume rm
+	docker volume ls --filter "name=node_data*" -q | xargs -r docker volume rm
 	rm -rf ./mytestnet
 .PHONY: testnet-clean
 
