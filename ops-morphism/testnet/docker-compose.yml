@@ -122,7 +122,7 @@ services:
       - MORPH_NODE_L2_ETH_RPC=http://morph-geth-0:8545
       - MORPH_NODE_L2_ENGINE_RPC=http://morph-geth-0:8551
       - MORPH_NODE_L2_ENGINE_AUTH=jwt-secret.txt
-      - MORPH_NODE_L1_ETH_RPC=http://ec2-18-237-143-251.us-west-2.compute.amazonaws.com:8545
+      - MORPH_NODE_L1_ETH_RPC=${L1_ETH_RPC}
       - MORPH_NODE_SYNC_DEPOSIT_CONTRACT_ADDRESS=0x6900000000000000000000000000000000000001
     volumes:
       - "node_data_0:${NODE_DATA_DIR}"
@@ -146,7 +146,7 @@ services:
       - MORPH_NODE_L2_ETH_RPC=http://morph-geth-1:8545
       - MORPH_NODE_L2_ENGINE_RPC=http://morph-geth-1:8551
       - MORPH_NODE_L2_ENGINE_AUTH=jwt-secret.txt
-      - MORPH_NODE_L1_ETH_RPC=http://ec2-18-237-143-251.us-west-2.compute.amazonaws.com:8545
+      - MORPH_NODE_L1_ETH_RPC=${L1_ETH_RPC}
       - MORPH_NODE_SYNC_DEPOSIT_CONTRACT_ADDRESS=0x6900000000000000000000000000000000000001
     volumes:
       - "node_data_1:${NODE_DATA_DIR}"
@@ -170,7 +170,7 @@ services:
       - MORPH_NODE_L2_ETH_RPC=http://morph-geth-2:8545
       - MORPH_NODE_L2_ENGINE_RPC=http://morph-geth-2:8551
       - MORPH_NODE_L2_ENGINE_AUTH=jwt-secret.txt
-      - MORPH_NODE_L1_ETH_RPC=http://ec2-18-237-143-251.us-west-2.compute.amazonaws.com:8545
+      - MORPH_NODE_L1_ETH_RPC=${L1_ETH_RPC}
       - MORPH_NODE_SYNC_DEPOSIT_CONTRACT_ADDRESS=0x6900000000000000000000000000000000000001
     volumes:
       - "node_data_2:${NODE_DATA_DIR}"
@@ -194,7 +194,7 @@ services:
       - MORPH_NODE_L2_ETH_RPC=http://morph-geth-3:8545
       - MORPH_NODE_L2_ENGINE_RPC=http://morph-geth-3:8551
       - MORPH_NODE_L2_ENGINE_AUTH=jwt-secret.txt
-      - MORPH_NODE_L1_ETH_RPC=http://ec2-18-237-143-251.us-west-2.compute.amazonaws.com:8545
+      - MORPH_NODE_L1_ETH_RPC=${L1_ETH_RPC}
       - MORPH_NODE_SYNC_DEPOSIT_CONTRACT_ADDRESS=0x6900000000000000000000000000000000000001
     volumes:
       - "node_data_3:${NODE_DATA_DIR}"
