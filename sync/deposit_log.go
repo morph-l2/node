@@ -16,9 +16,10 @@ import (
 )
 
 var (
-	DepositEventABI      = "TransactionDeposited(address,address,uint256,bytes)"
-	DepositEventABIHash  = crypto.Keccak256Hash([]byte(DepositEventABI))
-	DepositEventVersion0 = common.Hash{}
+	DepositEventABI              = "TransactionDeposited(address,address,uint256,bytes)"
+	DepositEventABIHash          = crypto.Keccak256Hash([]byte(DepositEventABI))
+	DepositEventVersion0         = common.Hash{}
+	L1CrossDomainMessengerABI, _ = bindings.L1CrossDomainMessengerMetaData.GetAbi()
 )
 
 func deriveFromReceipt(receipts []*eth.Receipt, depositContractAddr common.Address) ([]types.L1Message, error) {
@@ -110,6 +111,7 @@ func UnmarshalDepositLogEvent(ev *eth.Log) (*eth.L1MessageTx, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode deposit (version %s): %w", version, err)
 	}
+	tx.Sender = from
 	return tx, nil
 }
 
@@ -175,11 +177,7 @@ type relayMessageData struct {
 }
 
 func unpackRelayMessage(data []byte) (*relayMessageData, error) {
-	abi, err := bindings.L1CrossDomainMessengerMetaData.GetAbi()
-	if err != nil {
-		return nil, err
-	}
-
+	abi := L1CrossDomainMessengerABI
 	method, ok := abi.Methods["relayMessage"]
 	if !ok {
 		return nil, errors.New("can not find the method of relayMessage")
