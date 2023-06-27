@@ -162,7 +162,10 @@ func unmarshalDepositVersion0(to common.Address, opaqueData []byte) (*eth.L1Mess
 	if err != nil {
 		return nil, err
 	}
-	message.QueueIndex = relayMessage.nonce.Uint64()
+	message.QueueIndex, err = types.DecodeNonce(relayMessage.nonce)
+	if err != nil {
+		return nil, err
+	}
 
 	return &message, nil
 }

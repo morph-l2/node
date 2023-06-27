@@ -24,7 +24,7 @@ import (
 type Executor struct {
 	l2Client               *types.RetryableClient
 	bc                     BlockConverter
-	latestProcessedL1Index uint64
+	latestProcessedL1Index *uint64
 	maxL1MsgNumPerBlock    uint64
 	syncer                 *sync.Syncer // needed when it is configured as a sequencer
 	logger                 tmlog.Logger
@@ -49,25 +49,39 @@ func NewSequencerExecutor(config *Config, syncer *sync.Syncer) (*Executor, error
 		return nil, err
 	}
 
-	latestProcessedL1Index, err := cdmCaller.ReceiveNonce(nil)
+	receivedNonce, err := cdmCaller.ReceiveNonce(nil)
 	if err != nil {
 		var count = 0
 		for err != nil && strings.Contains(err.Error(), "connection refused") {
 			time.Sleep(5 * time.Second)
 			count++
 			logger.Error("connection refused, try again", "retryCount", count)
-			latestProcessedL1Index, err = cdmCaller.ReceiveNonce(nil)
+			receivedNonce, err = cdmCaller.ReceiveNonce(nil)
 		}
 		if err != nil {
 			logger.Error("failed to get ReceiveNonce", "error", err)
-			latestProcessedL1Index = big.NewInt(0)
+			receivedNonce = big.NewInt(0)
 			err = nil // todo for testing consideration, ignore the err. will remove when we have the pre-deployed contracts integrated
 		}
 	}
+
+	var latestProcessedL1Index *uint64
+	if receivedNonce.Cmp(big.NewInt(0)) != 0 {
+		//decodedNonce := new(big.Int).Sub(receivedNonce, types.Version1StartedNonce)
+		//if decodedNonce.Sign() < 0 {
+		//	return nil, errors.New(fmt.Sprintf("wrong receivedNonce: %s", receivedNonce.String()))
+		//}
+		decodedNonce, err := types.DecodeNonce(receivedNonce)
+		if err != nil {
+			return nil, err
+		}
+		latestProcessedL1Index = &decodedNonce
+	}
+
 	return &Executor{
 		l2Client:               types.NewRetryableClient(aClient, eClient),
 		bc:                     &Version1Converter{},
-		latestProcessedL1Index: latestProcessedL1Index.Uint64(),
+		latestProcessedL1Index: latestProcessedL1Index,
 		maxL1MsgNumPerBlock:    config.MaxL1MessageNumPerBlock,
 		syncer:                 syncer,
 		logger:                 logger,
@@ -101,7 +115,11 @@ func (e *Executor) RequestBlockData(height int64) (txs [][]byte, l2Config, zkCon
 	}
 	e.logger.Info("RequestBlockData request", "height", height)
 	// read the l1 messages
-	l1Messages := e.syncer.ReadL1MessagesInRange(e.latestProcessedL1Index+1, e.latestProcessedL1Index+e.maxL1MsgNumPerBlock)
+	var fromIndex uint64
+	if e.latestProcessedL1Index != nil {
+		fromIndex = *e.latestProcessedL1Index + 1
+	}
+	l1Messages := e.syncer.ReadL1MessagesInRange(fromIndex, fromIndex+e.maxL1MsgNumPerBlock-1)
 	transactions := make(eth.Transactions, len(l1Messages), len(l1Messages))
 	for i, l1Message := range l1Messages {
 		transaction := eth.NewTx(&l1Message.L1MessageTx)
