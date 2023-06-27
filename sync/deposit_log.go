@@ -1,7 +1,9 @@
 package sync
 
 import (
+	"errors"
 	"fmt"
+	"github.com/morphism-labs/node/types/bindings"
 	"math/big"
 
 	"github.com/hashicorp/go-multierror"
@@ -151,7 +153,52 @@ func unmarshalDepositVersion0(to common.Address, opaqueData []byte) (*eth.L1Mess
 	// remaining bytes fill the data
 	message.Data = opaqueData[offset : offset+txDataLen]
 
-	message.QueueIndex = 0 // todo
+	// NOTE: currently we acquire the nonce from relayMessage input parsed from event data,
+	// which means we only allow the cross message data which are formed as relayMessage for now.
+	// in the future, the `nonce` is supposed to be exposed as one of the event fields
+	relayMessage, err := unpackRelayMessage(message.Data)
+	if err != nil {
+		return nil, err
+	}
+	message.QueueIndex = relayMessage.nonce.Uint64()
 
 	return &message, nil
+}
+
+type relayMessageData struct {
+	nonce       *big.Int
+	sender      common.Address
+	target      common.Address
+	value       *big.Int
+	minGasLimit *big.Int
+	message     []byte
+}
+
+func unpackRelayMessage(data []byte) (*relayMessageData, error) {
+	abi, err := bindings.L1CrossDomainMessengerMetaData.GetAbi()
+	if err != nil {
+		return nil, err
+	}
+
+	method, ok := abi.Methods["relayMessage"]
+	if !ok {
+		return nil, errors.New("can not find the method of relayMessage")
+	}
+	args := method.Inputs
+	unpacked, err := args.Unpack(data[4:])
+	if err != nil {
+		return nil, err
+	}
+	if len(unpacked) != 6 {
+		return nil, errors.New("wrong unpacked value length")
+	}
+
+	relayMessage := new(relayMessageData)
+	relayMessage.nonce = unpacked[0].(*big.Int)
+	relayMessage.sender = unpacked[1].(common.Address)
+	relayMessage.target = unpacked[2].(common.Address)
+	relayMessage.value = unpacked[3].(*big.Int)
+	relayMessage.minGasLimit = unpacked[4].(*big.Int)
+	relayMessage.message = unpacked[5].([]byte)
+	return relayMessage, nil
 }
