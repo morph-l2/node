@@ -121,9 +121,19 @@ func (e *Executor) RequestBlockData(height int64) (txs [][]byte, l2Config, zkCon
 	}
 	l1Messages := e.syncer.ReadL1MessagesInRange(fromIndex, fromIndex+e.maxL1MsgNumPerBlock-1)
 	transactions := make(eth.Transactions, len(l1Messages), len(l1Messages))
-	for i, l1Message := range l1Messages {
-		transaction := eth.NewTx(&l1Message.L1MessageTx)
-		transactions[i] = transaction
+
+	if len(l1Messages) > 0 {
+		queueIndex := fromIndex
+		for i, l1Message := range l1Messages {
+			transaction := eth.NewTx(&l1Message.L1MessageTx)
+			transactions[i] = transaction
+			if queueIndex != l1Message.QueueIndex {
+				e.logger.Error("unexpected l1message queue index", "expected", queueIndex, "actual", l1Message.QueueIndex)
+				err = types.ErrInvalidL1MessageOrder
+				return
+			}
+			queueIndex++
+		}
 	}
 
 	l2Block, err := e.l2Client.AssembleL2Block(context.Background(), big.NewInt(height), transactions)
