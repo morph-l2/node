@@ -35,6 +35,9 @@ func deriveFromReceipt(receipts []*eth.Receipt, depositContractAddr common.Addre
 				if err != nil {
 					result = multierror.Append(result, fmt.Errorf("malformatted L1 deposit log in receipt %d, log %d: %w", i, j, err))
 				} else {
+					if msg == nil {
+						continue
+					}
 					out = append(out, types.L1Message{
 						L1MessageTx: *msg,
 						L1TxHash:    lg.TxHash,
@@ -109,6 +112,10 @@ func UnmarshalDepositLogEvent(ev *eth.Log) (*eth.L1MessageTx, error) {
 		return nil, fmt.Errorf("invalid deposit version, got %s", version)
 	}
 	if err != nil {
+		if err == types.ErrNotFromCrossDomainMessenger {
+			log.Warn("found the message not sent by L1CrossDomainMessenger, ignore it for now")
+			return nil, nil
+		}
 		return nil, fmt.Errorf("failed to decode deposit (version %s): %w", version, err)
 	}
 	tx.Sender = from
@@ -160,7 +167,7 @@ func unmarshalDepositVersion0(to common.Address, opaqueData []byte) (*eth.L1Mess
 	// in the future, the `nonce` is supposed to be exposed as one of the event fields
 	relayMessage, err := unpackRelayMessage(message.Data)
 	if err != nil {
-		return nil, err
+		return nil, types.ErrNotFromCrossDomainMessenger
 	}
 	message.QueueIndex, err = types.DecodeNonce(relayMessage.nonce)
 	if err != nil {

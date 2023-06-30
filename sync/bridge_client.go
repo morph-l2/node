@@ -59,6 +59,9 @@ func (c *BridgeClient) L1Messages(ctx context.Context, from, to uint64) ([]types
 		if err != nil {
 			return nil, err
 		}
+		if l1MessageTx == nil { // it indicates that the message is not sent by L1CrossDomainMessage
+			continue
+		}
 		l1Message := types.L1Message{
 			L1MessageTx: *l1MessageTx,
 			L1TxHash:    lg.TxHash,
