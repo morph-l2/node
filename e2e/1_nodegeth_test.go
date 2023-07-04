@@ -15,7 +15,7 @@ import (
 )
 
 func TestNodeGeth_BasicProduceBlocks(t *testing.T) {
-	geth, node := NewSequencer(t, db.NewMemoryStore(), nil, nil)
+	geth, node := NewGethAndNode(t, db.NewMemoryStore(), nil, nil)
 	genesisConfig := geth.Backend.BlockChain().Config()
 
 	feeReceiver, err := geth.Backend.Etherbase()
@@ -112,7 +112,7 @@ func TestNodeGeth_FullBlock(t *testing.T) {
 	t.Run("TestMaxTxPerBlock", func(t *testing.T) {
 		maxTxPerBlock := 5
 		syncerDB := db.NewMemoryStore()
-		geth, node := NewSequencer(t, syncerDB, func(config *SystemConfig) error {
+		geth, node := NewGethAndNode(t, syncerDB, func(config *SystemConfig) error {
 			genesis, err := GenesisFromPath(FullGenesisPath)
 			config.Genesis = genesis
 			if err != nil {
@@ -152,7 +152,7 @@ func TestNodeGeth_FullBlock(t *testing.T) {
 	t.Run("TestMaxTxPayloadBytesPerBlock", func(t *testing.T) {
 		syncerDB := db.NewMemoryStore()
 		maxTxPayloadBytesPerBlock := 1000
-		geth, node := NewSequencer(t, syncerDB, func(config *SystemConfig) error {
+		geth, node := NewGethAndNode(t, syncerDB, func(config *SystemConfig) error {
 			genesis, err := GenesisFromPath(FullGenesisPath)
 			config.Genesis = genesis
 			if err != nil {

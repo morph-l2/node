@@ -19,7 +19,7 @@ import (
 var (
 	testingJWTSecret   = [32]byte{123}
 	defaultGenesisPath = "configs/genesis_tiny.json"
-	FullGenesisPath    = "configs/genesis.json"
+	FullGenesisPath    = "configs/genesis-l2.json"
 	defaultEtherbase   = common.HexToAddress("0xca062B0Fd91172d89BcD4Bb084ac4e21972CC467")
 
 	testingAddress    = common.HexToAddress("0x2f607b4bFd09a205531059de0Ee29fa9F6C6E012")

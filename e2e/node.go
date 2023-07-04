@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"errors"
 	node "github.com/morphism-labs/node/core"
 	"github.com/morphism-labs/node/sync"
 	"github.com/tendermint/tendermint/l2node"
@@ -14,6 +15,21 @@ func NewSequencerNode(geth Geth, syncer *sync.Syncer) (l2node.L2Node, error) {
 	nodeConfig.L2.EngineAddr = geth.Node.HTTPAuthEndpoint()
 	nodeConfig.L2.JwtSecret = testingJWTSecret
 	return node.NewSequencerExecutor(nodeConfig, syncer)
+}
+
+func ManualCreateBlock(node l2node.L2Node, blockNumber int64) error {
+	txs, restBytes, blsBytes, err := node.RequestBlockData(blockNumber)
+	if err != nil {
+		return err
+	}
+	valid, err := node.CheckBlockData(txs, restBytes, blsBytes)
+	if err != nil {
+		return err
+	}
+	if !valid {
+		return errors.New("check block data false")
+	}
+	return node.DeliverBlock(txs, restBytes, blsBytes, nil, nil)
 }
 
 /**

@@ -3,7 +3,6 @@ package e2e
 import (
 	"context"
 	"fmt"
-
 	"github.com/scroll-tech/go-ethereum/accounts/abi"
 	"github.com/scroll-tech/go-ethereum/accounts/abi/bind"
 	"github.com/scroll-tech/go-ethereum/common"

@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"context"
+	"github.com/morphism-labs/node/sync"
 	"github.com/scroll-tech/go-ethereum/accounts/abi/bind"
 	"math/big"
 	"testing"
@@ -18,7 +19,7 @@ import (
 
 func TestL1DepositMessage_ConstantBlocksWithL1Message(t *testing.T) {
 	syncerDB := db.NewMemoryStore()
-	geth, node := NewSequencer(t, syncerDB, func(config *SystemConfig) error {
+	geth, node := NewGethAndNode(t, syncerDB, func(config *SystemConfig) error {
 		genesis, err := GenesisFromPath(FullGenesisPath)
 		config.Genesis = genesis
 		return err
@@ -102,7 +103,7 @@ func TestL1DepositMessage_ConstantBlocksWithL1Message(t *testing.T) {
 
 func TestL1DepositMessage_L1AndL2MessageInOneBlock(t *testing.T) {
 	syncerDB := db.NewMemoryStore()
-	geth, node := NewSequencer(t, syncerDB, func(config *SystemConfig) error {
+	geth, node := NewGethAndNode(t, syncerDB, func(config *SystemConfig) error {
 		genesis, err := GenesisFromPath(FullGenesisPath)
 		config.Genesis = genesis
 		return err
@@ -139,7 +140,7 @@ func TestL1DepositMessage_L1AndL2MessageInOneBlock(t *testing.T) {
 
 func TestL1DepositMessage_InvalidL1MessageOrder(t *testing.T) {
 	syncerDB := db.NewMemoryStore()
-	_, node := NewSequencer(t, syncerDB, nil, nil)
+	_, node := NewGethAndNode(t, syncerDB, nil, nil)
 
 	l1Message0, _, err := MockL1Message(testingAddress2, testingAddress2, uint64(0), big.NewInt(1e18))
 	require.NoError(t, err)
@@ -149,4 +150,75 @@ func TestL1DepositMessage_InvalidL1MessageOrder(t *testing.T) {
 
 	_, _, _, err = node.RequestBlockData(1)
 	require.ErrorIs(t, err, types.ErrInvalidL1MessageOrder)
+}
+
+func TestL1DepositMessage_RetryFailure(t *testing.T) {
+	syncerDB := db.NewMemoryStore()
+	geth, node := NewGethAndNode(t, syncerDB, func(config *SystemConfig) error {
+		genesis, err := GenesisFromPath(FullGenesisPath)
+		config.Genesis = genesis
+		return err
+	}, nil)
+	genesisConfig := geth.Backend.BlockChain().Config()
+
+	l1Message, relayMessageInput, err := MockL1Message(testingAddress2, testingAddress2, uint64(0), big.NewInt(1e18))
+	require.NoError(t, err)
+	// set a small amount of gas limit to make the transaction failed
+	l1Message.Gas = 200_000
+	require.NoError(t, syncerDB.WriteSyncedL1Messages([]types.L1Message{*l1Message}, 0))
+
+	// block 1
+	require.NoError(t, ManualCreateBlock(node, 1))
+
+	// check the result
+	receipt, err := geth.EthClient.TransactionReceipt(context.Background(), eth.NewTx(&l1Message.L1MessageTx).Hash())
+	require.NoError(t, err)
+	require.EqualValues(t, 1, receipt.Status) // success
+	// check if deposit success
+	l2Messenger, err := bindings.NewL1CrossDomainMessenger(configs.L2CrossDomainMessengerAddress, geth.EthClient)
+	require.NoError(t, err)
+	versionedHash := crypto.Keccak256Hash(relayMessageInput)
+	isSuccess, err := l2Messenger.SuccessfulMessages(nil, versionedHash)
+	require.NoError(t, err)
+	require.False(t, isSuccess, "the L1Message should be fail")
+	isFailed, err := l2Messenger.FailedMessages(nil, versionedHash)
+	require.NoError(t, err)
+	require.True(t, isFailed, "the L1Message should be fail")
+	//receivedNonce, err := l2Messenger.ReceiveNonce(nil)
+	//require.NoError(t, err)
+	//require.EqualValues(t, types.EncodeNonce(uint64(0)).String(), receivedNonce.String())
+	contractBalance, err := geth.EthClient.BalanceAt(context.Background(), configs.L2CrossDomainMessengerAddress, nil)
+	require.NoError(t, err)
+	require.EqualValues(t, l1Message.Value.String(), contractBalance.String())
+	depositorBalance, err := geth.EthClient.BalanceAt(context.Background(), testingAddress2, nil)
+	require.NoError(t, err)
+	require.EqualValues(t, 0, depositorBalance.Uint64())
+
+	bindContract := bind.NewBoundContract(configs.L2CrossDomainMessengerAddress, *sync.L1CrossDomainMessengerABI, geth.EthClient, geth.EthClient, geth.EthClient)
+	transactOpts, err := bind.NewKeyedTransactorWithChainID(testingPrivKey, genesisConfig.ChainID)
+	require.NoError(t, err)
+	transactOpts.GasLimit = 500_000
+	retryRelayMessageTx, err := bindContract.RawTransact(transactOpts, relayMessageInput)
+	require.NoError(t, err)
+	// block 2
+	require.NoError(t, ManualCreateBlock(node, 2))
+	// check the result
+	receipt, err = geth.EthClient.TransactionReceipt(context.Background(), retryRelayMessageTx.Hash())
+	require.NoError(t, err)
+	require.EqualValues(t, 2, receipt.BlockNumber.Int64())
+	require.EqualValues(t, 1, receipt.Status) // success
+	// check if deposit success
+	isSuccess, err = l2Messenger.SuccessfulMessages(nil, versionedHash)
+	require.NoError(t, err)
+	require.True(t, isSuccess, "the L1Message should be success")
+	contractBalance, err = geth.EthClient.BalanceAt(context.Background(), configs.L2CrossDomainMessengerAddress, nil)
+	require.NoError(t, err)
+	require.EqualValues(t, 0, contractBalance.Int64())
+	depositorBalance, err = geth.EthClient.BalanceAt(context.Background(), testingAddress2, nil)
+	require.NoError(t, err)
+	require.EqualValues(t, l1Message.Value.Uint64(), depositorBalance.Uint64())
+
+	transactOpts.GasLimit = 0
+	retryRelayMessageTx, err = bindContract.RawTransact(transactOpts, relayMessageInput)
+	require.ErrorContains(t, err, "message has already been relayed")
 }
