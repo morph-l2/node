@@ -2,6 +2,11 @@ package e2e
 
 import (
 	"encoding/json"
+	"math/big"
+	"os"
+	"path"
+	"testing"
+
 	"github.com/scroll-tech/go-ethereum/accounts/abi/bind"
 	"github.com/scroll-tech/go-ethereum/common"
 	"github.com/scroll-tech/go-ethereum/common/hexutil"
@@ -10,10 +15,6 @@ import (
 	"github.com/scroll-tech/go-ethereum/crypto"
 	"github.com/scroll-tech/go-ethereum/params"
 	"github.com/stretchr/testify/require"
-	"math/big"
-	"os"
-	"path"
-	"testing"
 )
 
 var (
@@ -22,11 +23,16 @@ var (
 	FullGenesisPath    = "configs/genesis-l2.json"
 	defaultEtherbase   = common.HexToAddress("0xca062B0Fd91172d89BcD4Bb084ac4e21972CC467")
 
-	testingAddress    = common.HexToAddress("0x2f607b4bFd09a205531059de0Ee29fa9F6C6E012")
-	testingPrivKey    = crypto.ToECDSAUnsafe(hexutil.MustDecode("0xc716c90304d615e9280e79c2ed9bb0fc5ac435fba331a4565038462c2566e2d7"))
+	testingAddress = common.HexToAddress("0x2f607b4bFd09a205531059de0Ee29fa9F6C6E012")
+	testingPrivKey = crypto.ToECDSAUnsafe(hexutil.MustDecode("0xc716c90304d615e9280e79c2ed9bb0fc5ac435fba331a4565038462c2566e2d7"))
+
+	defaultOwnerAddress = common.HexToAddress("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266")
+	defaultOwnerPrivKey = crypto.ToECDSAUnsafe(hexutil.MustDecode("0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"))
+
 	genesisBalance, _ = new(big.Int).SetString("2000000000000000000000", 10)
 
-	testingAddress2 = common.HexToAddress("0x3784D658390e5331ba52A2bF92503b5B3C84B6cB")
+	testingAddress2       = common.HexToAddress("0x3784D658390e5331ba52A2bF92503b5B3C84B6cB")
+	GasPriceOracleAddress = common.HexToAddress("0x530000000000000000000000000000000000000F")
 )
 
 func writeDefaultJWT(t *testing.T) string {

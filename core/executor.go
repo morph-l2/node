@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/morphism-labs/morphism-bindings/bindings"
 	"github.com/morphism-labs/node/sync"
 	"github.com/morphism-labs/node/types"
-	"github.com/morphism-labs/node/types/bindings"
 	eth "github.com/scroll-tech/go-ethereum/core/types"
 	"github.com/scroll-tech/go-ethereum/crypto/bls12381"
 	"github.com/scroll-tech/go-ethereum/ethclient"
@@ -44,7 +44,7 @@ func NewSequencerExecutor(config *Config, syncer *sync.Syncer) (*Executor, error
 	if err != nil {
 		return nil, err
 	}
-	cdmCaller, err := bindings.NewL1CrossDomainMessengerCaller(config.L2CrossDomainMessengerAddress, eClient)
+	cdmCaller, err := bindings.NewL2CrossDomainMessengerCaller(config.L2CrossDomainMessengerAddress, eClient)
 	if err != nil {
 		return nil, err
 	}

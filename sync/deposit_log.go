@@ -3,11 +3,11 @@ package sync
 import (
 	"errors"
 	"fmt"
-	"github.com/morphism-labs/node/types/bindings"
 	"math/big"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/holiman/uint256"
+	"github.com/morphism-labs/morphism-bindings/bindings"
 	"github.com/morphism-labs/node/types"
 	"github.com/scroll-tech/go-ethereum/common"
 	eth "github.com/scroll-tech/go-ethereum/core/types"
@@ -19,7 +19,7 @@ var (
 	DepositEventABI              = "TransactionDeposited(address,address,uint256,bytes)"
 	DepositEventABIHash          = crypto.Keccak256Hash([]byte(DepositEventABI))
 	DepositEventVersion0         = common.Hash{}
-	L1CrossDomainMessengerABI, _ = bindings.L1CrossDomainMessengerMetaData.GetAbi()
+	L2CrossDomainMessengerABI, _ = bindings.L2CrossDomainMessengerMetaData.GetAbi()
 )
 
 func deriveFromReceipt(receipts []*eth.Receipt, depositContractAddr common.Address) ([]types.L1Message, error) {
@@ -187,7 +187,7 @@ type relayMessageData struct {
 }
 
 func unpackRelayMessage(data []byte) (*relayMessageData, error) {
-	abi := L1CrossDomainMessengerABI
+	abi := L2CrossDomainMessengerABI
 	method, ok := abi.Methods["relayMessage"]
 	if !ok {
 		return nil, errors.New("can not find the method of relayMessage")

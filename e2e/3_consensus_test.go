@@ -106,6 +106,7 @@ func TestSingleTendermint_BatchPoint(t *testing.T) {
 		converter := nodetypes.Version1Converter{}
 		customNode := NewCustomNode(node).WithCustomFuncDeliverBlock(func(txs [][]byte, l2Config []byte, zkConfig []byte, validators []tdm.Address, blsSignatures [][]byte) (err error) {
 			l2Data, _, err := converter.Recover(zkConfig, l2Config, txs)
+			require.NoError(t, err)
 			if l2Data.Number%uint64(configBatchBlocksInterval) == 0 {
 				if !hasSig(blsSignatures) {
 					close(errChan)
@@ -316,7 +317,7 @@ func TestMultipleTendermint_BasicProduceBlocks(t *testing.T) {
 	}
 
 	// testing the block producing
-	time.Sleep(tmNodes[0].Config().Consensus.TimeoutCommit + time.Second)
+	time.Sleep(tmNodes[0].Config().Consensus.TimeoutCommit + 2*time.Second)
 	receipt, err := geths[0].EthClient.TransactionReceipt(context.Background(), transferTx.Hash())
 	require.NoError(t, err)
 	require.NotNil(t, receipt.BlockNumber, "the transaction has not been involved in block")

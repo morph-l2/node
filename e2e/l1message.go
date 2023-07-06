@@ -3,9 +3,9 @@ package e2e
 import (
 	"math/big"
 
+	"github.com/morphism-labs/morphism-bindings/bindings"
 	"github.com/morphism-labs/node/e2e/configs"
 	"github.com/morphism-labs/node/types"
-	"github.com/morphism-labs/node/types/bindings"
 	"github.com/scroll-tech/go-ethereum/common"
 	eth "github.com/scroll-tech/go-ethereum/core/types"
 )
@@ -16,7 +16,7 @@ func MockL1Message(from, to common.Address, nonce uint64, depositAmount *big.Int
 		return nil, nil, err
 	}
 	// FinalizeBridgeETH(opts *bind.TransactOpts, _from common.Address, _to common.Address, _amount *big.Int, _extraData []byte)
-	finalizeBridgeETHInput, err := bridgeAbi.Pack("finalizeBridgeETH", from, to, depositAmount, []byte{})
+	finalizeBridgeETHInput, _ := bridgeAbi.Pack("finalizeBridgeETH", from, to, depositAmount, []byte{})
 
 	messengerAbi, err := bindings.L1CrossDomainMessengerMetaData.GetAbi()
 	if err != nil {

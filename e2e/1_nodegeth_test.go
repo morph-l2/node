@@ -5,12 +5,15 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/morphism-labs/morphism-bindings/bindings"
 	nodetypes "github.com/morphism-labs/node/core"
 	"github.com/morphism-labs/node/db"
 	"github.com/morphism-labs/node/types"
 	"github.com/scroll-tech/go-ethereum/accounts/abi/bind"
 	"github.com/scroll-tech/go-ethereum/common"
 	eth "github.com/scroll-tech/go-ethereum/core/types"
+	"github.com/scroll-tech/go-ethereum/rollup/fees"
+	"github.com/scroll-tech/go-ethereum/rollup/rcfg"
 	"github.com/stretchr/testify/require"
 )
 
@@ -133,12 +136,7 @@ func TestNodeGeth_FullBlock(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, syncerDB.WriteSyncedL1Messages([]types.L1Message{*l1Message}, 0))
 
-		txs, restBytes, blsBytes, err := node.RequestBlockData(1)
-		require.NoError(t, err)
-		valid, err := node.CheckBlockData(txs, restBytes, blsBytes)
-		require.NoError(t, err)
-		require.True(t, valid)
-		require.NoError(t, node.DeliverBlock(txs, restBytes, blsBytes, nil, nil))
+		require.NoError(t, ManualCreateBlock(node, 1))
 
 		currentBlock := geth.Backend.BlockChain().CurrentBlock()
 		require.EqualValues(t, 1, currentBlock.Number().Uint64())
@@ -183,12 +181,7 @@ func TestNodeGeth_FullBlock(t *testing.T) {
 		totalTxCount := l2TxCount + 1
 
 		// block 1 producing
-		txs, restBytes, blsBytes, err := node.RequestBlockData(1)
-		require.NoError(t, err)
-		valid, err := node.CheckBlockData(txs, restBytes, blsBytes)
-		require.NoError(t, err)
-		require.True(t, valid)
-		require.NoError(t, node.DeliverBlock(txs, restBytes, blsBytes, nil, nil))
+		require.NoError(t, ManualCreateBlock(node, 1))
 
 		// after block produced
 		currentBlock := geth.Backend.BlockChain().CurrentBlock()
@@ -198,4 +191,90 @@ func TestNodeGeth_FullBlock(t *testing.T) {
 		pendings := geth.Backend.TxPool().Pending(true)
 		require.EqualValues(t, 1, len(pendings))
 	})
+}
+
+func TestL1Fee(t *testing.T) {
+	geth, node := NewGethAndNode(t, db.NewMemoryStore(), func(config *SystemConfig) error {
+		genesis, err := GenesisFromPath(FullGenesisPath)
+		config.Genesis = genesis
+		if err != nil {
+			return err
+		}
+		return nil
+	}, nil)
+
+	// block 1
+	require.NoError(t, ManualCreateBlock(node, 1))
+
+	gasPriceOracle, err := bindings.NewGasPriceOracle(GasPriceOracleAddress, geth.EthClient)
+	require.NoError(t, err)
+	l1BaseFee, err := gasPriceOracle.L1BaseFee(nil)
+	require.NoError(t, err)
+	require.EqualValues(t, 0, l1BaseFee.Int64())
+	overhead, err := gasPriceOracle.Overhead(nil)
+	require.NoError(t, err)
+	require.EqualValues(t, 0, overhead.Int64())
+	scalar, err := gasPriceOracle.Scalar(nil)
+	require.NoError(t, err)
+	require.EqualValues(t, 0, scalar.Int64())
+	owner, err := gasPriceOracle.Owner(nil)
+	require.NoError(t, err)
+	require.EqualValues(t, defaultOwnerAddress.Bytes(), owner.Bytes())
+
+	// update configs
+	transactor, err := bind.NewKeyedTransactorWithChainID(defaultOwnerPrivKey, geth.Backend.BlockChain().Config().ChainID)
+	require.NoError(t, err)
+	setScalarTx, err := gasPriceOracle.SetScalar(transactor, big.NewInt(1e9))
+	require.NoError(t, err)
+	setL1BaseFeeTx, err := gasPriceOracle.SetL1BaseFee(transactor, big.NewInt(2e9)) // 2Gwei
+	require.NoError(t, err)
+	// block 2
+	require.NoError(t, ManualCreateBlock(node, 2))
+	// check the updates
+	setScalarTxReceipt, err := geth.EthClient.TransactionReceipt(context.Background(), setScalarTx.Hash())
+	require.NoError(t, err)
+	require.EqualValues(t, 1, setScalarTxReceipt.Status)
+	setL1BaseFeeReceipt, err := geth.EthClient.TransactionReceipt(context.Background(), setL1BaseFeeTx.Hash())
+	require.NoError(t, err)
+	require.EqualValues(t, 1, setL1BaseFeeReceipt.Status)
+	l1BaseFee, err = gasPriceOracle.L1BaseFee(nil)
+	require.NoError(t, err)
+	require.EqualValues(t, 2e9, l1BaseFee.Int64())
+	scalar, err = gasPriceOracle.Scalar(nil)
+	require.NoError(t, err)
+	require.EqualValues(t, 1e9, scalar.Int64())
+
+	state, err := geth.Backend.BlockChain().State()
+	require.NoError(t, err)
+	l1BaseFeeFromSlot := state.GetState(GasPriceOracleAddress, rcfg.L1BaseFeeSlot)
+	overheadFromSlot := state.GetState(GasPriceOracleAddress, rcfg.OverheadSlot)
+	scalarFromSlot := state.GetState(GasPriceOracleAddress, rcfg.ScalarSlot)
+	require.EqualValues(t, l1BaseFee.Int64(), l1BaseFeeFromSlot.Big().Int64())
+	require.EqualValues(t, overhead.Int64(), overheadFromSlot.Big().Int64())
+	require.EqualValues(t, scalar.Int64(), scalarFromSlot.Big().Int64())
+	// transfer
+	tx, err := SimpleTransfer(geth)
+	require.NoError(t, err)
+	txBytes, err := tx.MarshalBinary()
+	require.NoError(t, err)
+
+	l1GasUsed := fees.CalculateL1GasUsed(txBytes, overhead)
+	l1DataFee := new(big.Int).Mul(l1GasUsed, l1BaseFee)
+	expectedL1Fee := mulAndScale(l1DataFee, scalar, new(big.Int).SetUint64(1e9))
+
+	//block 3
+	require.NoError(t, ManualCreateBlock(node, 3))
+
+	txReceipt, err := geth.EthClient.TransactionReceipt(context.Background(), tx.Hash())
+	require.NoError(t, err)
+	require.EqualValues(t, 1, txReceipt.Status)
+	require.EqualValues(t, expectedL1Fee.Int64(), txReceipt.L1Fee.Int64())
+
+}
+
+// mulAndScale multiplies a big.Int by a big.Int and then scale it by precision,
+// rounded towards zero
+func mulAndScale(x *big.Int, y *big.Int, precision *big.Int) *big.Int {
+	z := new(big.Int).Mul(x, y)
+	return new(big.Int).Quo(z, precision)
 }

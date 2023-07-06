@@ -1,15 +1,16 @@
 package sync
 
 import (
-	"github.com/morphism-labs/node/types/bindings"
-	"github.com/scroll-tech/go-ethereum/common"
-	"github.com/stretchr/testify/require"
 	"math/big"
 	"testing"
+
+	"github.com/morphism-labs/morphism-bindings/bindings"
+	"github.com/scroll-tech/go-ethereum/common"
+	"github.com/stretchr/testify/require"
 )
 
 func TestParseRelayMessage(t *testing.T) {
-	abi, err := bindings.L1CrossDomainMessengerMetaData.GetAbi()
+	abi, err := bindings.L2CrossDomainMessengerMetaData.GetAbi()
 	require.NoError(t, err)
 
 	nonce := big.NewInt(1000)

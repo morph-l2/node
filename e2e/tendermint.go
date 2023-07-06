@@ -18,7 +18,6 @@ import (
 	"github.com/tendermint/tendermint/privval"
 	"github.com/tendermint/tendermint/proxy"
 	rpctest "github.com/tendermint/tendermint/rpc/test"
-	"github.com/tendermint/tendermint/types"
 	tdm "github.com/tendermint/tendermint/types"
 )
 
@@ -40,11 +39,12 @@ func NewTendermintNode(l2Node l2node.L2Node, blsKey *blssignatures.FileBLSKey, o
 		return nil, err
 	}
 
-	if opts != nil {
-		for _, opt := range opts {
+	for _, opt := range opts {
+		if opt != nil {
 			opt(config)
 		}
 	}
+
 	pvKeyFile := config.PrivValidatorKeyFile()
 	pvKeyStateFile := config.PrivValidatorStateFile()
 	pv := privval.LoadOrGenFilePV(pvKeyFile, pvKeyStateFile)
@@ -82,7 +82,7 @@ func NewMultipleTendermintNodes(l2Nodes []l2node.L2Node, opts ...TdmConfigOption
 	num := len(l2Nodes)
 	privKeys := make([]ed25519.PrivKey, num)
 	nodeKeys := make([]*p2p.NodeKey, num)
-	genVals := make([]types.GenesisValidator, num)
+	genVals := make([]tdm.GenesisValidator, num)
 	p2pPorts := make([]int, num)
 
 	for i := 0; i < num; i++ {
@@ -92,7 +92,7 @@ func NewMultipleTendermintNodes(l2Nodes []l2node.L2Node, opts ...TdmConfigOption
 			PrivKey: ed25519.GenPrivKey(),
 		}
 		privKey.PubKey()
-		genVals[i] = types.GenesisValidator{
+		genVals[i] = tdm.GenesisValidator{
 			Address: privKey.PubKey().Address(),
 			PubKey:  privKey.PubKey(),
 			Power:   1,
@@ -106,9 +106,9 @@ func NewMultipleTendermintNodes(l2Nodes []l2node.L2Node, opts ...TdmConfigOption
 		p2pPorts[i] = port
 	}
 	// Generate genesis doc from generated validators
-	genDoc := &types.GenesisDoc{
+	genDoc := &tdm.GenesisDoc{
 		ChainID:         "chain-" + tmrand.Str(6),
-		ConsensusParams: types.DefaultConsensusParams(),
+		ConsensusParams: tdm.DefaultConsensusParams(),
 		GenesisTime:     time.Now(),
 		InitialHeight:   0,
 		Validators:      genVals,

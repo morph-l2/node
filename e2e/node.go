@@ -2,10 +2,10 @@ package e2e
 
 import (
 	"errors"
+
 	node "github.com/morphism-labs/node/core"
 	"github.com/morphism-labs/node/sync"
 	"github.com/tendermint/tendermint/l2node"
-	"github.com/tendermint/tendermint/types"
 	tdm "github.com/tendermint/tendermint/types"
 )
 
@@ -46,7 +46,7 @@ type CustomNode struct {
 
 type FuncRequestBlockData func(height int64) (txs [][]byte, l2Config []byte, zkConfig []byte, err error)
 type FuncCheckBlockData func(txs [][]byte, l2Config []byte, zkConfig []byte) (valid bool, err error)
-type FuncDeliverBlock func(txs [][]byte, l2Config []byte, zkConfig []byte, validators []types.Address, blsSignatures [][]byte) (err error)
+type FuncDeliverBlock func(txs [][]byte, l2Config []byte, zkConfig []byte, validators []tdm.Address, blsSignatures [][]byte) (err error)
 
 func NewCustomNode(origin l2node.L2Node) *CustomNode {
 	return &CustomNode{

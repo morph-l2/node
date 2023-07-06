@@ -1,15 +1,15 @@
 package e2e
 
 import (
+	"testing"
+	"time"
+
 	"github.com/morphism-labs/node/db"
+	"github.com/morphism-labs/node/sync"
 	"github.com/scroll-tech/go-ethereum/eth/ethconfig"
 	"github.com/scroll-tech/go-ethereum/node"
 	"github.com/scroll-tech/go-ethereum/p2p"
 	"github.com/scroll-tech/go-ethereum/p2p/enode"
-	"testing"
-	"time"
-
-	"github.com/morphism-labs/node/sync"
 	"github.com/stretchr/testify/require"
 	"github.com/tendermint/tendermint/l2node"
 )
