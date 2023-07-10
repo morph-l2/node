@@ -1,5 +1,3 @@
-version: '3.4'
-
 volumes:
   sequencer_geth_data:
   sequencer_node_data:
