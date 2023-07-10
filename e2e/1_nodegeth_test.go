@@ -46,7 +46,7 @@ func TestNodeGeth_BasicProduceBlocks(t *testing.T) {
 	require.EqualValues(t, 1, len(pendings))
 
 	// block 1 producing
-	txs, restBytes, blsBytes, err := node.RequestBlockData(1)
+	txs, restBytes, blsBytes, root, err := node.RequestBlockData(1)
 	require.NoError(t, err)
 	require.EqualValues(t, 1, len(txs))
 	converter := nodetypes.Version1Converter{}
@@ -58,7 +58,7 @@ func TestNodeGeth_BasicProduceBlocks(t *testing.T) {
 	require.EqualValues(t, 1, len(l2Data.Transactions))
 	require.EqualValues(t, transferTxBytes, l2Data.Transactions[0])
 
-	valid, err := node.CheckBlockData(txs, restBytes, blsBytes)
+	valid, err := node.CheckBlockData(txs, restBytes, blsBytes, root)
 	require.NoError(t, err)
 	require.True(t, valid)
 
@@ -91,7 +91,7 @@ func TestNodeGeth_BasicProduceBlocks(t *testing.T) {
 	require.EqualValues(t, senderReduced.String(), new(big.Int).Add(receiverGain, feeReceiverGain).String())
 
 	// block 2 producing
-	txs, restBytes, blsBytes, err = node.RequestBlockData(2)
+	txs, restBytes, blsBytes, root, err = node.RequestBlockData(2)
 	require.NoError(t, err)
 	require.EqualValues(t, 0, len(txs))
 	l2Data, l1Msgs, err = converter.Recover(blsBytes, restBytes, txs)
@@ -101,7 +101,7 @@ func TestNodeGeth_BasicProduceBlocks(t *testing.T) {
 	require.EqualValues(t, eth.EmptyAddress, l2Data.Miner)
 	require.EqualValues(t, 0, len(l2Data.Transactions))
 
-	valid, err = node.CheckBlockData(txs, restBytes, blsBytes)
+	valid, err = node.CheckBlockData(txs, restBytes, blsBytes, root)
 	require.NoError(t, err)
 	require.True(t, valid)
 	require.NoError(t, node.DeliverBlock(txs, restBytes, blsBytes, nil, nil))

@@ -3,6 +3,7 @@ package e2e
 import (
 	"context"
 	"fmt"
+	"github.com/scroll-tech/go-ethereum/common/hexutil"
 	"math/big"
 	"testing"
 	"time"
@@ -45,26 +46,34 @@ func TestSingleTendermint_VerifyBLS(t *testing.T) {
 	txsContext := make([]byte, 0)
 	zkContext := make([]byte, 0)
 	stop := make(chan struct{})
-	customNode := NewCustomNode(node).WithCustomFuncDeliverBlock(func(txs [][]byte, l2Config []byte, zkConfig []byte, validators []tdm.Address, blsSignatures [][]byte) (err error) {
-		for _, tx := range txs {
-			txsContext = append(txsContext, tx...)
-		}
-		zkContext = append(zkContext, zkConfig...)
-		if len(blsSignatures) > 0 && len(blsSignatures[0]) > 0 {
-			require.EqualValues(t, 1, len(blsSignatures))
-			require.EqualValues(t, 1, len(validators))
-			sig, err := blssignatures.SignatureFromBytes(blsSignatures[0])
-			require.NoError(t, err)
-			pk, err := blssignatures.PublicKeyFromBytes(blsKey.PubKey, false)
-			require.NoError(t, err)
+	var lastRoot []byte
+	customNode := NewCustomNode(node).
+		WithCustomRequestBlockData(func(height int64) (txs [][]byte, l2Config []byte, zkConfig, root []byte, err error) {
+			txs, l2Config, zkConfig, root, err = node.RequestBlockData(height)
+			fmt.Printf("height: %d, root: %s \n", height, hexutil.Encode(root))
+			lastRoot = root
+			return
+		}).
+		WithCustomFuncDeliverBlock(func(txs [][]byte, l2Config []byte, zkConfig []byte, validators []tdm.Address, blsSignatures [][]byte) (err error) {
+			for _, tx := range txs {
+				txsContext = append(txsContext, tx...)
+			}
+			zkContext = append(zkContext, zkConfig...)
+			if len(blsSignatures) > 0 && len(blsSignatures[0]) > 0 {
+				require.EqualValues(t, 1, len(blsSignatures))
+				require.EqualValues(t, 1, len(validators))
+				sig, err := blssignatures.SignatureFromBytes(blsSignatures[0])
+				require.NoError(t, err)
+				pk, err := blssignatures.PublicKeyFromBytes(blsKey.PubKey, false)
+				require.NoError(t, err)
 
-			valid, err := blssignatures.VerifySignature(sig, crypto.Keccak256(append(zkContext, txsContext...)), pk)
-			require.NoError(t, err)
-			require.True(t, valid)
-			close(stop)
-		}
-		return node.DeliverBlock(txs, l2Config, zkConfig, validators, blsSignatures)
-	})
+				valid, err := blssignatures.VerifySignature(sig, crypto.Keccak256(append(append(zkContext, txsContext...), lastRoot...)), pk)
+				require.NoError(t, err)
+				require.True(t, valid)
+				close(stop)
+			}
+			return node.DeliverBlock(txs, l2Config, zkConfig, validators, blsSignatures)
+		})
 	tendermint, err := NewTendermintNode(customNode, blsKey, func(config *config.Config) {
 		config.Consensus.BatchBlocksInterval = 2
 	})
@@ -72,6 +81,7 @@ func TestSingleTendermint_VerifyBLS(t *testing.T) {
 	require.NoError(t, tendermint.Start())
 	defer func() {
 		rpctest.StopTendermint(tendermint)
+		geth.Node.Close()
 	}()
 	_, err = SimpleTransfer(geth)
 	require.NoError(t, err)
@@ -82,8 +92,6 @@ Loop:
 		select {
 		case <-stop:
 			t.Log("successfully verified BLS")
-			geth.Node.Close()
-			tendermint.Stop()
 			break Loop
 		case <-timer.C:
 			require.Fail(t, "timeout")

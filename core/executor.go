@@ -11,6 +11,7 @@ import (
 	"github.com/morphism-labs/morphism-bindings/bindings"
 	"github.com/morphism-labs/node/sync"
 	"github.com/morphism-labs/node/types"
+	"github.com/scroll-tech/go-ethereum/common"
 	eth "github.com/scroll-tech/go-ethereum/core/types"
 	"github.com/scroll-tech/go-ethereum/crypto/bls12381"
 	"github.com/scroll-tech/go-ethereum/ethclient"
@@ -108,7 +109,7 @@ func NewExecutor(config *Config) (*Executor, error) {
 
 var _ l2node.L2Node = (*Executor)(nil)
 
-func (e *Executor) RequestBlockData(height int64) (txs [][]byte, l2Config, zkConfig []byte, err error) {
+func (e *Executor) RequestBlockData(height int64) (txs [][]byte, l2Config, zkConfig []byte, root []byte, err error) {
 	if e.syncer == nil {
 		err = fmt.Errorf("RequestBlockData is not alllowed to be called")
 		return
@@ -148,12 +149,13 @@ func (e *Executor) RequestBlockData(height int64) (txs [][]byte, l2Config, zkCon
 		return
 	}
 	txs = l2Block.Transactions
+	root = l2Block.WithdrawTrieRoot.Bytes()
 	e.logger.Info("RequestBlockData response",
 		"txs.length", len(txs))
 	return
 }
 
-func (e *Executor) CheckBlockData(txs [][]byte, l2Config, zkConfig []byte) (valid bool, err error) {
+func (e *Executor) CheckBlockData(txs [][]byte, l2Config, zkConfig, root []byte) (valid bool, err error) {
 	e.logger.Info("CheckBlockData requests",
 		"txs.length", len(txs),
 		"l2Config length", len(l2Config),
@@ -165,11 +167,18 @@ func (e *Executor) CheckBlockData(txs [][]byte, l2Config, zkConfig []byte) (vali
 	l2Block, l1Messages, err := e.bc.Recover(zkConfig, l2Config, txs)
 	if err != nil {
 		e.logger.Error("failed to recover block from separated bytes", "err", err)
-		return false, err
+		return false, nil
 	}
 
 	if err := e.validateL1Messages(txs, l1Messages); err != nil {
+		if err != types.ErrQueryL1Message { // only do not return error if it is not ErrQueryL1Message error
+			err = nil
+		}
 		return false, err
+	}
+
+	if root != nil {
+		l2Block.WithdrawTrieRoot = common.BytesToHash(root)
 	}
 
 	validated, err := e.l2Client.ValidateL2Block(context.Background(), l2Block)
