@@ -24,8 +24,7 @@ import (
 )
 
 var (
-	// TODO edit
-	ZKEvmEventTopic     = "SubmitBatches(address,address,uint256,bytes)"
+	ZKEvmEventTopic     = "SubmitBatches(uint64,uint64)"
 	ZKEvmEventTopicHash = crypto.Keccak256Hash([]byte(ZKEvmEventTopic))
 )
 
@@ -146,7 +145,7 @@ func (d *Derivation) fetchZkEvmData(ctx context.Context, from, to uint64) ([]*Ba
 
 	var batches []*Batch
 	for _, lg := range logs {
-		batch, err := unmarshalZKEvmLogEvent(&lg)
+		batch, err := fetchRollupData(lg.TxHash)
 		if err != nil {
 			return nil, err
 		}
@@ -214,7 +213,6 @@ type BlockData struct {
 	StateRoot  []byte
 }
 
-// TODO
-func unmarshalZKEvmLogEvent(ev *eth.Log) (*Batch, error) {
+func fetchRollupData(txHash common.Hash) (*Batch, error) {
 	return nil, nil
 }

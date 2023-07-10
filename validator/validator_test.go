@@ -20,7 +20,7 @@ import (
 func TestValidator_ChallengeState(t *testing.T) {
 	key, _ := crypto.GenerateKey()
 	sim, _ := newSimulatedBackend(key)
-	opts, err := bind.NewKeyedTransactorWithChainID(key, big.NewInt(1))
+	opts, err := bind.NewKeyedTransactorWithChainID(key, big.NewInt(1337))
 	require.NoError(t, err)
 	addr, _, zkevm, err := bindings.DeployZKEVM(opts, sim, common.Address{}, common.Address{}, crypto.PubkeyToAddress(key.PublicKey))
 	require.NoError(t, err)
@@ -38,7 +38,7 @@ func TestValidator_ChallengeState(t *testing.T) {
 
 func newSimulatedBackend(key *ecdsa.PrivateKey) (*backends.SimulatedBackend, ethdb.Database) {
 	var gasLimit uint64 = 9_000_000
-	auth, _ := bind.NewKeyedTransactorWithChainID(key, big.NewInt(1))
+	auth, _ := bind.NewKeyedTransactorWithChainID(key, big.NewInt(1337))
 	genAlloc := make(core.GenesisAlloc)
 	genAlloc[auth.From] = core.GenesisAccount{Balance: big.NewInt(9223372036854775807)}
 	db := rawdb.NewMemoryDatabase()

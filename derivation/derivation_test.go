@@ -23,15 +23,14 @@ func TestDerivationBlock(t *testing.T) {
 	//prepare msg
 	key, _ := crypto.GenerateKey()
 	sim, _ := newSimulatedBackend(key)
-	opts, _ := bind.NewKeyedTransactorWithChainID(key, big.NewInt(1))
-	_, _, zkevm, err := bindings.DeployZKEVM(opts, sim, common.Address{}, common.Address{}, crypto.PubkeyToAddress(key.PublicKey))
+	opts, _ := bind.NewKeyedTransactorWithChainID(key, big.NewInt(1337))
+	_, _, zkevm, err := bindings.DeployZKEVM(opts, sim, common.Address{}, opts.From, crypto.PubkeyToAddress(key.PublicKey))
 	require.NoError(t, err)
 	_, err = zkevm.SubmitBatches(opts, []bindings.ZKEVMBatchData{})
 	require.NoError(t, err)
 	sim.Commit()
 	context.Background()
 	dbConfig := db.DefaultConfig()
-	//dbConfig.SetCliContext(ctx)
 	store, err := db.NewStore(dbConfig, "test")
 	require.NoError(t, err)
 	ctx := context.Background()
@@ -53,7 +52,7 @@ func TestDerivationBlock(t *testing.T) {
 
 func newSimulatedBackend(key *ecdsa.PrivateKey) (*backends.SimulatedBackend, ethdb.Database) {
 	var gasLimit uint64 = 9_000_000
-	auth, _ := bind.NewKeyedTransactorWithChainID(key, big.NewInt(1))
+	auth, _ := bind.NewKeyedTransactorWithChainID(key, big.NewInt(1337))
 	genAlloc := make(core.GenesisAlloc)
 	genAlloc[auth.From] = core.GenesisAccount{Balance: big.NewInt(9223372036854775807)}
 	db := rawdb.NewMemoryDatabase()
