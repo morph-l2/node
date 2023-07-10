@@ -6,7 +6,8 @@ require (
 	github.com/cenkalti/backoff/v4 v4.1.3
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/hashicorp/golang-lru v0.5.5-0.20210104140557-80c98217689d
-	github.com/holiman/uint256 v1.2.2-0.20230321075855-87b91420868c
+	github.com/holiman/uint256 v1.2.2
+	github.com/morphism-labs/morphism-bindings v0.0.0-20230706120507-6afb146c84ec
 	github.com/scroll-tech/go-ethereum v1.11.4
 	github.com/spf13/viper v1.13.0
 	github.com/stretchr/testify v1.8.2
@@ -26,7 +27,6 @@ require (
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/cosmos/gogoproto v1.4.1 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.2 // indirect
-	github.com/creachadair/taskgroup v0.3.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/deckarep/golang-set v0.0.0-20180603214616-504e848d77ea // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.0.1 // indirect
@@ -124,6 +124,6 @@ require (
 
 replace (
 	github.com/btcsuite/btcd => github.com/btcsuite/btcd v0.20.1-beta
-	github.com/scroll-tech/go-ethereum => github.com/morphism-labs/go-ethereum v1.10.14-0.20230616072426-a4a63e7bbda3
-	github.com/tendermint/tendermint => github.com/morphism-labs/tendermint v0.0.0-20230608143043-dfa62d1d6e02
+	github.com/scroll-tech/go-ethereum => github.com/morphism-labs/go-ethereum v1.10.14-0.20230703130045-e554e93a101c
+	github.com/tendermint/tendermint => github.com/morphism-labs/tendermint v0.0.0-20230703025202-fb07b98cf0cc
 )

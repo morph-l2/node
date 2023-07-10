@@ -18,7 +18,7 @@ func (e *Executor) updateLatestProcessedL1Index(txs [][]byte) error {
 		if err := tx.UnmarshalBinary(txBytes); err != nil {
 			return fmt.Errorf("transaction %d is not valid: %v", i, err)
 		}
-		e.latestProcessedL1Index = tx.AsL1MessageTx().QueueIndex
+		e.latestProcessedL1Index = &tx.AsL1MessageTx().QueueIndex
 	}
 	return nil
 }
@@ -30,7 +30,10 @@ func (e *Executor) validateL1Messages(txs [][]byte, l1Msgs []types.L1Message) er
 	}
 
 	L1SectionOver := false
-	queueIndex := e.latestProcessedL1Index
+	var queueIndex int64 = -1
+	if e.latestProcessedL1Index != nil {
+		queueIndex = int64(*e.latestProcessedL1Index)
+	}
 	for i, txBz := range txs {
 		if !isL1MessageTxType(txBz) {
 			L1SectionOver = true
@@ -48,15 +51,15 @@ func (e *Executor) validateL1Messages(txs [][]byte, l1Msgs []types.L1Message) er
 		queueIndex += 1
 
 		// check queue index
-		if tx.AsL1MessageTx().QueueIndex != queueIndex {
+		if tx.AsL1MessageTx().QueueIndex != uint64(queueIndex) {
 			return types.ErrInvalidL1MessageOrder
 		}
 
-		txHash, ok := cache[queueIndex]
+		txHash, ok := cache[uint64(queueIndex)]
 		if !ok {
 			return types.ErrInvalidL1Message
 		}
-		l1Message, err := e.syncer.GetL1Message(queueIndex, txHash)
+		l1Message, err := e.syncer.GetL1Message(uint64(queueIndex), txHash)
 		if err != nil {
 			log.Warn("error getting L1 message from syncer", "error", err)
 			return err

@@ -1,11 +1,13 @@
 package sync
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/holiman/uint256"
+	"github.com/morphism-labs/morphism-bindings/bindings"
 	"github.com/morphism-labs/node/types"
 	"github.com/scroll-tech/go-ethereum/common"
 	eth "github.com/scroll-tech/go-ethereum/core/types"
@@ -14,9 +16,10 @@ import (
 )
 
 var (
-	DepositEventABI      = "TransactionDeposited(address,address,uint256,bytes)"
-	DepositEventABIHash  = crypto.Keccak256Hash([]byte(DepositEventABI))
-	DepositEventVersion0 = common.Hash{}
+	DepositEventABI              = "TransactionDeposited(address,address,uint256,bytes)"
+	DepositEventABIHash          = crypto.Keccak256Hash([]byte(DepositEventABI))
+	DepositEventVersion0         = common.Hash{}
+	L2CrossDomainMessengerABI, _ = bindings.L2CrossDomainMessengerMetaData.GetAbi()
 )
 
 func deriveFromReceipt(receipts []*eth.Receipt, depositContractAddr common.Address) ([]types.L1Message, error) {
@@ -32,6 +35,9 @@ func deriveFromReceipt(receipts []*eth.Receipt, depositContractAddr common.Addre
 				if err != nil {
 					result = multierror.Append(result, fmt.Errorf("malformatted L1 deposit log in receipt %d, log %d: %w", i, j, err))
 				} else {
+					if msg == nil {
+						continue
+					}
 					out = append(out, types.L1Message{
 						L1MessageTx: *msg,
 						L1TxHash:    lg.TxHash,
@@ -106,8 +112,13 @@ func UnmarshalDepositLogEvent(ev *eth.Log) (*eth.L1MessageTx, error) {
 		return nil, fmt.Errorf("invalid deposit version, got %s", version)
 	}
 	if err != nil {
+		if err == types.ErrNotFromCrossDomainMessenger {
+			log.Warn("found the message not sent by L1CrossDomainMessenger, ignore it for now")
+			return nil, nil
+		}
 		return nil, fmt.Errorf("failed to decode deposit (version %s): %w", version, err)
 	}
+	tx.Sender = from
 	return tx, nil
 }
 
@@ -151,7 +162,51 @@ func unmarshalDepositVersion0(to common.Address, opaqueData []byte) (*eth.L1Mess
 	// remaining bytes fill the data
 	message.Data = opaqueData[offset : offset+txDataLen]
 
-	message.QueueIndex = 0 // todo
+	// NOTE: currently we acquire the nonce from relayMessage input parsed from event data,
+	// which means we only allow the cross message data which are formed as relayMessage for now.
+	// in the future, the `nonce` is supposed to be exposed as one of the event fields
+	relayMessage, err := unpackRelayMessage(message.Data)
+	if err != nil {
+		return nil, types.ErrNotFromCrossDomainMessenger
+	}
+	message.QueueIndex, err = types.DecodeNonce(relayMessage.nonce)
+	if err != nil {
+		return nil, err
+	}
 
 	return &message, nil
+}
+
+type relayMessageData struct {
+	nonce       *big.Int
+	sender      common.Address
+	target      common.Address
+	value       *big.Int
+	minGasLimit *big.Int
+	message     []byte
+}
+
+func unpackRelayMessage(data []byte) (*relayMessageData, error) {
+	abi := L2CrossDomainMessengerABI
+	method, ok := abi.Methods["relayMessage"]
+	if !ok {
+		return nil, errors.New("can not find the method of relayMessage")
+	}
+	args := method.Inputs
+	unpacked, err := args.Unpack(data[4:])
+	if err != nil {
+		return nil, err
+	}
+	if len(unpacked) != 6 {
+		return nil, errors.New("wrong unpacked value length")
+	}
+
+	relayMessage := new(relayMessageData)
+	relayMessage.nonce = unpacked[0].(*big.Int)
+	relayMessage.sender = unpacked[1].(common.Address)
+	relayMessage.target = unpacked[2].(common.Address)
+	relayMessage.value = unpacked[3].(*big.Int)
+	relayMessage.minGasLimit = unpacked[4].(*big.Int)
+	relayMessage.message = unpacked[5].([]byte)
+	return relayMessage, nil
 }

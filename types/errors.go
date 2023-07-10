@@ -20,4 +20,6 @@ var (
 	ErrWrongBlockNumber = errors.New("wrong block number")
 
 	ErrMemoryDBNotFound = errors.New("not found")
+
+	ErrNotFromCrossDomainMessenger = errors.New("the cross message is not sent by L1CrossDomainMessenger")
 )

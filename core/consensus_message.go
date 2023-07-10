@@ -23,7 +23,11 @@ func (bc *Version1Converter) Separate(l2Block *catalyst.ExecutableL2Data, l1Msg 
 	copy(blsBytes[32:64], l2Block.ParentHash.Bytes())
 	copy(blsBytes[64:72], types.Uint64ToBigEndianBytes(l2Block.Number))
 	copy(blsBytes[72:80], types.Uint64ToBigEndianBytes(l2Block.Timestamp))
-	copy(blsBytes[80:112], l2Block.BaseFee.FillBytes(make([]byte, 32)))
+	if l2Block.BaseFee != nil {
+		copy(blsBytes[80:112], l2Block.BaseFee.FillBytes(make([]byte, 32)))
+	} else {
+		copy(blsBytes[80:112], make([]byte, 32))
+	}
 	copy(blsBytes[112:120], types.Uint64ToBigEndianBytes(l2Block.GasLimit))
 	copy(blsBytes[120:122], types.Uint16ToBigEndianBytes(uint16(len(l2Block.Transactions))))
 	copy(blsBytes[122:124], types.Uint16ToBigEndianBytes(uint16(0))) // later replace it to len(l1Msg)
@@ -60,13 +64,18 @@ func (bc *Version1Converter) Recover(blsMsg []byte, restMsg []byte, txs [][]byte
 		return nil, nil, fmt.Errorf("wrong blsMsg, numL1Msg(%d) is not equal to the length of L1Messages(%d)", binary.BigEndian.Uint16(blsMsg[122:124]), 0)
 	}
 
+	baseFee := new(big.Int).SetBytes(blsMsg[80:112])
+	if baseFee.Cmp(big.NewInt(0)) == 0 {
+		baseFee = nil
+	}
+
 	return &catalyst.ExecutableL2Data{
 		Hash:         common.BytesToHash(blsMsg[:32]),
 		ParentHash:   common.BytesToHash(blsMsg[32:64]),
 		Miner:        rest.Miner,
 		Number:       binary.BigEndian.Uint64(blsMsg[64:72]),
 		Timestamp:    binary.BigEndian.Uint64(blsMsg[72:80]),
-		BaseFee:      new(big.Int).SetBytes(blsMsg[80:112]),
+		BaseFee:      baseFee,
 		GasLimit:     binary.BigEndian.Uint64(blsMsg[112:120]),
 		StateRoot:    rest.StateRoot,
 		GasUsed:      rest.GasUsed,
