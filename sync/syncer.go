@@ -3,12 +3,12 @@ package sync
 import (
 	"context"
 	"errors"
+	tmlog "github.com/tendermint/tendermint/libs/log"
 	"time"
 
 	"github.com/morphism-labs/node/types"
 	"github.com/scroll-tech/go-ethereum/common"
 	"github.com/scroll-tech/go-ethereum/ethclient"
-	"github.com/scroll-tech/go-ethereum/log"
 )
 
 type Syncer struct {
@@ -17,6 +17,7 @@ type Syncer struct {
 	bridgeClient *BridgeClient
 	latestSynced uint64
 	db           Database
+	logger       tmlog.Logger
 
 	fetchBlockRange     uint64
 	pollInterval        time.Duration
@@ -24,7 +25,7 @@ type Syncer struct {
 	stop                chan struct{}
 }
 
-func NewSyncer(ctx context.Context, db Database, config *Config) (*Syncer, error) {
+func NewSyncer(ctx context.Context, db Database, config *Config, logger tmlog.Logger) (*Syncer, error) {
 	l1Client, err := ethclient.Dial(config.L1.Addr)
 	if err != nil {
 		return nil, err
@@ -34,12 +35,13 @@ func NewSyncer(ctx context.Context, db Database, config *Config) (*Syncer, error
 		return nil, errors.New("deposit contract address cannot be nil")
 	}
 
-	bridgeClient := NewBridgeClient(l1Client, *config.DepositContractAddress, config.L1.Confirmations)
+	bridgeClient := NewBridgeClient(l1Client, *config.DepositContractAddress, config.L1.Confirmations, logger)
 
+	logger = logger.With("module", "syncer")
 	latestSynced := db.ReadLatestSyncedL1Height()
 	if latestSynced == nil {
 		if config.StartHeight == 0 {
-			log.Warn("!!!Missing `sync.startHeight` configured!!!  Detected that it is your first time to start the node as a sequencer, it is dangerous not setting `sync.startHeight`, as it may lost some previous L1Messages.")
+			logger.Info("syncing warning", "msg", "Missing `sync.startHeight` configured. Detected that it is your first time to start the node as a sequencer, it is dangerous not setting `sync.startHeight`, as it may lost some previous L1Messages")
 			if config.StartHeight, err = l1Client.BlockNumber(context.Background()); err != nil {
 				return nil, err
 			}
@@ -55,6 +57,7 @@ func NewSyncer(ctx context.Context, db Database, config *Config) (*Syncer, error
 		latestSynced: *latestSynced,
 		db:           db,
 		stop:         make(chan struct{}),
+		logger:       logger,
 
 		fetchBlockRange:     config.FetchBlockRange,
 		pollInterval:        config.PollInterval,
@@ -64,9 +67,9 @@ func NewSyncer(ctx context.Context, db Database, config *Config) (*Syncer, error
 
 func (s *Syncer) Start() {
 	// block node startup during initial sync and print some helpful logs
-	log.Warn("Running initial sync of L1 messages before starting sequencer, this might take a while...")
+	s.logger.Info("initial sync start", "msg", "Running initial sync of L1 messages before starting sequencer, this might take a while...")
 	s.fetchL1Messages()
-	log.Info("L1 message initial sync completed", "latestSyncedBlock", s.latestSynced)
+	s.logger.Info("initial sync completed", "latestSyncedBlock", s.latestSynced)
 
 	go func() {
 		t := time.NewTicker(s.pollInterval)
@@ -92,19 +95,19 @@ func (s *Syncer) Stop() {
 		return
 	}
 
-	log.Info("Stopping sync service")
+	s.logger.Info("Stopping sync service")
 
 	if s.cancel != nil {
 		s.cancel()
 	}
 	<-s.stop
-	log.Info("Sync service is stopped")
+	s.logger.Info("Sync service is stopped")
 }
 
 func (s *Syncer) fetchL1Messages() {
 	latestConfirmed, err := s.bridgeClient.getLatestConfirmedBlockNumber(s.ctx)
 	if err != nil {
-		log.Warn("failed to get latest confirmed block number", "err", err)
+		s.logger.Error("failed to get latest confirmed block number", "err", err)
 		return
 	}
 
@@ -119,7 +122,7 @@ func (s *Syncer) fetchL1Messages() {
 			return
 		case <-t.C:
 			progress := 100 * float64(s.latestSynced) / float64(latestConfirmed)
-			log.Info("Syncing L1 messages", "synced", s.latestSynced, "confirmed", latestConfirmed, "collected", numMessagesCollected, "progress(%)", progress)
+			s.logger.Info("Syncing L1 messages", "synced", s.latestSynced, "confirmed", latestConfirmed, "collected", numMessagesCollected, "progress(%)", progress)
 		default:
 		}
 
@@ -131,15 +134,16 @@ func (s *Syncer) fetchL1Messages() {
 
 		l1Messages, err := s.bridgeClient.L1Messages(s.ctx, from, to)
 		if err != nil {
-			log.Warn("failed to fetch L1 messages", "fromBlock", from, "toBlock", to, "err", err)
+			s.logger.Error("failed to fetch L1 messages", "fromBlock", from, "toBlock", to, "err", err)
 			return
 		}
 
 		if len(l1Messages) > 0 {
-			log.Debug("Received new L1 events", "fromBlock", from, "toBlock", to, "count", len(l1Messages))
+			s.logger.Debug("Received new L1 events", "fromBlock", from, "toBlock", to, "count", len(l1Messages))
 			if err = s.db.WriteSyncedL1Messages(l1Messages, to); err != nil {
 				// crash on database error
-				log.Crit("failed to write L1 messages to database", "err", err)
+				s.logger.Error("failed to write L1 messages to database", "err", err)
+				return
 			}
 			numMessagesCollected += len(l1Messages)
 		} else {
