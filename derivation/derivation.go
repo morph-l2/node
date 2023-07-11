@@ -3,8 +3,10 @@ package derivation
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
-
+	"github.com/morphism-labs/morphism-bindings/bindings"
+	"github.com/morphism-labs/tx-submitter/batch-submitter/drivers/sequencer"
 	"math/big"
 	"time"
 
@@ -214,5 +216,43 @@ type BlockData struct {
 }
 
 func fetchRollupData(txHash common.Hash) (*Batch, error) {
-	return nil, nil
+
+	c, err := ethclient.Dial("cfg.L1.Addr")
+	if err != nil {
+		return nil, err
+	}
+	tx, pending, err := c.TransactionByHash(nil, txHash)
+	if err != nil {
+		return nil, err
+	}
+	if pending {
+		return nil, errors.New("tx is pending")
+	}
+	abi, err := bindings.ZKEVMMetaData.GetAbi()
+	if err != nil {
+		return nil, err
+	}
+	args, err := abi.Unpack("SubmitBatches", tx.Data())
+	if err != nil {
+		return nil, err
+	}
+	// parse calldata to zkevm batch data
+	batches := make([]sequencer.BatchData, len(args))
+
+	for _, arg := range args {
+		// convert arg to batch
+		batch := arg.(bindings.ZKEVMBatchData)
+		//batches = append(batches, batch)
+		bd := sequencer.BatchData{}
+		if err := bd.DecodeBlockContext(uint(batch.BlockNumber), batch.BlockWitnes); err != nil {
+			return nil, err
+		}
+
+		if err := bd.DecodeTransactions(batch.Transactions); err != nil {
+			return nil, err
+		}
+		bd.Signature = &batch.Signature
+		batches = append(batches, bd)
+	}
+	return batches, err
 }
