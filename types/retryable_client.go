@@ -2,6 +2,7 @@ package types
 
 import (
 	"context"
+	tmlog "github.com/tendermint/tendermint/libs/log"
 	"math/big"
 	"strings"
 
@@ -10,7 +11,6 @@ import (
 	"github.com/scroll-tech/go-ethereum/eth/catalyst"
 	"github.com/scroll-tech/go-ethereum/ethclient"
 	"github.com/scroll-tech/go-ethereum/ethclient/authclient"
-	"github.com/scroll-tech/go-ethereum/log"
 )
 
 const (
@@ -22,15 +22,18 @@ type RetryableClient struct {
 	authClient *authclient.Client
 	ethClient  *ethclient.Client
 	b          backoff.BackOff
+	logger     tmlog.Logger
 }
 
 // NewRetryableClient make the client retryable
 // Will retry calling the api, if the connection is refused
-func NewRetryableClient(authClient *authclient.Client, ethClient *ethclient.Client) *RetryableClient {
+func NewRetryableClient(authClient *authclient.Client, ethClient *ethclient.Client, logger tmlog.Logger) *RetryableClient {
+	logger = logger.With("module", "retryClient")
 	return &RetryableClient{
 		authClient: authClient,
 		ethClient:  ethClient,
 		b:          backoff.NewExponentialBackOff(),
+		logger:     logger,
 	}
 }
 
@@ -38,7 +41,7 @@ func (rc *RetryableClient) AssembleL2Block(ctx context.Context, number *big.Int,
 	if retryErr := backoff.Retry(func() error {
 		resp, respErr := rc.authClient.AssembleL2Block(ctx, number, transactions)
 		if respErr != nil {
-			log.Warn("failed to AssembleL2Block", "error", err)
+			rc.logger.Info("failed to AssembleL2Block", "error", respErr)
 			if strings.Contains(respErr.Error(), ConnectionRefused) || strings.Contains(respErr.Error(), EOFError) {
 				return respErr
 			}
@@ -56,7 +59,7 @@ func (rc *RetryableClient) ValidateL2Block(ctx context.Context, executableL2Data
 	if retryErr := backoff.Retry(func() error {
 		resp, respErr := rc.authClient.ValidateL2Block(ctx, executableL2Data)
 		if respErr != nil {
-			log.Warn("failed to ValidateL2Block", "error", err)
+			rc.logger.Info("failed to ValidateL2Block", "error", respErr)
 			if strings.Contains(respErr.Error(), ConnectionRefused) || strings.Contains(respErr.Error(), EOFError) {
 				return respErr
 			}
@@ -74,7 +77,7 @@ func (rc *RetryableClient) NewL2Block(ctx context.Context, executableL2Data *cat
 	if retryErr := backoff.Retry(func() error {
 		respErr := rc.authClient.NewL2Block(ctx, executableL2Data, blsData)
 		if respErr != nil {
-			log.Warn("failed to NewL2Block", "error", err)
+			rc.logger.Info("failed to NewL2Block", "error", respErr)
 			if strings.Contains(respErr.Error(), ConnectionRefused) || strings.Contains(respErr.Error(), EOFError) {
 				return respErr
 			}
@@ -91,7 +94,7 @@ func (rc *RetryableClient) NewSafeL2Block(ctx context.Context, safeL2Data *catal
 	if retryErr := backoff.Retry(func() error {
 		resp, respErr := rc.authClient.NewSafeL2Block(ctx, safeL2Data, blsData)
 		if respErr != nil {
-			log.Warn("failed to NewSafeL2Block", "error", err)
+			rc.logger.Info("failed to NewSafeL2Block", "error", respErr)
 			if strings.Contains(respErr.Error(), ConnectionRefused) || strings.Contains(respErr.Error(), EOFError) {
 				return respErr
 			}
@@ -109,7 +112,7 @@ func (rc *RetryableClient) BlockNumber(ctx context.Context) (ret uint64, err err
 	if retryErr := backoff.Retry(func() error {
 		resp, respErr := rc.ethClient.BlockNumber(ctx)
 		if respErr != nil {
-			log.Warn("failed to call BlockNumber", "error", err)
+			rc.logger.Info("failed to call BlockNumber", "error", respErr)
 			if strings.Contains(respErr.Error(), ConnectionRefused) || strings.Contains(respErr.Error(), EOFError) {
 				return respErr
 			}

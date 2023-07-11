@@ -80,7 +80,7 @@ func NewSequencerExecutor(config *Config, syncer *sync.Syncer) (*Executor, error
 	}
 
 	return &Executor{
-		l2Client:               types.NewRetryableClient(aClient, eClient),
+		l2Client:               types.NewRetryableClient(aClient, eClient, config.Logger),
 		bc:                     &Version1Converter{},
 		latestProcessedL1Index: latestProcessedL1Index,
 		maxL1MsgNumPerBlock:    config.MaxL1MessageNumPerBlock,
@@ -101,7 +101,7 @@ func NewExecutor(config *Config) (*Executor, error) {
 		return nil, err
 	}
 	return &Executor{
-		l2Client: types.NewRetryableClient(aClient, eClient),
+		l2Client: types.NewRetryableClient(aClient, eClient, config.Logger),
 		bc:       &Version1Converter{},
 		logger:   logger,
 	}, err
