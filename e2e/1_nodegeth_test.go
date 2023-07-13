@@ -220,6 +220,9 @@ func TestL1Fee(t *testing.T) {
 	owner, err := gasPriceOracle.Owner(nil)
 	require.NoError(t, err)
 	require.EqualValues(t, defaultOwnerAddress.Bytes(), owner.Bytes())
+	allowListEnabled, err := gasPriceOracle.AllowListEnabled(nil)
+	require.NoError(t, err)
+	require.True(t, allowListEnabled)
 
 	// update configs
 	transactor, err := bind.NewKeyedTransactorWithChainID(defaultOwnerPrivKey, geth.Backend.BlockChain().Config().ChainID)
