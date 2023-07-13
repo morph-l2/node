@@ -272,6 +272,32 @@ func TestL1Fee(t *testing.T) {
 
 }
 
+func TestWithdrawRootSlot(t *testing.T) {
+	geth, node := NewGethAndNode(t, db.NewMemoryStore(), func(config *SystemConfig) error {
+		genesis, err := GenesisFromPath(FullGenesisPath)
+		config.Genesis = genesis
+		if err != nil {
+			return err
+		}
+		return nil
+	}, nil)
+
+	// block 1
+	require.NoError(t, ManualCreateBlock(node, 1))
+
+	l2ToL1MessagePasser, err := bindings.NewL2ToL1MessagePasserCaller(rcfg.L2MessageQueueAddress, geth.EthClient)
+	require.NoError(t, err)
+	expectedRoot, err := l2ToL1MessagePasser.GetTreeRoot(nil)
+	require.NoError(t, err)
+	messageRoot, err := l2ToL1MessagePasser.MessageRoot(nil)
+	require.NoError(t, err)
+	require.EqualValues(t, expectedRoot, messageRoot)
+	state, err := geth.Backend.BlockChain().State()
+	require.NoError(t, err)
+	result := state.GetState(rcfg.L2MessageQueueAddress, rcfg.WithdrawTrieRootSlot)
+	require.EqualValues(t, expectedRoot, result)
+}
+
 // mulAndScale multiplies a big.Int by a big.Int and then scale it by precision,
 // rounded towards zero
 func mulAndScale(x *big.Int, y *big.Int, precision *big.Int) *big.Int {
