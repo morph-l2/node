@@ -10,6 +10,7 @@ import (
 	nodetypes "github.com/morphism-labs/node/core"
 	"github.com/morphism-labs/node/db"
 	"github.com/scroll-tech/go-ethereum/accounts/abi/bind"
+	"github.com/scroll-tech/go-ethereum/common/hexutil"
 	"github.com/scroll-tech/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
 	"github.com/tendermint/tendermint/blssignatures"
@@ -19,23 +20,52 @@ import (
 )
 
 func TestSingleTendermint_BasicProduceBlocks(t *testing.T) {
-	geth, node := NewGethAndNode(t, db.NewMemoryStore(), nil, nil)
-	tendermint, err := NewDefaultTendermintNode(node)
-	require.NoError(t, err)
-	require.NoError(t, tendermint.Start())
-	defer func() {
-		rpctest.StopTendermint(tendermint)
-	}()
-	tx, err := SimpleTransfer(geth)
-	require.NoError(t, err)
+	t.Run("TestDefaultConfig", func(t *testing.T) {
+		geth, node := NewGethAndNode(t, db.NewMemoryStore(), nil, nil)
+		tendermint, err := NewDefaultTendermintNode(node)
+		require.NoError(t, err)
+		require.NoError(t, tendermint.Start())
+		defer func() {
+			rpctest.StopTendermint(tendermint)
+		}()
+		tx, err := SimpleTransfer(geth)
+		require.NoError(t, err)
 
-	timeoutCommit := tendermint.Config().Consensus.TimeoutCommit
-	time.Sleep(timeoutCommit + time.Second)
-	receipt, err := geth.EthClient.TransactionReceipt(context.Background(), tx.Hash())
-	require.NoError(t, err)
-	require.NotNil(t, receipt)
-	require.NotNil(t, receipt.BlockNumber, "has not been involved in block after (timeoutCommit + 1) sec passed")
-	require.EqualValues(t, 1, receipt.Status)
+		timeoutCommit := tendermint.Config().Consensus.TimeoutCommit
+		time.Sleep(timeoutCommit + time.Second)
+		receipt, err := geth.EthClient.TransactionReceipt(context.Background(), tx.Hash())
+		require.NoError(t, err)
+		require.NotNil(t, receipt)
+		require.NotNil(t, receipt.BlockNumber, "has not been involved in block after (timeoutCommit + 1) sec passed")
+		require.EqualValues(t, 1, receipt.Status)
+	})
+
+	t.Run("TestDelayEmptyBlocks", func(t *testing.T) {
+		geth, node := NewGethAndNode(t, db.NewMemoryStore(), nil, nil)
+		tendermint, err := NewTendermintNode(node, nil, func(c *config.Config) {
+			c.Consensus.TimeoutCommit = time.Second
+			c.Consensus.CreateEmptyBlocks = true
+			c.Consensus.CreateEmptyBlocksInterval = 5 * time.Second
+		})
+		require.NoError(t, err)
+		require.NoError(t, tendermint.Start())
+		defer func() {
+			rpctest.StopTendermint(tendermint)
+		}()
+
+		time.Sleep(3 * time.Second)
+		tx, err := SimpleTransfer(geth)
+		require.NoError(t, err)
+
+		timeoutCommit := tendermint.Config().Consensus.TimeoutCommit
+		time.Sleep(timeoutCommit)
+		receipt, err := geth.EthClient.TransactionReceipt(context.Background(), tx.Hash())
+		require.NoError(t, err)
+		require.NotNil(t, receipt)
+		require.NotNil(t, receipt.BlockNumber, "has not been involved in block after (timeoutCommit + 1) sec passed")
+		require.EqualValues(t, 1, receipt.Status)
+	})
+
 }
 
 func TestSingleTendermint_VerifyBLS(t *testing.T) {
@@ -45,26 +75,34 @@ func TestSingleTendermint_VerifyBLS(t *testing.T) {
 	txsContext := make([]byte, 0)
 	zkContext := make([]byte, 0)
 	stop := make(chan struct{})
-	customNode := NewCustomNode(node).WithCustomFuncDeliverBlock(func(txs [][]byte, l2Config []byte, zkConfig []byte, validators []tdm.Address, blsSignatures [][]byte) (err error) {
-		for _, tx := range txs {
-			txsContext = append(txsContext, tx...)
-		}
-		zkContext = append(zkContext, zkConfig...)
-		if len(blsSignatures) > 0 && len(blsSignatures[0]) > 0 {
-			require.EqualValues(t, 1, len(blsSignatures))
-			require.EqualValues(t, 1, len(validators))
-			sig, err := blssignatures.SignatureFromBytes(blsSignatures[0])
-			require.NoError(t, err)
-			pk, err := blssignatures.PublicKeyFromBytes(blsKey.PubKey, false)
-			require.NoError(t, err)
+	var lastRoot []byte
+	customNode := NewCustomNode(node).
+		WithCustomRequestBlockData(func(height int64) (txs [][]byte, l2Config []byte, zkConfig, root []byte, err error) {
+			txs, l2Config, zkConfig, root, err = node.RequestBlockData(height)
+			fmt.Printf("height: %d, root: %s \n", height, hexutil.Encode(root))
+			lastRoot = root
+			return
+		}).
+		WithCustomFuncDeliverBlock(func(txs [][]byte, l2Config []byte, zkConfig []byte, validators []tdm.Address, blsSignatures [][]byte) (err error) {
+			for _, tx := range txs {
+				txsContext = append(txsContext, tx...)
+			}
+			zkContext = append(zkContext, zkConfig...)
+			if len(blsSignatures) > 0 && len(blsSignatures[0]) > 0 {
+				require.EqualValues(t, 1, len(blsSignatures))
+				require.EqualValues(t, 1, len(validators))
+				sig, err := blssignatures.SignatureFromBytes(blsSignatures[0])
+				require.NoError(t, err)
+				pk, err := blssignatures.PublicKeyFromBytes(blsKey.PubKey, false)
+				require.NoError(t, err)
 
-			valid, err := blssignatures.VerifySignature(sig, crypto.Keccak256(append(zkContext, txsContext...)), pk)
-			require.NoError(t, err)
-			require.True(t, valid)
-			close(stop)
-		}
-		return node.DeliverBlock(txs, l2Config, zkConfig, validators, blsSignatures)
-	})
+				valid, err := blssignatures.VerifySignature(sig, crypto.Keccak256(append(append(zkContext, txsContext...), lastRoot...)), pk)
+				require.NoError(t, err)
+				require.True(t, valid)
+				close(stop)
+			}
+			return node.DeliverBlock(txs, l2Config, zkConfig, validators, blsSignatures)
+		})
 	tendermint, err := NewTendermintNode(customNode, blsKey, func(config *config.Config) {
 		config.Consensus.BatchBlocksInterval = 2
 	})
@@ -72,6 +110,7 @@ func TestSingleTendermint_VerifyBLS(t *testing.T) {
 	require.NoError(t, tendermint.Start())
 	defer func() {
 		rpctest.StopTendermint(tendermint)
+		geth.Node.Close()
 	}()
 	_, err = SimpleTransfer(geth)
 	require.NoError(t, err)
@@ -82,8 +121,6 @@ Loop:
 		select {
 		case <-stop:
 			t.Log("successfully verified BLS")
-			geth.Node.Close()
-			tendermint.Stop()
 			break Loop
 		case <-timer.C:
 			require.Fail(t, "timeout")

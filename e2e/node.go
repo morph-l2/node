@@ -18,11 +18,11 @@ func NewSequencerNode(geth Geth, syncer *sync.Syncer) (l2node.L2Node, error) {
 }
 
 func ManualCreateBlock(node l2node.L2Node, blockNumber int64) error {
-	txs, restBytes, blsBytes, err := node.RequestBlockData(blockNumber)
+	txs, restBytes, blsBytes, root, err := node.RequestBlockData(blockNumber)
 	if err != nil {
 		return err
 	}
-	valid, err := node.CheckBlockData(txs, restBytes, blsBytes)
+	valid, err := node.CheckBlockData(txs, restBytes, blsBytes, root)
 	if err != nil {
 		return err
 	}
@@ -44,8 +44,8 @@ type CustomNode struct {
 	CustomFuncDeliverBlock     FuncDeliverBlock
 }
 
-type FuncRequestBlockData func(height int64) (txs [][]byte, l2Config []byte, zkConfig []byte, err error)
-type FuncCheckBlockData func(txs [][]byte, l2Config []byte, zkConfig []byte) (valid bool, err error)
+type FuncRequestBlockData func(height int64) (txs [][]byte, l2Config []byte, zkConfig, root []byte, err error)
+type FuncCheckBlockData func(txs [][]byte, l2Config []byte, zkConfig, root []byte) (valid bool, err error)
 type FuncDeliverBlock func(txs [][]byte, l2Config []byte, zkConfig []byte, validators []tdm.Address, blsSignatures [][]byte) (err error)
 
 func NewCustomNode(origin l2node.L2Node) *CustomNode {
@@ -66,18 +66,18 @@ func (cn *CustomNode) WithCustomFuncDeliverBlock(dbFunc FuncDeliverBlock) *Custo
 	return cn
 }
 
-func (cn *CustomNode) RequestBlockData(height int64) (txs [][]byte, l2Config, zkConfig []byte, err error) {
+func (cn *CustomNode) RequestBlockData(height int64) (txs [][]byte, l2Config, zkConfig, root []byte, err error) {
 	if cn.CustomFuncRequestBlockData != nil {
 		return cn.CustomFuncRequestBlockData(height)
 	}
 	return cn.origin.RequestBlockData(height)
 }
 
-func (cn *CustomNode) CheckBlockData(txs [][]byte, l2Config, zkConfig []byte) (valid bool, err error) {
+func (cn *CustomNode) CheckBlockData(txs [][]byte, l2Config, zkConfig, root []byte) (valid bool, err error) {
 	if cn.CustomFuncCheckBlockData != nil {
-		return cn.CustomFuncCheckBlockData(txs, l2Config, zkConfig)
+		return cn.CustomFuncCheckBlockData(txs, l2Config, zkConfig, root)
 	}
-	return cn.origin.CheckBlockData(txs, l2Config, zkConfig)
+	return cn.origin.CheckBlockData(txs, l2Config, zkConfig, root)
 }
 
 func (cn *CustomNode) DeliverBlock(txs [][]byte, l2Config, zkConfig []byte, validators []tdm.Address, blsSignatures [][]byte) error {

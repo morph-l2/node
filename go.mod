@@ -125,6 +125,6 @@ require (
 
 replace (
 	github.com/btcsuite/btcd => github.com/btcsuite/btcd v0.20.1-beta
-	github.com/scroll-tech/go-ethereum => github.com/morphism-labs/go-ethereum v1.10.14-0.20230703130045-e554e93a101c
-	github.com/tendermint/tendermint => github.com/morphism-labs/tendermint v0.0.0-20230703025202-fb07b98cf0cc
+	github.com/scroll-tech/go-ethereum => github.com/morphism-labs/go-ethereum v1.10.14-0.20230713061436-c8ae2f944b86
+	github.com/tendermint/tendermint => github.com/morphism-labs/tendermint v0.0.0-20230712062004-095179ad3144
 )

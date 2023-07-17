@@ -62,7 +62,7 @@ func (e *Executor) validateL1Messages(txs [][]byte, l1Msgs []types.L1Message) er
 		l1Message, err := e.syncer.GetL1Message(uint64(queueIndex), txHash)
 		if err != nil {
 			log.Warn("error getting L1 message from syncer", "error", err)
-			return err
+			return types.ErrQueryL1Message
 		}
 		if l1Message == nil { // has not been synced from L1 yet
 			log.Warn("the L1 message is not valid", "index", queueIndex, "L1TxHash", txHash.Hex())
