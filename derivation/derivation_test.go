@@ -53,7 +53,7 @@ func TestDerivationBlock(t *testing.T) {
 
 func TestDerivation_Start(t *testing.T) {
 	ctx := context.Background()
-	l1Client, err := ethclient.Dial("http://localhost:8545")
+	l1Client, err := ethclient.Dial("http://10.11.56.77:9545")
 	addr := common.HexToAddress("0x6900000000000000000000000000000000000003")
 	require.NoError(t, err)
 	d := Derivation{
@@ -68,9 +68,9 @@ func TestDerivation_Start(t *testing.T) {
 		fetchBlockRange: 100,
 		pollInterval:    1,
 	}
-	ZKEvmEventTopic = "ETHDepositInitiated(address,address,uint256,bytes)"
+	ZKEvmEventTopic = "SubmitBatches(uint64,uint64)"
 	ZKEvmEventTopicHash = crypto.Keccak256Hash([]byte(ZKEvmEventTopic))
-	d.fetchZkEvmData(context.Background(), 26876, 26986)
+	d.fetchZkEvmData(context.Background(), 1, 1000)
 }
 
 func newSimulatedBackend(key *ecdsa.PrivateKey) (*backends.SimulatedBackend, ethdb.Database) {

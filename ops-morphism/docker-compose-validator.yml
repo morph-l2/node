@@ -25,7 +25,7 @@ services:
       - "/bin/sh"
       - "/entrypoint.sh"
 
-  sequencer_node:
+  validator_node:
     depends_on:
       sequencer_geth:
         condition: service_started
