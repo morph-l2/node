@@ -3,6 +3,7 @@ package e2e
 import (
 	"context"
 	"fmt"
+	"github.com/scroll-tech/go-ethereum/common"
 	"math/big"
 	"testing"
 	"time"
@@ -72,7 +73,7 @@ func TestSingleTendermint_VerifyBLS(t *testing.T) {
 	geth, node := NewGethAndNode(t, db.NewMemoryStore(), nil, nil)
 	blsKey := blssignatures.GenFileBLSKey()
 
-	txsContext := make([]byte, 0)
+	txsBatch := make([][]byte, 0)
 	zkContext := make([]byte, 0)
 	stop := make(chan struct{})
 	var lastRoot []byte
@@ -85,7 +86,7 @@ func TestSingleTendermint_VerifyBLS(t *testing.T) {
 		}).
 		WithCustomFuncDeliverBlock(func(txs [][]byte, l2Config []byte, zkConfig []byte, validators []tdm.Address, blsSignatures [][]byte) (err error) {
 			for _, tx := range txs {
-				txsContext = append(txsContext, tx...)
+				txsBatch = append(txsBatch, tx)
 			}
 			zkContext = append(zkContext, zkConfig...)
 			if len(blsSignatures) > 0 && len(blsSignatures[0]) > 0 {
@@ -95,8 +96,10 @@ func TestSingleTendermint_VerifyBLS(t *testing.T) {
 				require.NoError(t, err)
 				pk, err := blssignatures.PublicKeyFromBytes(blsKey.PubKey, false)
 				require.NoError(t, err)
+				encodedTxsContext, err := node.EncodeTxs(txsBatch)
+				require.NoError(t, err)
 
-				valid, err := blssignatures.VerifySignature(sig, crypto.Keccak256(append(append(zkContext, txsContext...), lastRoot...)), pk)
+				valid, err := blssignatures.VerifySignature(sig, crypto.Keccak256(append(append(zkContext, encodedTxsContext...), lastRoot...)), pk)
 				require.NoError(t, err)
 				require.True(t, valid)
 				close(stop)
@@ -189,6 +192,7 @@ func TestSingleTendermint_BatchPoint(t *testing.T) {
 
 	t.Run("TestBatchMaxBytes", func(t *testing.T) {
 		_, node := NewGethAndNode(t, db.NewMemoryStore(), nil, nil)
+		rootSize := len(common.Hash{})
 		stop := make(chan struct{})
 		errChan := make(chan struct{})
 		txsContext := make([]byte, 0)
@@ -204,7 +208,7 @@ func TestSingleTendermint_BatchPoint(t *testing.T) {
 			}
 			zkContext = append(zkContext, zkConfig...)
 			currentBytes := append(zkContext, txsContext...)
-			if len(currentBytes) >= configBatchMaxBytes {
+			if len(currentBytes)+rootSize >= configBatchMaxBytes {
 				if !hasSig(blsSignatures) {
 					close(errChan)
 					require.FailNow(t, "no signature found when bytes reached configBatchMaxBytes")

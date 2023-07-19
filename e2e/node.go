@@ -86,3 +86,11 @@ func (cn *CustomNode) DeliverBlock(txs [][]byte, l2Config, zkConfig []byte, vali
 	}
 	return cn.origin.DeliverBlock(txs, l2Config, zkConfig, validators, blsSignatures)
 }
+
+func (cn *CustomNode) RequestHeight(tmHeight int64) (height int64, err error) {
+	return cn.origin.RequestHeight(tmHeight)
+}
+
+func (cn *CustomNode) EncodeTxs(batchTxs [][]byte) (encodedTxs []byte, err error) {
+	return cn.origin.EncodeTxs(batchTxs)
+}

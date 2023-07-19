@@ -16,6 +16,8 @@ import (
 const (
 	ConnectionRefused = "connection refused"
 	EOFError          = "EOF"
+	JWTStaleToken     = "stale token"
+	JWTExpiredToken   = "token is expired"
 )
 
 type RetryableClient struct {
@@ -42,7 +44,7 @@ func (rc *RetryableClient) AssembleL2Block(ctx context.Context, number *big.Int,
 		resp, respErr := rc.authClient.AssembleL2Block(ctx, number, transactions)
 		if respErr != nil {
 			rc.logger.Info("failed to AssembleL2Block", "error", respErr)
-			if strings.Contains(respErr.Error(), ConnectionRefused) || strings.Contains(respErr.Error(), EOFError) {
+			if retryableError(respErr) {
 				return respErr
 			}
 			err = respErr // stop retrying and put this error to response error field, if the error is not connection related
@@ -60,7 +62,7 @@ func (rc *RetryableClient) ValidateL2Block(ctx context.Context, executableL2Data
 		resp, respErr := rc.authClient.ValidateL2Block(ctx, executableL2Data)
 		if respErr != nil {
 			rc.logger.Info("failed to ValidateL2Block", "error", respErr)
-			if strings.Contains(respErr.Error(), ConnectionRefused) || strings.Contains(respErr.Error(), EOFError) {
+			if retryableError(respErr) {
 				return respErr
 			}
 			err = respErr
@@ -78,7 +80,7 @@ func (rc *RetryableClient) NewL2Block(ctx context.Context, executableL2Data *cat
 		respErr := rc.authClient.NewL2Block(ctx, executableL2Data, blsData)
 		if respErr != nil {
 			rc.logger.Info("failed to NewL2Block", "error", respErr)
-			if strings.Contains(respErr.Error(), ConnectionRefused) || strings.Contains(respErr.Error(), EOFError) {
+			if retryableError(respErr) {
 				return respErr
 			}
 			err = respErr
@@ -95,7 +97,7 @@ func (rc *RetryableClient) NewSafeL2Block(ctx context.Context, safeL2Data *catal
 		resp, respErr := rc.authClient.NewSafeL2Block(ctx, safeL2Data, blsData)
 		if respErr != nil {
 			rc.logger.Info("failed to NewSafeL2Block", "error", respErr)
-			if strings.Contains(respErr.Error(), ConnectionRefused) || strings.Contains(respErr.Error(), EOFError) {
+			if retryableError(respErr) {
 				return respErr
 			}
 			err = respErr
@@ -113,7 +115,7 @@ func (rc *RetryableClient) BlockNumber(ctx context.Context) (ret uint64, err err
 		resp, respErr := rc.ethClient.BlockNumber(ctx)
 		if respErr != nil {
 			rc.logger.Info("failed to call BlockNumber", "error", respErr)
-			if strings.Contains(respErr.Error(), ConnectionRefused) || strings.Contains(respErr.Error(), EOFError) {
+			if retryableError(respErr) {
 				return respErr
 			}
 			err = respErr
@@ -124,4 +126,11 @@ func (rc *RetryableClient) BlockNumber(ctx context.Context) (ret uint64, err err
 		return 0, retryErr
 	}
 	return
+}
+
+func retryableError(err error) bool {
+	return strings.Contains(err.Error(), ConnectionRefused) ||
+		strings.Contains(err.Error(), EOFError) ||
+		strings.Contains(err.Error(), JWTStaleToken) ||
+		strings.Contains(err.Error(), JWTExpiredToken)
 }
