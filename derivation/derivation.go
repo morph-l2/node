@@ -28,8 +28,7 @@ import (
 )
 
 var (
-	//ZKEvmEventTopic     = "SubmitBatches(uint64,uint64)"
-	ZKEvmEventTopic     = "ETHDepositInitiated(address,address,uint256,bytes)"
+	ZKEvmEventTopic     = "SubmitBatches(uint64,uint64)"
 	ZKEvmEventTopicHash = crypto.Keccak256Hash([]byte(ZKEvmEventTopic))
 )
 
