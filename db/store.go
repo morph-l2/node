@@ -8,6 +8,7 @@ import (
 	"github.com/morphism-labs/node/types"
 	"github.com/scroll-tech/go-ethereum/core/rawdb"
 	"github.com/scroll-tech/go-ethereum/ethdb"
+	"github.com/scroll-tech/go-ethereum/log"
 	"github.com/scroll-tech/go-ethereum/rlp"
 	"github.com/syndtr/goleveldb/leveldb"
 )

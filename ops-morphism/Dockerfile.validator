@@ -1,0 +1,16 @@
+# Build Geth in a stock Go builder container
+FROM golang:1.20-alpine as builder
+
+RUN apk add --no-cache gcc musl-dev linux-headers git make
+
+COPY .. /node
+RUN cd /node && echo $(ls -1) && make build
+
+
+FROM alpine:latest
+RUN apk add --no-cache ca-certificates
+
+COPY --from=builder /node/build/bin/morphnode /usr/local/bin/
+COPY --from=initializer /data /data
+
+CMD ["morphnode","--sequencer","--home", "/data"]

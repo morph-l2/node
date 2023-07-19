@@ -14,6 +14,7 @@ import (
 	"github.com/scroll-tech/go-ethereum/core"
 	"github.com/scroll-tech/go-ethereum/core/rawdb"
 	"github.com/scroll-tech/go-ethereum/crypto"
+	"github.com/scroll-tech/go-ethereum/ethclient"
 	"github.com/scroll-tech/go-ethereum/ethdb"
 	"github.com/scroll-tech/go-ethereum/rpc"
 	"github.com/stretchr/testify/require"
@@ -48,6 +49,28 @@ func TestDerivationBlock(t *testing.T) {
 
 	d.derivationBlock(ctx)
 	require.EqualError(t, err, "execution reverted: Batch not exist")
+}
+
+func TestDerivation_Start(t *testing.T) {
+	ctx := context.Background()
+	l1Client, err := ethclient.Dial("http://localhost:8545")
+	addr := common.HexToAddress("0x6900000000000000000000000000000000000003")
+	require.NoError(t, err)
+	d := Derivation{
+		ctx:                  ctx,
+		l1Client:             l1Client,
+		ZKEvmContractAddress: &addr,
+		confirmations:        rpc.BlockNumber(5),
+		l2Client:             nil,
+		validator:            nil,
+		latestDerivation:     9,
+		//db:                   store,
+		fetchBlockRange: 100,
+		pollInterval:    1,
+	}
+	ZKEvmEventTopic = "ETHDepositInitiated(address,address,uint256,bytes)"
+	ZKEvmEventTopicHash = crypto.Keccak256Hash([]byte(ZKEvmEventTopic))
+	d.fetchZkEvmData(context.Background(), 26876, 26986)
 }
 
 func newSimulatedBackend(key *ecdsa.PrivateKey) (*backends.SimulatedBackend, ethdb.Database) {

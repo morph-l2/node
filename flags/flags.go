@@ -165,7 +165,7 @@ var (
 
 	DerivationStartHeight = cli.Uint64Flag{
 		Name:   "derivation.startHeight",
-		Usage:  "Block height where derivation start to fetch",
+		Usage:  "L1 block height where derivation start to fetch",
 		EnvVar: prefixEnvVar("DERIVATION_START_HEIGHT"),
 	}
 
@@ -185,6 +185,7 @@ var (
 		Name:   "derivation.fetchBlockRange",
 		Usage:  "Number of blocks that we collect in a single eth_getLogs query",
 		EnvVar: prefixEnvVar("DERIVATION_FETCH_BLOCK_RANGE"),
+	}
 	// Logger
 	LogLevel = &cli.StringFlag{
 		Name:   "log.level",

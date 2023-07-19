@@ -8,6 +8,7 @@ require (
 	github.com/hashicorp/golang-lru v0.5.5-0.20210104140557-80c98217689d
 	github.com/holiman/uint256 v1.2.2
 	github.com/morphism-labs/morphism-bindings v0.0.0-20230706120507-6afb146c84ec
+	github.com/morphism-labs/tx-submitter v0.1.1-0.20230711062159-e8b52a307701
 	github.com/scroll-tech/go-ethereum v1.11.4
 	github.com/spf13/viper v1.13.0
 	github.com/stretchr/testify v1.8.2
@@ -63,7 +64,6 @@ require (
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/jackpal/go-nat-pmp v1.0.2 // indirect
 	github.com/jmhodges/levigo v1.0.0 // indirect
-	github.com/kr/pretty v0.3.1 // indirect
 	github.com/lib/pq v1.10.7 // indirect
 	github.com/libp2p/go-buffer-pool v0.1.0 // indirect
 	github.com/magiconair/properties v1.8.6 // indirect
@@ -75,7 +75,6 @@ require (
 	github.com/minio/highwayhash v1.0.2 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/mitchellh/pointerstructure v1.2.0 // indirect
-	github.com/morphism-labs/tx-submitter v0.1.1-0.20230711062159-e8b52a307701 // indirect
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.5 // indirect

@@ -5,14 +5,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/morphism-labs/morphism-bindings/bindings"
-	"github.com/morphism-labs/tx-submitter/batch-submitter/drivers/sequencer"
 	"math/big"
+	"os"
 	"time"
 
+	"github.com/morphism-labs/morphism-bindings/bindings"
 	nodecommon "github.com/morphism-labs/node/common"
 	"github.com/morphism-labs/node/types"
 	"github.com/morphism-labs/node/validator"
+	"github.com/morphism-labs/tx-submitter/batch-submitter/drivers/sequencer"
 	"github.com/scroll-tech/go-ethereum"
 	"github.com/scroll-tech/go-ethereum/accounts/abi/bind"
 	"github.com/scroll-tech/go-ethereum/common"
@@ -23,10 +24,12 @@ import (
 	"github.com/scroll-tech/go-ethereum/ethclient/authclient"
 	"github.com/scroll-tech/go-ethereum/log"
 	"github.com/scroll-tech/go-ethereum/rpc"
+	tmlog "github.com/tendermint/tendermint/libs/log"
 )
 
 var (
-	ZKEvmEventTopic     = "SubmitBatches(uint64,uint64)"
+	//ZKEvmEventTopic     = "SubmitBatches(uint64,uint64)"
+	ZKEvmEventTopic     = "ETHDepositInitiated(address,address,uint256,bytes)"
 	ZKEvmEventTopicHash = crypto.Keccak256Hash([]byte(ZKEvmEventTopic))
 )
 
@@ -53,6 +56,7 @@ type DeployContractBackend interface {
 	bind.DeployBackend
 	bind.ContractBackend
 	ethereum.ChainReader
+	ethereum.TransactionReader
 }
 
 func NewDerivationClient(ctx context.Context, cfg *Config, db Database, validator *validator.Validator) (*Derivation, error) {
@@ -80,7 +84,7 @@ func NewDerivationClient(ctx context.Context, cfg *Config, db Database, validato
 		validator:            validator,
 		ZKEvmContractAddress: cfg.ZKEvmContractAddress,
 		confirmations:        cfg.L1.Confirmations,
-		l2Client:             types.NewRetryableClient(aClient, eClient),
+		l2Client:             types.NewRetryableClient(aClient, eClient, tmlog.NewTMLogger(tmlog.NewSyncWriter(os.Stdout))),
 		cancel:               cancel,
 		stop:                 make(chan struct{}),
 		fetchBlockRange:      cfg.FetchBlockRange,
@@ -147,11 +151,10 @@ func (d *Derivation) fetchZkEvmData(ctx context.Context, from, to uint64) ([]*Ba
 
 	var batches []*Batch
 	for _, lg := range logs {
-		batch, err := fetchRollupData(lg.TxHash)
+		batch, err := d.fetchRollupData(lg.TxHash, lg.BlockNumber)
 		if err != nil {
 			return nil, err
 		}
-		batch.L1BlockNumber = lg.BlockNumber
 		batches = append(batches, batch)
 	}
 	return batches, nil
@@ -191,10 +194,12 @@ func (d *Derivation) derivationBlock(ctx context.Context) {
 				log.Error("NewL2Block failed", "error", err)
 				return
 			}
-			if !bytes.Equal(header.Root.Bytes(), blockData.StateRoot) && d.validator != nil {
-				if err := d.validator.ChallengeState(blockData.BatchIndex); err != nil {
-					log.Error("challenge state failed", "error", err)
-				}
+			if !bytes.Equal(header.Hash().Bytes(), blockData.Hash.Bytes()) && d.validator != nil {
+				log.Info("block hash is not equal", "l1", blockData.Hash, "l2", header.Hash())
+				// TODO
+				//if err := d.validator.ChallengeState(blockData.BatchIndex); err != nil {
+				//	log.Error("challenge state failed", "error", err)
+				//}
 				return
 			}
 		}
@@ -203,6 +208,7 @@ func (d *Derivation) derivationBlock(ctx context.Context) {
 	}
 }
 
+// Batch is all rollup data of one l1 block,maybe contain many rollup batch
 type Batch struct {
 	BlockDatas    []*BlockData
 	L1BlockNumber uint64
@@ -212,16 +218,11 @@ type BlockData struct {
 	BatchIndex uint64
 	SafeL2Data *catalyst.SafeL2Data
 	blsData    *eth.BLSData
-	StateRoot  []byte
+	Hash       common.Hash
 }
 
-func fetchRollupData(txHash common.Hash) (*Batch, error) {
-
-	c, err := ethclient.Dial("cfg.L1.Addr")
-	if err != nil {
-		return nil, err
-	}
-	tx, pending, err := c.TransactionByHash(nil, txHash)
+func (d *Derivation) fetchRollupData(txHash common.Hash, blockNumber uint64) (*Batch, error) {
+	tx, pending, err := d.l1Client.TransactionByHash(context.Background(), txHash)
 	if err != nil {
 		return nil, err
 	}
@@ -237,8 +238,19 @@ func fetchRollupData(txHash common.Hash) (*Batch, error) {
 		return nil, err
 	}
 	// parse calldata to zkevm batch data
-	batches := make([]sequencer.BatchData, len(args))
+	//batches := make([]sequencer.BatchData, len(args))
+	var fetchBatch Batch
+	blockDatas, err := argsToBlockDatas(args)
+	if err != nil {
+		return nil, err
+	}
+	fetchBatch.BlockDatas = blockDatas
+	fetchBatch.L1BlockNumber = blockNumber
+	return nil, err
+}
 
+func argsToBlockDatas(args []interface{}) ([]*BlockData, error) {
+	var blockDatas []*BlockData
 	for _, arg := range args {
 		// convert arg to batch
 		batch := arg.(bindings.ZKEVMBatchData)
@@ -251,8 +263,42 @@ func fetchRollupData(txHash common.Hash) (*Batch, error) {
 		if err := bd.DecodeTransactions(batch.Transactions); err != nil {
 			return nil, err
 		}
-		bd.Signature = &batch.Signature
-		batches = append(batches, bd)
+		var last uint64
+		for _, block := range bd.BlockContexts.Blocks {
+			var blockData BlockData
+			var safeL2Data *catalyst.SafeL2Data
+			var blsData eth.BLSData
+
+			//TODO  batch index
+			blockData.BatchIndex = 0
+
+			safeL2Data.ParentHash = block.ParentHash
+			safeL2Data.Number = block.Number.Uint64()
+			safeL2Data.GasLimit = block.GasLimit
+			safeL2Data.BaseFee = block.BaseFee
+			safeL2Data.Timestamp = block.Timestamp
+			safeL2Data.Transactions = encodeTransactions(bd.Txs[last : block.NumTxs-1])
+			last = block.NumTxs - 1
+			blockData.SafeL2Data = safeL2Data
+
+			blsData.BLSSignature = batch.Signature.Signature
+			blsData.BLSSigners = batch.Signature.Signers
+			blockData.blsData = &blsData
+
+			blockData.Hash = block.Hash
+			// TODO
+			//blockData.StateRoot =
+
+			blockDatas = append(blockDatas, &blockData)
+		}
 	}
-	return batches, err
+	return blockDatas, nil
+}
+
+func encodeTransactions(txs []*eth.Transaction) [][]byte {
+	var enc = make([][]byte, len(txs))
+	for i, tx := range txs {
+		enc[i], _ = tx.MarshalBinary()
+	}
+	return enc
 }
