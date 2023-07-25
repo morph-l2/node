@@ -4,6 +4,8 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"errors"
+	"fmt"
+	tmlog "github.com/tendermint/tendermint/libs/log"
 	"math/big"
 	"time"
 
@@ -16,10 +18,12 @@ import (
 )
 
 type Validator struct {
-	cli        DeployContractBackend
-	privateKey *ecdsa.PrivateKey
-	l1ChainID  *big.Int
-	contract   *bindings.ZKEVMTransactor
+	cli             DeployContractBackend
+	privateKey      *ecdsa.PrivateKey
+	l1ChainID       *big.Int
+	contract        *bindings.ZKEVMTransactor
+	challengeEnable bool
+	logger          tmlog.Logger
 }
 
 type DeployContractBackend interface {
@@ -27,24 +31,38 @@ type DeployContractBackend interface {
 	bind.ContractBackend
 }
 
-func NewValidator(cfg *Config) (*Validator, error) {
+func NewValidator(cfg *Config, logger tmlog.Logger) (*Validator, error) {
 	cli, err := ethclient.Dial(cfg.l1RPC)
+	// TODO delete
+	fmt.Println("cfg.l1RPC", cfg.l1RPC)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("dial l1 node error:%v", err)
 	}
 	zkEVMTransactor, err := bindings.NewZKEVMTransactor(*cfg.zkEvmContract, cli)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("NewZKEVMTransactor error:%v", err)
 	}
 	return &Validator{
 		cli:        cli,
 		contract:   zkEVMTransactor,
 		privateKey: cfg.PrivateKey,
 		l1ChainID:  cfg.L1ChainID,
+		logger:     logger,
 	}, nil
 }
 
+func (v *Validator) SetLogger() {
+	v.logger = v.logger.With("module", "validator")
+}
+
+func (v *Validator) ChallengeEnable() bool {
+	return v.challengeEnable
+}
+
 func (v *Validator) ChallengeState(batchIndex uint64) error {
+	if !v.ChallengeEnable() {
+		return fmt.Errorf("The challenge is not enabled,please set challengeEnable is true")
+	}
 	opts, err := bind.NewKeyedTransactorWithChainID(v.privateKey, v.l1ChainID)
 	if err != nil {
 		return err

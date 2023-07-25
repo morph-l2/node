@@ -11,6 +11,12 @@ morphnode:
 	env GO111MODULE=on CGO_ENABLED=1 go build -o build/bin/morphnode -v $(LDFLAGS) ./cmd/node
 .PHONY: morphnode
 
+morphnode-alpine:
+	if [ ! -d build/bin ]; then mkdir -p build/bin; fi
+	go mod download
+	env GO111MODULE=on CGO_ENABLED=0 GOOS=linux go build  -tags netgo -o build/bin/morphnode -v $(LDFLAGS) ./cmd/node
+.PHONY: morphnode
+
 tendermint:
 	if [ ! -d build/bin ]; then mkdir -p build/bin; fi
 	go mod download
@@ -40,17 +46,23 @@ e2e-test:
 
 devnet-up:
 	cd ops-morphism && docker compose up -d
-	#cd ops-morphism && docker compose up -d l1 && docker compose up -d sequencer_node
 .PHONY: dev-up
 
 devnet-validator-up:
-	cd ops-morphism && docker compose -f docker-compose-validator.yml up -d
-	#cd ops-morphism && docker compose up -d l1 && docker compose up -d sequencer_node
+	cd ops-morphism && docker-compose -f docker-compose-validator.yml up -d
 .PHONY: dev-validator-up
+
+devnet-validator-build:
+	cd ops-morphism && docker-compose -f docker-compose-validator.yml build
+.PHONY: dev-validator-build
 
 devnet-down:
 	cd ops-morphism && docker compose down
 .PHONY: dev-down
+
+devnet-validator-down:
+	cd ops-morphism && docker compose -f docker-compose-validator.yml down
+.PHONY: dev-validator-down
 
 devnet-clean:
 	cd ops-morphism && docker compose down

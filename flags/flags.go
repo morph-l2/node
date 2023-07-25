@@ -148,6 +148,12 @@ var (
 		EnvVar: prefixEnvVar("MOCK_SEQUENCER"),
 	}
 
+	ValidatorEnable = cli.BoolFlag{
+		Name:   "validator",
+		Usage:  "Enable the validator mode",
+		EnvVar: prefixEnvVar("VALIDATOR"),
+	}
+
 	// validator
 	ValidatorPrivateKey = cli.StringFlag{
 		Name:   "validator.privateKey",
@@ -228,11 +234,13 @@ var Flags = []cli.Flag{
 	SequencerEnabled,
 	TendermintConfigPath,
 	MockEnabled,
+	ValidatorEnable,
 
 	// validator
 	ValidatorPrivateKey,
 
 	// derivation
+	ZKEvmContractAddress,
 	DerivationStartHeight,
 	DerivationPollInterval,
 	DerivationLogProgressInterval,

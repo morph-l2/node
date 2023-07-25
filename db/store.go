@@ -8,7 +8,6 @@ import (
 	"github.com/morphism-labs/node/types"
 	"github.com/scroll-tech/go-ethereum/core/rawdb"
 	"github.com/scroll-tech/go-ethereum/ethdb"
-	"github.com/scroll-tech/go-ethereum/log"
 	"github.com/scroll-tech/go-ethereum/rlp"
 	"github.com/syndtr/goleveldb/leveldb"
 )
@@ -54,7 +53,7 @@ func NewStore(config *Config, home string) (*Store, error) {
 func (s *Store) ReadLatestDerivationL1Height() *uint64 {
 	data, err := s.db.Get(derivationL1HeightKey)
 	if err != nil && !isNotFoundErr(err) {
-		log.Crit("Failed to read synced L1 block number from database", "err", err)
+		panic(fmt.Sprintf("Failed to read batch index from database,err:%v", err))
 	}
 	if len(data) == 0 {
 		return nil
@@ -62,7 +61,43 @@ func (s *Store) ReadLatestDerivationL1Height() *uint64 {
 
 	number := new(big.Int).SetBytes(data)
 	if !number.IsUint64() {
-		log.Crit("Unexpected synced L1 block number in database", "number", number)
+		panic(fmt.Sprintf("unexpected derivation l1 height in database, number: %d", number))
+	}
+
+	value := number.Uint64()
+	return &value
+}
+
+func (s *Store) ReadLatestDerivationBatchIndex() *uint64 {
+	data, err := s.db.Get(derivationBatchIndex)
+	if err != nil && !isNotFoundErr(err) {
+		panic(fmt.Sprintf("Failed to read batch index from database, error: %v", err))
+	}
+	if len(data) == 0 {
+		return nil
+	}
+
+	number := new(big.Int).SetBytes(data)
+	if !number.IsUint64() {
+		panic(fmt.Sprintf("unexpected batch index in database, number: %d", number))
+	}
+
+	value := number.Uint64()
+	return &value
+}
+
+func (s *Store) ReadLastBatchEndBlock() *uint64 {
+	data, err := s.db.Get(lastBatchEndBlock)
+	if err != nil && !isNotFoundErr(err) {
+		panic(fmt.Sprintf("Failed to read batch index from database, error: %v", err))
+	}
+	if len(data) == 0 {
+		return nil
+	}
+
+	number := new(big.Int).SetBytes(data)
+	if !number.IsUint64() {
+		panic(fmt.Sprintf("unexpected batch index in database, number: %d", number))
 	}
 
 	value := number.Uint64()
@@ -125,7 +160,23 @@ func (s *Store) ReadL1MessageByIndex(index uint64) *types.L1Message {
 
 func (s *Store) WriteLatestDerivationL1Height(latest uint64) {
 	if err := s.db.Put(derivationL1HeightKey, new(big.Int).SetUint64(latest).Bytes()); err != nil {
-		log.Crit("Failed to update synced L1 height", "err", err)
+		panic(fmt.Sprintf("failed to update derivation synced L1 height, err: %v", err))
+	}
+}
+
+func (s *Store) AddDerivationBatchIndex() {
+	batchIndex := s.ReadLatestDerivationBatchIndex()
+	if batchIndex == nil {
+		batchIndex = new(uint64)
+	}
+	if err := s.db.Put(derivationBatchIndex, new(big.Int).SetUint64(*batchIndex+1).Bytes()); err != nil {
+		panic(fmt.Sprintf("failed to update batch index, err: %v", err))
+	}
+}
+
+func (s *Store) WriteLastBatchEndBlock(latest uint64) {
+	if err := s.db.Put(lastBatchEndBlock, new(big.Int).SetUint64(latest).Bytes()); err != nil {
+		panic(fmt.Sprintf("failed to update last batch end block, err: %v", err))
 	}
 }
 

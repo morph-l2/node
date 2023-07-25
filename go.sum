@@ -333,8 +333,8 @@ github.com/morphism-labs/morphism-bindings v0.0.0-20230706120507-6afb146c84ec h1
 github.com/morphism-labs/morphism-bindings v0.0.0-20230706120507-6afb146c84ec/go.mod h1:77nVD5zWAA9s2yR/YDLV2PNI/azK74x4MA7pFe3fU5c=
 github.com/morphism-labs/tendermint v0.0.0-20230712062004-095179ad3144 h1:gVX07yYV2sU8+ga7ADkPW3/vBlXA2HvxT9LKhjtFHgg=
 github.com/morphism-labs/tendermint v0.0.0-20230712062004-095179ad3144/go.mod h1:zJcxhzs3kbX6xs90IBX1vIQy1KmSfm4MgNbv3Lt+Rns=
-github.com/morphism-labs/tx-submitter v0.1.1-0.20230711062159-e8b52a307701 h1:EK0z7kK9jTqbLLxE6OB4fMn8tXrDzDHiIETSEgxcW5c=
-github.com/morphism-labs/tx-submitter v0.1.1-0.20230711062159-e8b52a307701/go.mod h1:0kKspL7ncw/cOv2QujtggwysVIidFWbkZJTdv7VspKw=
+github.com/morphism-labs/tx-submitter v0.1.1-0.20230719110344-67de37ffeaac h1:MALLQC6L5Kr7hriSZ4+ms2P0N/YAy58SQ+i5Vhya4Kg=
+github.com/morphism-labs/tx-submitter v0.1.1-0.20230719110344-67de37ffeaac/go.mod h1:/qqb3THlT0q4DzkA1iio0E2TP1iPMt3IW0vnzyQ3o6Q=
 github.com/nxadm/tail v1.4.4/go.mod h1:kenIhsEOeOJmVchQTgglprH7qJGnHDVpk1VPCcaMI8A=
 github.com/nxadm/tail v1.4.8 h1:nPr65rt6Y5JFSKQO7qToXr7pePgD6Gwiw05lkbyAQTE=
 github.com/nxadm/tail v1.4.8/go.mod h1:+ncqLTQzXmGhMZNUePPaPqPvBxHAIsmXswZKocGu+AU=
@@ -394,7 +394,7 @@ github.com/rjeczalik/notify v0.9.1 h1:CLCKso/QK1snAlnhNR/CNvNiFU2saUtjV0bx3EwNeC
 github.com/rjeczalik/notify v0.9.1/go.mod h1:rKwnCoCGeuQnwBtTSPL9Dad03Vh2n40ePRrjvIXnJho=
 github.com/rogpeppe/fastuuid v1.2.0/go.mod h1:jVj6XXZzXRy/MSR5jhDC/2q6DgLz+nrA6LYCDYWNEvQ=
 github.com/rogpeppe/go-internal v1.3.0/go.mod h1:M8bDsm7K2OlrFYOpmOWEs/qY81heoFRclV5y23lUDJ4=
-github.com/rogpeppe/go-internal v1.9.0 h1:73kH8U+JUqXU8lRuOHeVHaa/SZPifC7BkcraZVejAe8=
+github.com/rogpeppe/go-internal v1.6.1 h1:/FiVV8dS/e+YqF2JvO3yXRFbBLTIuSDkuC7aBOAvL+k=
 github.com/rs/cors v1.8.2 h1:KCooALfAYGs415Cwu5ABvv9n9509fSiG5SQJn/AQo4U=
 github.com/rs/cors v1.8.2/go.mod h1:XyqrcTp5zjWr1wsJ8PIRZssZ8b/WMcMf71DJnit4EMU=
 github.com/russross/blackfriday v1.5.2/go.mod h1:JO/DiYxRf+HjHt06OyowR9PTA263kcR/rfWxYHBV53g=

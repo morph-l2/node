@@ -8,7 +8,7 @@ require (
 	github.com/hashicorp/golang-lru v0.5.5-0.20210104140557-80c98217689d
 	github.com/holiman/uint256 v1.2.2
 	github.com/morphism-labs/morphism-bindings v0.0.0-20230706120507-6afb146c84ec
-	github.com/morphism-labs/tx-submitter v0.1.1-0.20230711062159-e8b52a307701
+	github.com/morphism-labs/tx-submitter v0.1.1-0.20230719110344-67de37ffeaac
 	github.com/scroll-tech/go-ethereum v1.11.4
 	github.com/spf13/viper v1.13.0
 	github.com/stretchr/testify v1.8.2
