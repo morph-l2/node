@@ -252,7 +252,7 @@ func (d *Derivation) argsToBlockDatas(args []interface{}, blockNumber uint64) er
 			continue
 		}
 		batchBlockCount := zkEVMBatchData.BlockNumber - *lastBatchEndBlock
-		d.logger.Info("batchBlockCount", "batchBlockCount", batchBlockCount)
+		d.logger.Info("batchBlockCount", "batchBlockCount", batchBlockCount, "batchLastBlock", zkEVMBatchData.BlockNumber, "lastBatchEndBlock", *lastBatchEndBlock)
 		if err := bd.DecodeBlockContext(uint(batchBlockCount), zkEVMBatchData.BlockWitnes); err != nil {
 			return fmt.Errorf("BatchData DecodeBlockContext error:%v,batchBlockCount:%v", err, batchBlockCount)
 		}
