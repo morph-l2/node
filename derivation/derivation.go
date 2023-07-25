@@ -247,7 +247,7 @@ func (d *Derivation) argsToBlockDatas(args []interface{}, blockNumber uint64) er
 		if lastBatchEndBlock == nil {
 			lastBatchEndBlock = new(uint64)
 		}
-		if zkEVMBatchData.BlockNumber < *lastBatchEndBlock {
+		if zkEVMBatchData.BlockNumber <= *lastBatchEndBlock {
 			d.logger.Info("zkEVMBatchData BlockNumber greater than lastBatchEndBlock", "zkEVMBatchDataBlockNumber", zkEVMBatchData.BlockNumber, "lastBatchEndBlock", *lastBatchEndBlock)
 			continue
 		}
