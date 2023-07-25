@@ -16,8 +16,8 @@ import (
 	"github.com/morphism-labs/node/sequencer/mock"
 	"github.com/morphism-labs/node/sync"
 	"github.com/morphism-labs/node/types"
-	"github.com/morphism-labs/node/validator"
-	"github.com/scroll-tech/go-ethereum/log"
+	tmconfig "github.com/tendermint/tendermint/config"
+	tmlog "github.com/tendermint/tendermint/libs/log"
 	tmnode "github.com/tendermint/tendermint/node"
 	"github.com/urfave/cli"
 )
@@ -48,6 +48,11 @@ func L2NodeMain(ctx *cli.Context) error {
 	isMockSequencer := ctx.GlobalBool(flags.MockEnabled.Name)
 	if isSequencer && isMockSequencer {
 		return fmt.Errorf("the sequencer and mockSequencer can not be enabled both")
+	}
+
+	isValidator := ctx.GlobalBool(flags.ValidatorEnable.Name)
+	if isValidator && isSequencer {
+		return fmt.Errorf("the validator and sequencer can not be enabled both")
 	}
 	if err = nodeConfig.SetCliContext(ctx); err != nil {
 		return err
@@ -80,44 +85,49 @@ func L2NodeMain(ctx *cli.Context) error {
 		if err != nil {
 			return fmt.Errorf("failed to create executor, error: %v", err)
 		}
-
-	} else {
-		validatorCfg := validator.NewConfig()
-		vt, err := validator.NewValidator(validatorCfg)
-		if err != nil {
-			return fmt.Errorf("new validator client error: %v", err)
+	}
+	if isValidator {
+		logger := tmlog.NewTMLogger(tmlog.NewSyncWriter(os.Stdout))
+		if format := ctx.GlobalString(flags.LogFormat.Name); len(format) > 0 && format == tmconfig.LogFormatJSON {
+			logger = tmlog.NewTMJSONLogger(tmlog.NewSyncWriter(os.Stdout))
 		}
-		if err := validatorCfg.SetCliContext(ctx); err != nil {
-			return fmt.Errorf("validator set cli context error: %v", err)
-		}
+		//validatorCfg := validator.NewConfig()
+		//if err := validatorCfg.SetCliContext(ctx); err != nil {
+		//	return fmt.Errorf("validator set cli context error: %v", err)
+		//}
+		//vt, err := validator.NewValidator(validatorCfg, logger)
+		//if err != nil {
+		//	return fmt.Errorf("new validator client error: %v", err)
+		//}
 		derivationCfg := derivation.DefaultConfig()
 		if err := derivationCfg.SetCliContext(ctx); err != nil {
 			return fmt.Errorf("derivation set cli context error: %v", err)
 		}
-		dv, err := derivation.NewDerivationClient(context.Background(), derivationCfg, store, vt)
+		dv, err := derivation.NewDerivationClient(context.Background(), derivationCfg, store, nil, logger)
 		if err != nil {
 			return fmt.Errorf("new derivation client error: %v", err)
 		}
 		dv.Start()
-		executor, err = node.NewExecutor(nodeConfig)
-		if err != nil {
-			return fmt.Errorf("failed to create executor, error: %v", err)
-		}
-	}
-
-	if isMockSequencer {
-		ms, err = mock.NewSequencer(executor)
-		if err != nil {
-			return err
-		}
-		go ms.Start()
+		logger.Info("derivation node starting")
+		//executor, err = node.NewExecutor(nodeConfig)
+		//if err != nil {
+		//	return fmt.Errorf("failed to create executor, error: %v", err)
+		//}
 	} else {
-		// launch tendermint node
-		if tmNode, err = sequencer.SetupNode(ctx, home, executor, nodeConfig.Logger); err != nil {
-			return fmt.Errorf("failed to setup consensus node, error: %v", err)
-		}
-		if err = tmNode.Start(); err != nil {
-			return fmt.Errorf("failed to start consensus node, error: %v", err)
+		if isMockSequencer {
+			ms, err = mock.NewSequencer(executor)
+			if err != nil {
+				return err
+			}
+			go ms.Start()
+		} else {
+			// launch tendermint node
+			if tmNode, err = sequencer.SetupNode(ctx, home, executor, nodeConfig.Logger); err != nil {
+				return fmt.Errorf("failed to setup consensus node, error: %v", err)
+			}
+			if err = tmNode.Start(); err != nil {
+				return fmt.Errorf("failed to start consensus node, error: %v", err)
+			}
 		}
 	}
 

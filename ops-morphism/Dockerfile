@@ -21,5 +21,3 @@ RUN apk add --no-cache ca-certificates
 
 COPY --from=builder /node/build/bin/morphnode /usr/local/bin/
 COPY --from=initializer /data /data
-
-CMD ["morphnode","--sequencer","--home", "/data"]

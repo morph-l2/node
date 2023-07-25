@@ -11,10 +11,11 @@ import (
 )
 
 type Config struct {
-	l1RPC         string
-	PrivateKey    *ecdsa.PrivateKey
-	L1ChainID     *big.Int
-	zkEvmContract *common.Address
+	l1RPC           string
+	PrivateKey      *ecdsa.PrivateKey
+	L1ChainID       *big.Int
+	zkEvmContract   *common.Address
+	challengeEnable bool
 }
 
 func NewConfig() *Config {
@@ -29,6 +30,7 @@ func (c *Config) SetCliContext(ctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
+	c.challengeEnable = ctx.GlobalIsSet(flags.ValidatorEnable.Name)
 	addrHex := ctx.GlobalString(flags.ZKEvmContractAddress.Name)
 	zkEvmContract := common.HexToAddress(addrHex)
 	c.l1RPC = l1NodeAddr

@@ -46,7 +46,7 @@ func TestNodeGeth_BasicProduceBlocks(t *testing.T) {
 	require.EqualValues(t, 1, len(pendings))
 
 	// block 1 producing
-	txs, restBytes, blsBytes, err := node.RequestBlockData(1)
+	txs, restBytes, blsBytes, root, err := node.RequestBlockData(1)
 	require.NoError(t, err)
 	require.EqualValues(t, 1, len(txs))
 	converter := nodetypes.Version1Converter{}
@@ -58,7 +58,7 @@ func TestNodeGeth_BasicProduceBlocks(t *testing.T) {
 	require.EqualValues(t, 1, len(l2Data.Transactions))
 	require.EqualValues(t, transferTxBytes, l2Data.Transactions[0])
 
-	valid, err := node.CheckBlockData(txs, restBytes, blsBytes)
+	valid, err := node.CheckBlockData(txs, restBytes, blsBytes, root)
 	require.NoError(t, err)
 	require.True(t, valid)
 
@@ -91,7 +91,7 @@ func TestNodeGeth_BasicProduceBlocks(t *testing.T) {
 	require.EqualValues(t, senderReduced.String(), new(big.Int).Add(receiverGain, feeReceiverGain).String())
 
 	// block 2 producing
-	txs, restBytes, blsBytes, err = node.RequestBlockData(2)
+	txs, restBytes, blsBytes, root, err = node.RequestBlockData(2)
 	require.NoError(t, err)
 	require.EqualValues(t, 0, len(txs))
 	l2Data, l1Msgs, err = converter.Recover(blsBytes, restBytes, txs)
@@ -101,7 +101,7 @@ func TestNodeGeth_BasicProduceBlocks(t *testing.T) {
 	require.EqualValues(t, eth.EmptyAddress, l2Data.Miner)
 	require.EqualValues(t, 0, len(l2Data.Transactions))
 
-	valid, err = node.CheckBlockData(txs, restBytes, blsBytes)
+	valid, err = node.CheckBlockData(txs, restBytes, blsBytes, root)
 	require.NoError(t, err)
 	require.True(t, valid)
 	require.NoError(t, node.DeliverBlock(txs, restBytes, blsBytes, nil, nil))
@@ -220,6 +220,9 @@ func TestL1Fee(t *testing.T) {
 	owner, err := gasPriceOracle.Owner(nil)
 	require.NoError(t, err)
 	require.EqualValues(t, defaultOwnerAddress.Bytes(), owner.Bytes())
+	allowListEnabled, err := gasPriceOracle.AllowListEnabled(nil)
+	require.NoError(t, err)
+	require.True(t, allowListEnabled)
 
 	// update configs
 	transactor, err := bind.NewKeyedTransactorWithChainID(defaultOwnerPrivKey, geth.Backend.BlockChain().Config().ChainID)
@@ -270,6 +273,32 @@ func TestL1Fee(t *testing.T) {
 	require.EqualValues(t, 1, txReceipt.Status)
 	require.EqualValues(t, expectedL1Fee.Int64(), txReceipt.L1Fee.Int64())
 
+}
+
+func TestWithdrawRootSlot(t *testing.T) {
+	geth, node := NewGethAndNode(t, db.NewMemoryStore(), func(config *SystemConfig) error {
+		genesis, err := GenesisFromPath(FullGenesisPath)
+		config.Genesis = genesis
+		if err != nil {
+			return err
+		}
+		return nil
+	}, nil)
+
+	// block 1
+	require.NoError(t, ManualCreateBlock(node, 1))
+
+	l2ToL1MessagePasser, err := bindings.NewL2ToL1MessagePasserCaller(rcfg.L2MessageQueueAddress, geth.EthClient)
+	require.NoError(t, err)
+	expectedRoot, err := l2ToL1MessagePasser.GetTreeRoot(nil)
+	require.NoError(t, err)
+	messageRoot, err := l2ToL1MessagePasser.MessageRoot(nil)
+	require.NoError(t, err)
+	require.EqualValues(t, expectedRoot, messageRoot)
+	state, err := geth.Backend.BlockChain().State()
+	require.NoError(t, err)
+	result := state.GetState(rcfg.L2MessageQueueAddress, rcfg.WithdrawTrieRootSlot)
+	require.EqualValues(t, expectedRoot, result)
 }
 
 // mulAndScale multiplies a big.Int by a big.Int and then scale it by precision,

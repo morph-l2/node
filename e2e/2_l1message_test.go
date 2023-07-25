@@ -45,7 +45,7 @@ func TestL1DepositMessage_ConstantBlocksWithL1Message(t *testing.T) {
 		require.EqualValues(t, 0, L2CrossDomainMessengerBalanceBefore.Uint64())
 
 		// block producing
-		txs, restBytes, blsBytes, err := node.RequestBlockData(int64(i + 1))
+		txs, restBytes, blsBytes, root, err := node.RequestBlockData(int64(i + 1))
 		require.NoError(t, err)
 		require.EqualValues(t, 1, len(txs))
 		converter := nodetypes.Version1Converter{}
@@ -56,7 +56,7 @@ func TestL1DepositMessage_ConstantBlocksWithL1Message(t *testing.T) {
 		require.EqualValues(t, eth.EmptyAddress, l2Data.Miner)
 		require.EqualValues(t, 1, len(l2Data.Transactions))
 		require.EqualValues(t, txBytes, l2Data.Transactions[0])
-		valid, err := node.CheckBlockData(txs, restBytes, blsBytes)
+		valid, err := node.CheckBlockData(txs, restBytes, blsBytes, root)
 		require.NoError(t, err)
 		require.True(t, valid)
 		require.NoError(t, node.DeliverBlock(txs, restBytes, blsBytes, nil, nil))
@@ -122,9 +122,9 @@ func TestL1DepositMessage_L1AndL2MessageInOneBlock(t *testing.T) {
 	_, err = geth.Transfer(transactOpts, testingAddress2)
 	require.NoError(t, err)
 
-	txs, restBytes, blsBytes, err := node.RequestBlockData(1)
+	txs, restBytes, blsBytes, root, err := node.RequestBlockData(1)
 	require.NoError(t, err)
-	valid, err := node.CheckBlockData(txs, restBytes, blsBytes)
+	valid, err := node.CheckBlockData(txs, restBytes, blsBytes, root)
 	require.NoError(t, err)
 	require.True(t, valid)
 	require.NoError(t, node.DeliverBlock(txs, restBytes, blsBytes, nil, nil))
@@ -148,7 +148,7 @@ func TestL1DepositMessage_InvalidL1MessageOrder(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, syncerDB.WriteSyncedL1Messages([]types.L1Message{*l1Message0, *l1Message2}, 0))
 
-	_, _, _, err = node.RequestBlockData(1)
+	_, _, _, _, err = node.RequestBlockData(1)
 	require.ErrorIs(t, err, types.ErrInvalidL1MessageOrder)
 }
 

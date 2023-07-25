@@ -148,6 +148,12 @@ var (
 		EnvVar: prefixEnvVar("MOCK_SEQUENCER"),
 	}
 
+	ValidatorEnable = cli.BoolFlag{
+		Name:   "validator",
+		Usage:  "Enable the validator mode",
+		EnvVar: prefixEnvVar("VALIDATOR"),
+	}
+
 	// validator
 	ValidatorPrivateKey = cli.StringFlag{
 		Name:   "validator.privateKey",
@@ -165,7 +171,7 @@ var (
 
 	DerivationStartHeight = cli.Uint64Flag{
 		Name:   "derivation.startHeight",
-		Usage:  "Block height where derivation start to fetch",
+		Usage:  "L1 block height where derivation start to fetch",
 		EnvVar: prefixEnvVar("DERIVATION_START_HEIGHT"),
 	}
 
@@ -185,6 +191,7 @@ var (
 		Name:   "derivation.fetchBlockRange",
 		Usage:  "Number of blocks that we collect in a single eth_getLogs query",
 		EnvVar: prefixEnvVar("DERIVATION_FETCH_BLOCK_RANGE"),
+	}
 	// Logger
 	LogLevel = &cli.StringFlag{
 		Name:   "log.level",
@@ -227,11 +234,13 @@ var Flags = []cli.Flag{
 	SequencerEnabled,
 	TendermintConfigPath,
 	MockEnabled,
+	ValidatorEnable,
 
 	// validator
 	ValidatorPrivateKey,
 
 	// derivation
+	ZKEvmContractAddress,
 	DerivationStartHeight,
 	DerivationPollInterval,
 	DerivationLogProgressInterval,
