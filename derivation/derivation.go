@@ -290,9 +290,10 @@ func (d *Derivation) argsToBlockDatas(args []interface{}, blockNumber uint64) er
 			// derivation
 			latestBlockNumber, err := d.l2Client.BlockNumber(context.Background())
 			if err != nil {
-				return err
+				return fmt.Errorf("get derivation geth block number error:%v", err)
 			}
 			if blockData.SafeL2Data.Number <= latestBlockNumber {
+				d.logger.Info("SafeL2Data block number less than latestBlockNumber", "safeL2DataNumber", blockData.SafeL2Data.Number, "latestBlockNumber", latestBlockNumber)
 				continue
 			}
 			header, err := d.l2Client.NewSafeL2Block(context.Background(), blockData.SafeL2Data, blockData.blsData)
