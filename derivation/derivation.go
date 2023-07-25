@@ -310,8 +310,6 @@ func (d *Derivation) argsToBlockDatas(args []interface{}, blockNumber uint64) er
 				if blockData.blsData == nil {
 					d.logger.Error("invalid batch", "batchIndex", d.db.ReadLatestDerivationBatchIndex(), "l1BlockNumber", blockNumber)
 				}
-			}
-			if blockData.blsData != nil {
 				if !bytes.Equal(header.Hash().Bytes(), blockData.Root.Bytes()) && d.validator != nil && d.validator.ChallengeEnable() {
 					// TODO Optimized the BatchIndex acquisition mode
 					log.Info("block hash is not equal", "l1", blockData.Root.Hex(), "l2", header.Hash().Hex())
