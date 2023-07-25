@@ -254,7 +254,15 @@ func (d *Derivation) argsToBlockDatas(args []interface{}, blockNumber uint64) er
 		batchBlockCount := zkEVMBatchData.BlockNumber - *lastBatchEndBlock
 		d.logger.Info("batchBlockCount", "batchBlockCount", batchBlockCount, "batchLastBlock", zkEVMBatchData.BlockNumber, "lastBatchEndBlock", *lastBatchEndBlock)
 		if err := bd.DecodeBlockContext(uint(batchBlockCount), zkEVMBatchData.BlockWitnes); err != nil {
-			return fmt.Errorf("BatchData DecodeBlockContext error:%v,batchBlockCount:%v", err, batchBlockCount)
+			var expectCount int
+			for i := 1; i < 20; i++ {
+				if err := bd.DecodeBlockContext(uint(i), zkEVMBatchData.BlockWitnes); err == nil {
+					expectCount = i
+					break
+				}
+			}
+
+			return fmt.Errorf("BatchData DecodeBlockContext error:%v,batchBlockCount:%v,expectCount:%v", err, batchBlockCount, expectCount)
 		}
 		if err := bd.DecodeTransactions(zkEVMBatchData.Transactions); err != nil {
 			return fmt.Errorf("BatchData DecodeTransactions error:%v", err)
