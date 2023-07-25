@@ -20,6 +20,9 @@ func (e *Executor) updateLatestProcessedL1Index(txs [][]byte) error {
 		}
 		e.latestProcessedL1Index = &tx.AsL1MessageTx().QueueIndex
 	}
+	if e.latestProcessedL1Index != nil {
+		e.metrics.LatestProcessedQueueIndex.Set(float64(*e.latestProcessedL1Index))
+	}
 	return nil
 }
 

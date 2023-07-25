@@ -30,6 +30,39 @@ type Executor struct {
 	maxL1MsgNumPerBlock    uint64
 	syncer                 *sync.Syncer // needed when it is configured as a sequencer
 	logger                 tmlog.Logger
+	metrics                *Metrics
+}
+
+func getLatestProcessedL1Index(cdmAddress common.Address, client *ethclient.Client, logger tmlog.Logger) (*uint64, error) {
+	cdmCaller, err := bindings.NewL2CrossDomainMessengerCaller(cdmAddress, client)
+	if err != nil {
+		return nil, err
+	}
+	receivedNonce, err := cdmCaller.ReceiveNonce(nil)
+	if err != nil {
+		var count = 0
+		for err != nil && strings.Contains(err.Error(), "connection refused") {
+			time.Sleep(5 * time.Second)
+			count++
+			logger.Error("connection refused, try again", "retryCount", count)
+			receivedNonce, err = cdmCaller.ReceiveNonce(nil)
+		}
+		// if no contracts found, we set it as nil
+		if err != nil {
+			logger.Error("failed to get ReceiveNonce", "error", err)
+			return nil, nil
+		}
+	}
+
+	var latestProcessedL1Index *uint64
+	if receivedNonce.Cmp(big.NewInt(0)) != 0 {
+		decodedNonce, err := types.DecodeNonce(receivedNonce)
+		if err != nil {
+			return nil, err
+		}
+		latestProcessedL1Index = &decodedNonce
+	}
+	return latestProcessedL1Index, nil
 }
 
 func NewSequencerExecutor(config *Config, syncer *sync.Syncer) (*Executor, error) {
@@ -46,38 +79,14 @@ func NewSequencerExecutor(config *Config, syncer *sync.Syncer) (*Executor, error
 	if err != nil {
 		return nil, err
 	}
-	cdmCaller, err := bindings.NewL2CrossDomainMessengerCaller(config.L2CrossDomainMessengerAddress, eClient)
+
+	latestProcessedL1Index, err := getLatestProcessedL1Index(config.L2CrossDomainMessengerAddress, eClient, logger)
 	if err != nil {
 		return nil, err
 	}
-
-	receivedNonce, err := cdmCaller.ReceiveNonce(nil)
-	if err != nil {
-		var count = 0
-		for err != nil && strings.Contains(err.Error(), "connection refused") {
-			time.Sleep(5 * time.Second)
-			count++
-			logger.Error("connection refused, try again", "retryCount", count)
-			receivedNonce, err = cdmCaller.ReceiveNonce(nil)
-		}
-		if err != nil {
-			logger.Error("failed to get ReceiveNonce", "error", err)
-			receivedNonce = big.NewInt(0)
-			err = nil // todo for testing consideration, ignore the err. will remove when we have the pre-deployed contracts integrated
-		}
-	}
-
-	var latestProcessedL1Index *uint64
-	if receivedNonce.Cmp(big.NewInt(0)) != 0 {
-		//decodedNonce := new(big.Int).Sub(receivedNonce, types.Version1StartedNonce)
-		//if decodedNonce.Sign() < 0 {
-		//	return nil, errors.New(fmt.Sprintf("wrong receivedNonce: %s", receivedNonce.String()))
-		//}
-		decodedNonce, err := types.DecodeNonce(receivedNonce)
-		if err != nil {
-			return nil, err
-		}
-		latestProcessedL1Index = &decodedNonce
+	metrics := PrometheusMetrics("morphnode")
+	if latestProcessedL1Index != nil {
+		metrics.LatestProcessedQueueIndex.Set(float64(*latestProcessedL1Index))
 	}
 
 	return &Executor{
@@ -87,6 +96,7 @@ func NewSequencerExecutor(config *Config, syncer *sync.Syncer) (*Executor, error
 		maxL1MsgNumPerBlock:    config.MaxL1MessageNumPerBlock,
 		syncer:                 syncer,
 		logger:                 logger,
+		metrics:                metrics,
 	}, err
 }
 
@@ -101,10 +111,20 @@ func NewExecutor(config *Config) (*Executor, error) {
 	if err != nil {
 		return nil, err
 	}
+	latestProcessedL1Index, err := getLatestProcessedL1Index(config.L2CrossDomainMessengerAddress, eClient, logger)
+	if err != nil {
+		return nil, err
+	}
+	metrics := PrometheusMetrics("morphnode")
+	if latestProcessedL1Index != nil {
+		metrics.LatestProcessedQueueIndex.Set(float64(*latestProcessedL1Index))
+	}
 	return &Executor{
-		l2Client: types.NewRetryableClient(aClient, eClient, config.Logger),
-		bc:       &Version1Converter{},
-		logger:   logger,
+		l2Client:               types.NewRetryableClient(aClient, eClient, config.Logger),
+		bc:                     &Version1Converter{},
+		latestProcessedL1Index: latestProcessedL1Index,
+		logger:                 logger,
+		metrics:                metrics,
 	}, err
 }
 
@@ -246,6 +266,7 @@ func (e *Executor) DeliverBlock(txs [][]byte, l2Config, zkConfig []byte, validat
 				BLSSigners:   signers,
 				BLSSignature: bls12381.NewG1().EncodePoint(aggregatedSig),
 			}
+			e.metrics.BatchPointHeight.Set(float64(l2Block.Number))
 		}
 	}
 
@@ -257,6 +278,8 @@ func (e *Executor) DeliverBlock(txs [][]byte, l2Config, zkConfig []byte, validat
 
 	// impossible getting an error here
 	_ = e.updateLatestProcessedL1Index(txs)
+
+	e.metrics.Height.Set(float64(l2Block.Number))
 	return nil
 }
 
