@@ -263,7 +263,9 @@ func (d *Derivation) argsToBlockDatas(args []interface{}, blockNumber uint64) er
 				}
 			}
 
-			return fmt.Errorf("BatchData DecodeBlockContext error:%v,batchBlockCount:%v,expectCount:%v", err, batchBlockCount, expectCount)
+			//return fmt.Errorf("BatchData DecodeBlockContext error:%v,batchBlockCount:%v,expectCount:%v", err, batchBlockCount, expectCount)
+			// TODO test log
+			d.logger.Info("BatchData DecodeBlockContext failed", "error", err, "batchBlockCount", batchBlockCount, "expectCount", expectCount)
 		}
 		if err := bd.DecodeTransactions(zkEVMBatchData.Transactions); err != nil {
 			return fmt.Errorf("BatchData DecodeTransactions error:%v", err)
