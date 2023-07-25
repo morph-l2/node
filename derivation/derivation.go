@@ -30,6 +30,7 @@ import (
 var (
 	ZKEvmEventTopic     = "SubmitBatches(uint64,uint64)"
 	ZKEvmEventTopicHash = crypto.Keccak256Hash([]byte(ZKEvmEventTopic))
+	MaxCount            = 20
 )
 
 type Derivation struct {
@@ -255,7 +256,7 @@ func (d *Derivation) argsToBlockDatas(args []interface{}, blockNumber uint64) er
 		d.logger.Info("batchBlockCount", "batchBlockCount", batchBlockCount, "batchLastBlock", zkEVMBatchData.BlockNumber, "lastBatchEndBlock", *lastBatchEndBlock)
 		if err := bd.DecodeBlockContext(uint(batchBlockCount), zkEVMBatchData.BlockWitnes); err != nil {
 			var expectCount int
-			for i := 1; i < 20; i++ {
+			for i := 1; i < MaxCount; i++ {
 				if err := bd.DecodeBlockContext(uint(i), zkEVMBatchData.BlockWitnes); err == nil {
 					expectCount = i
 					break
