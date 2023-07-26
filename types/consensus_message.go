@@ -52,7 +52,9 @@ func (nbm *NonBLSMessage) UnmarshalBinary(b []byte) error {
 
 type RestMessage struct {
 	NonBLSMessage
-	Miner common.Address `json:"miner"`
+	Miner      common.Address `json:"miner"`
+	BlockHash  common.Hash    `json:"blockHash"`
+	ParentHash common.Hash    `json:"parentHash"`
 }
 
 func (rm *RestMessage) MarshalBinary() ([]byte, error) {

@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"github.com/morphism-labs/node/types"
-	"github.com/scroll-tech/go-ethereum/common"
 	"github.com/scroll-tech/go-ethereum/eth/catalyst"
 	"math/big"
 )
@@ -17,20 +16,17 @@ type BlockConverter interface {
 type Version1Converter struct{}
 
 func (bc *Version1Converter) Separate(l2Block *catalyst.ExecutableL2Data, l1Msg []types.L1Message) ([]byte, []byte, error) {
-	// Hash(32) || ParentHash(32) || Number(8) || Timestamp(8) || BaseFee(32) || GasLimit(8) || numTxs(2) || numL1Msg(2)
-	blsBytes := make([]byte, 124)
-	copy(blsBytes[:32], l2Block.Hash.Bytes())
-	copy(blsBytes[32:64], l2Block.ParentHash.Bytes())
-	copy(blsBytes[64:72], types.Uint64ToBigEndianBytes(l2Block.Number))
-	copy(blsBytes[72:80], types.Uint64ToBigEndianBytes(l2Block.Timestamp))
+	// Number(8) || Timestamp(8) || BaseFee(32) || GasLimit(8) || numTxs(2)
+	blsBytes := make([]byte, 58)
+	copy(blsBytes[:8], types.Uint64ToBigEndianBytes(l2Block.Number))
+	copy(blsBytes[8:16], types.Uint64ToBigEndianBytes(l2Block.Timestamp))
 	if l2Block.BaseFee != nil {
-		copy(blsBytes[80:112], l2Block.BaseFee.FillBytes(make([]byte, 32)))
+		copy(blsBytes[16:48], l2Block.BaseFee.FillBytes(make([]byte, 32)))
 	} else {
-		copy(blsBytes[80:112], make([]byte, 32))
+		copy(blsBytes[16:48], make([]byte, 32))
 	}
-	copy(blsBytes[112:120], types.Uint64ToBigEndianBytes(l2Block.GasLimit))
-	copy(blsBytes[120:122], types.Uint16ToBigEndianBytes(uint16(len(l2Block.Transactions))))
-	copy(blsBytes[122:124], types.Uint16ToBigEndianBytes(uint16(0))) // later replace it to len(l1Msg)
+	copy(blsBytes[48:56], types.Uint64ToBigEndianBytes(l2Block.GasLimit))
+	copy(blsBytes[56:58], types.Uint16ToBigEndianBytes(uint16(len(l2Block.Transactions))))
 
 	rest := types.RestMessage{
 		NonBLSMessage: types.NonBLSMessage{
@@ -40,7 +36,9 @@ func (bc *Version1Converter) Separate(l2Block *catalyst.ExecutableL2Data, l1Msg 
 			LogsBloom:   l2Block.LogsBloom,
 			L1Messages:  l1Msg,
 		},
-		Miner: l2Block.Miner,
+		BlockHash:  l2Block.Hash,
+		ParentHash: l2Block.ParentHash,
+		Miner:      l2Block.Miner,
 	}
 	restBytes, err := rest.MarshalBinary()
 	if err != nil {
@@ -50,33 +48,30 @@ func (bc *Version1Converter) Separate(l2Block *catalyst.ExecutableL2Data, l1Msg 
 }
 
 func (bc *Version1Converter) Recover(blsMsg []byte, restMsg []byte, txs [][]byte) (*catalyst.ExecutableL2Data, []types.L1Message, error) {
-	if len(blsMsg) != 124 {
+	if len(blsMsg) != 58 {
 		return nil, nil, fmt.Errorf("wrong blsMsg size, expected: %d, actual: %d", 124, len(blsMsg))
 	}
 	rest := new(types.RestMessage)
 	if err := rest.UnmarshalBinary(restMsg); err != nil {
 		return nil, nil, err
 	}
-	if binary.BigEndian.Uint16(blsMsg[120:122]) != uint16(len(txs)) {
+	if binary.BigEndian.Uint16(blsMsg[56:58]) != uint16(len(txs)) {
 		return nil, nil, fmt.Errorf("wrong blsMsg, numTxs(%d) is not equal to the length of txs(%d)", binary.BigEndian.Uint16(blsMsg[120:122]), len(txs))
 	}
-	if binary.BigEndian.Uint16(blsMsg[122:124]) != 0 { // later replace it to uint16(len(nbm.L1Messages))
-		return nil, nil, fmt.Errorf("wrong blsMsg, numL1Msg(%d) is not equal to the length of L1Messages(%d)", binary.BigEndian.Uint16(blsMsg[122:124]), 0)
-	}
 
-	baseFee := new(big.Int).SetBytes(blsMsg[80:112])
+	baseFee := new(big.Int).SetBytes(blsMsg[16:48])
 	if baseFee.Cmp(big.NewInt(0)) == 0 {
 		baseFee = nil
 	}
 
 	return &catalyst.ExecutableL2Data{
-		Hash:         common.BytesToHash(blsMsg[:32]),
-		ParentHash:   common.BytesToHash(blsMsg[32:64]),
+		Hash:         rest.BlockHash,
+		ParentHash:   rest.ParentHash,
 		Miner:        rest.Miner,
-		Number:       binary.BigEndian.Uint64(blsMsg[64:72]),
-		Timestamp:    binary.BigEndian.Uint64(blsMsg[72:80]),
+		Number:       binary.BigEndian.Uint64(blsMsg[:8]),
+		Timestamp:    binary.BigEndian.Uint64(blsMsg[8:16]),
 		BaseFee:      baseFee,
-		GasLimit:     binary.BigEndian.Uint64(blsMsg[112:120]),
+		GasLimit:     binary.BigEndian.Uint64(blsMsg[48:56]),
 		StateRoot:    rest.StateRoot,
 		GasUsed:      rest.GasUsed,
 		ReceiptRoot:  rest.ReceiptRoot,

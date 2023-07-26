@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"errors"
+	"github.com/prometheus/client_golang/prometheus"
 
 	node "github.com/morphism-labs/node/core"
 	"github.com/morphism-labs/node/sync"
@@ -14,6 +15,7 @@ func NewSequencerNode(geth Geth, syncer *sync.Syncer) (l2node.L2Node, error) {
 	nodeConfig.L2.EthAddr = geth.Node.HTTPEndpoint()
 	nodeConfig.L2.EngineAddr = geth.Node.HTTPAuthEndpoint()
 	nodeConfig.L2.JwtSecret = testingJWTSecret
+	prometheus.DefaultRegisterer = prometheus.NewRegistry()
 	return node.NewSequencerExecutor(nodeConfig, syncer)
 }
 
