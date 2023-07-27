@@ -244,27 +244,39 @@ func (d *Derivation) fetchRollupData(txHash common.Hash, blockNumber uint64) (*F
 }
 
 func (d *Derivation) argsToBlockDatas(args []interface{}, fetchBatch *FetchBatch) error {
+
+	// type ZKEVMBatchData struct {
+	//	BlockNumber   uint64
+	//	Transactions  []byte
+	//	BlockWitness  []byte
+	//	PreStateRoot  [32]byte
+	//	PostStateRoot [32]byte
+	//	WithdrawRoot  [32]byte
+	//	Signature     ZKEVMBatchSignature
+	//}
+
 	zkEVMBatchDatas := args[0].([]struct {
-		BlockNumber  uint64    "json:\"blockNumber\""
-		Transactions []uint8   "json:\"transactions\""
-		BlockWitnes  []uint8   "json:\"blockWitnes\""
-		PreStateRoot [32]uint8 "json:\"preStateRoot\""
-		WithdrawRoot [32]uint8 "json:\"withdrawRoot\""
-		Signature    struct {
+		BlockNumber   uint64    "json:\"blockNumber\""
+		Transactions  []uint8   "json:\"transactions\""
+		BlockWitness  []uint8   "json:\"blockWitnes\""
+		PreStateRoot  [32]uint8 "json:\"preStateRoot\""
+		PostStateRoot [32]uint8 "json:\"postStateRoot\""
+		WithdrawRoot  [32]uint8 "json:\"withdrawRoot\""
+		Signature     struct {
 			Signers   [][]uint8 "json:\"signers\""
 			Signature []uint8   "json:\"signature\""
 		} "json:\"signature\""
 	})
 	for _, zkEVMBatchData := range zkEVMBatchDatas {
 		bd := BatchData{}
-		if err := bd.DecodeBlockContext(zkEVMBatchData.BlockNumber, zkEVMBatchData.BlockWitnes); err != nil {
+		if err := bd.DecodeBlockContext(zkEVMBatchData.BlockNumber, zkEVMBatchData.BlockWitness); err != nil {
 			return fmt.Errorf("BatchData DecodeBlockContext error:%v", err)
 		}
 		if err := bd.DecodeTransactions(zkEVMBatchData.Transactions); err != nil {
 			return fmt.Errorf("BatchData DecodeTransactions error:%v", err)
 		}
 		var last uint64
-		for index, block := range bd.BlockContexts.Blocks {
+		for index, block := range bd.BlockContexts {
 			var blockData BlockData
 			var safeL2Data catalyst.SafeL2Data
 			safeL2Data.Number = block.Number.Uint64()
@@ -282,7 +294,7 @@ func (d *Derivation) argsToBlockDatas(args []interface{}, fetchBatch *FetchBatch
 			}
 			last = block.NumTxs - 1
 			blockData.SafeL2Data = &safeL2Data
-			if index == len(bd.BlockContexts.Blocks)-1 {
+			if index == len(bd.BlockContexts)-1 {
 				// only last block of batch
 				if blockData.blsData == nil {
 					d.logger.Error("invalid batch", "l1BlockNumber", fetchBatch.L1BlockNumber)
@@ -291,7 +303,7 @@ func (d *Derivation) argsToBlockDatas(args []interface{}, fetchBatch *FetchBatch
 				blsData.BLSSignature = zkEVMBatchData.Signature.Signature
 				blsData.BLSSigners = zkEVMBatchData.Signature.Signers
 				blockData.blsData = &blsData
-				blockData.Root = bd.BlockContexts.LastBlockStateRoot
+				blockData.Root = zkEVMBatchData.PostStateRoot
 			}
 			fetchBatch.BlockDatas = append(fetchBatch.BlockDatas, &blockData)
 		}
