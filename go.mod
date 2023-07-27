@@ -4,11 +4,11 @@ go 1.20
 
 require (
 	github.com/cenkalti/backoff/v4 v4.1.3
+	github.com/ethereum/go-ethereum v1.10.26
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/hashicorp/golang-lru v0.5.5-0.20210104140557-80c98217689d
 	github.com/holiman/uint256 v1.2.2
-	github.com/morphism-labs/morphism-bindings v0.0.0-20230706120507-6afb146c84ec
-	github.com/morphism-labs/tx-submitter v0.1.1-0.20230719110344-67de37ffeaac
+	github.com/morphism-labs/morphism-bindings v0.0.0-20230726100231-a01af4e20001
 	github.com/scroll-tech/go-ethereum v1.11.4
 	github.com/spf13/viper v1.13.0
 	github.com/stretchr/testify v1.8.2
@@ -124,6 +124,6 @@ require (
 
 replace (
 	github.com/btcsuite/btcd => github.com/btcsuite/btcd v0.20.1-beta
-	github.com/scroll-tech/go-ethereum => github.com/morphism-labs/go-ethereum v1.10.14-0.20230713061436-c8ae2f944b86
+	github.com/scroll-tech/go-ethereum => github.com/morphism-labs/go-ethereum v1.10.14-0.20230726084755-52c72a4f0283
 	github.com/tendermint/tendermint => github.com/morphism-labs/tendermint v0.0.0-20230712062004-095179ad3144
 )

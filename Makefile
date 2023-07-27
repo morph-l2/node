@@ -8,7 +8,7 @@ LDFLAGS := -ldflags "$(LDFLAGSSTRING)"
 morphnode:
 	if [ ! -d build/bin ]; then mkdir -p build/bin; fi
 	go mod download
-	env GO111MODULE=on CGO_ENABLED=1 go build -o build/bin/morphnode -v $(LDFLAGS) ./cmd/node
+	env GO111MODULE=on CGO_ENABLED=0 go build -o build/bin/morphnode -v $(LDFLAGS) ./cmd/node
 .PHONY: morphnode
 
 morphnode-alpine:
@@ -49,11 +49,11 @@ devnet-up:
 .PHONY: dev-up
 
 devnet-validator-up:
-	cd ops-morphism && docker-compose -f docker-compose-validator.yml up -d
+	cd ops-morphism && docker compose -f docker-compose-validator.yml up -d
 .PHONY: dev-validator-up
 
 devnet-validator-build:
-	cd ops-morphism && docker-compose -f docker-compose-validator.yml build
+	cd ops-morphism && docker compose -f docker-compose-validator.yml build
 .PHONY: dev-validator-build
 
 devnet-down:

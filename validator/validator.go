@@ -5,23 +5,23 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
-	tmlog "github.com/tendermint/tendermint/libs/log"
+	"github.com/ethereum/go-ethereum"
 	"math/big"
 	"time"
 
-	"github.com/morphism-labs/node/types/bindings"
-	"github.com/scroll-tech/go-ethereum"
+	"github.com/morphism-labs/morphism-bindings/bindings"
 	"github.com/scroll-tech/go-ethereum/accounts/abi/bind"
 	ethtypes "github.com/scroll-tech/go-ethereum/core/types"
 	"github.com/scroll-tech/go-ethereum/ethclient"
 	"github.com/scroll-tech/go-ethereum/log"
+	tmlog "github.com/tendermint/tendermint/libs/log"
 )
 
 type Validator struct {
 	cli             DeployContractBackend
 	privateKey      *ecdsa.PrivateKey
 	l1ChainID       *big.Int
-	contract        *bindings.ZKEVMTransactor
+	contract        *bindings.ZKEVM
 	challengeEnable bool
 	logger          tmlog.Logger
 }
@@ -31,20 +31,14 @@ type DeployContractBackend interface {
 	bind.ContractBackend
 }
 
-func NewValidator(cfg *Config, logger tmlog.Logger) (*Validator, error) {
+func NewValidator(cfg *Config, zkEVM *bindings.ZKEVM, logger tmlog.Logger) (*Validator, error) {
 	cli, err := ethclient.Dial(cfg.l1RPC)
-	// TODO delete
-	fmt.Println("cfg.l1RPC", cfg.l1RPC)
 	if err != nil {
 		return nil, fmt.Errorf("dial l1 node error:%v", err)
 	}
-	zkEVMTransactor, err := bindings.NewZKEVMTransactor(*cfg.zkEvmContract, cli)
-	if err != nil {
-		return nil, fmt.Errorf("NewZKEVMTransactor error:%v", err)
-	}
 	return &Validator{
 		cli:        cli,
-		contract:   zkEVMTransactor,
+		contract:   zkEVM,
 		privateKey: cfg.PrivateKey,
 		l1ChainID:  cfg.L1ChainID,
 		logger:     logger,

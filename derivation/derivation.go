@@ -13,7 +13,6 @@ import (
 	nodecommon "github.com/morphism-labs/node/common"
 	"github.com/morphism-labs/node/types"
 	"github.com/morphism-labs/node/validator"
-	"github.com/morphism-labs/tx-submitter/batch"
 	"github.com/scroll-tech/go-ethereum"
 	"github.com/scroll-tech/go-ethereum/accounts/abi/bind"
 	"github.com/scroll-tech/go-ethereum/common"
@@ -30,7 +29,6 @@ import (
 var (
 	ZKEvmEventTopic     = "SubmitBatches(uint64,uint64)"
 	ZKEvmEventTopicHash = crypto.Keccak256Hash([]byte(ZKEvmEventTopic))
-	MaxCount            = 20
 )
 
 type Derivation struct {
@@ -41,6 +39,7 @@ type Derivation struct {
 	l2Client             *types.RetryableClient
 	validator            *validator.Validator
 	logger               tmlog.Logger
+	zkEvm                *bindings.ZKEVM
 
 	latestDerivation uint64
 	db               Database
@@ -61,7 +60,7 @@ type DeployContractBackend interface {
 	ethereum.TransactionReader
 }
 
-func NewDerivationClient(ctx context.Context, cfg *Config, db Database, validator *validator.Validator, logger tmlog.Logger) (*Derivation, error) {
+func NewDerivationClient(ctx context.Context, cfg *Config, db Database, validator *validator.Validator, zkEvm *bindings.ZKEVM, logger tmlog.Logger) (*Derivation, error) {
 	l1Client, err := ethclient.Dial(cfg.L1.Addr)
 	if err != nil {
 		return nil, err
@@ -85,6 +84,7 @@ func NewDerivationClient(ctx context.Context, cfg *Config, db Database, validato
 		db:                   db,
 		l1Client:             l1Client,
 		validator:            validator,
+		zkEvm:                zkEvm,
 		logger:               logger,
 		ZKEvmContractAddress: cfg.ZKEvmContractAddress,
 		confirmations:        cfg.L1.Confirmations,
@@ -133,41 +133,6 @@ func (d *Derivation) Stop() {
 	log.Info("Derivation service is stopped")
 }
 
-func (d *Derivation) fetchZkEvmData(ctx context.Context, from, to uint64) error {
-	query := ethereum.FilterQuery{
-		FromBlock: big.NewInt(0).SetUint64(from),
-		ToBlock:   big.NewInt(0).SetUint64(to),
-		Addresses: []common.Address{
-			*d.ZKEvmContractAddress,
-		},
-		Topics: [][]common.Hash{
-			{ZKEvmEventTopicHash},
-		},
-	}
-	logs, err := d.l1Client.FilterLogs(ctx, query)
-	if err != nil {
-		log.Trace("eth_getLogs failed", "query", query, "err", err)
-		return fmt.Errorf("eth_getLogs failed: %w", err)
-	}
-
-	if len(logs) == 0 {
-		return nil
-	}
-	lastBatchEndBlock := d.db.ReadLastBatchEndBlock()
-	if lastBatchEndBlock == nil {
-		lastBatchEndBlock = new(uint64)
-	}
-	for _, lg := range logs {
-		if err := d.fetchRollupData(lg.TxHash, lg.BlockNumber); err != nil {
-			return err
-		}
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func (d *Derivation) derivationBlock(ctx context.Context) {
 	latestDerivation := d.db.ReadLatestDerivationL1Height()
 	latest, err := nodecommon.GetLatestConfirmedBlockNumber(ctx, d.l1Client.(*ethclient.Client), d.confirmations)
@@ -185,17 +150,59 @@ func (d *Derivation) derivationBlock(ctx context.Context) {
 		end = latest
 	}
 	d.logger.Info("derivation start pull block form l1", "startBlock", *latestDerivation, "end", end)
-	if err = d.fetchZkEvmData(ctx, *latestDerivation, end); err != nil {
+	fetchBatchs, err := d.fetchZkEvmData(ctx, *latestDerivation, end)
+	if err != nil {
 		log.Error("FetchZkEvmData failed", "error", err)
 		return
+	}
+
+	//derivation
+	for _, fetchBatch := range fetchBatchs {
+		if err := d.derive(fetchBatch); err != nil {
+			d.logger.Error("derive blocks interrupt", "error", err)
+			return
+		}
+		d.db.WriteLatestDerivationL1Height(fetchBatch.L1BlockNumber)
 	}
 	d.db.WriteLatestDerivationL1Height(end)
 }
 
-// Batch is all rollup data of one l1 block,maybe contain many rollup batch
-type Batch struct {
+func (d *Derivation) fetchZkEvmData(ctx context.Context, from, to uint64) ([]*FetchBatch, error) {
+	query := ethereum.FilterQuery{
+		FromBlock: big.NewInt(0).SetUint64(from),
+		ToBlock:   big.NewInt(0).SetUint64(to),
+		Addresses: []common.Address{
+			*d.ZKEvmContractAddress,
+		},
+		Topics: [][]common.Hash{
+			{ZKEvmEventTopicHash},
+		},
+	}
+	logs, err := d.l1Client.FilterLogs(ctx, query)
+	if err != nil {
+		log.Trace("eth_getLogs failed", "query", query, "err", err)
+		return nil, fmt.Errorf("eth_getLogs failed: %w", err)
+	}
+
+	if len(logs) == 0 {
+		return nil, nil
+	}
+	var fetchDatas []*FetchBatch
+	for _, lg := range logs {
+		fetchData, err := d.fetchRollupData(lg.TxHash, lg.BlockNumber)
+		if err != nil {
+			return nil, err
+		}
+		fetchDatas = append(fetchDatas, fetchData)
+	}
+	return fetchDatas, nil
+}
+
+// FetchBatch is all rollup data of one l1 block,maybe contain many rollup batch
+type FetchBatch struct {
 	BlockDatas    []*BlockData
 	L1BlockNumber uint64
+	TxHash        common.Hash
 }
 
 type BlockData struct {
@@ -204,33 +211,39 @@ type BlockData struct {
 	Root       common.Hash
 }
 
-func (d *Derivation) fetchRollupData(txHash common.Hash, blockNumber uint64) error {
+func newFetchBatch(blockNumber uint64, txHash common.Hash) *FetchBatch {
+	return &FetchBatch{
+		L1BlockNumber: blockNumber,
+		BlockDatas:    []*BlockData{},
+		TxHash:        txHash,
+	}
+}
+
+func (d *Derivation) fetchRollupData(txHash common.Hash, blockNumber uint64) (*FetchBatch, error) {
 	tx, pending, err := d.l1Client.TransactionByHash(context.Background(), txHash)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if pending {
-		return errors.New("pending transaction")
+		return nil, errors.New("pending transaction")
 	}
 	abi, err := bindings.ZKEVMMetaData.GetAbi()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	args, err := abi.Methods["submitBatches"].Inputs.Unpack(tx.Data()[4:])
 	if err != nil {
-		return fmt.Errorf("submitBatches Unpack error:%v", err)
+		return nil, fmt.Errorf("submitBatches Unpack error:%v", err)
 	}
 	// parse calldata to zkevm batch data
-	if err := d.argsToBlockDatas(args, blockNumber); err != nil {
-		return err
+	fetchBatch := newFetchBatch(blockNumber, txHash)
+	if err := d.argsToBlockDatas(args, fetchBatch); err != nil {
+		return nil, err
 	}
-	if err != nil {
-		return err
-	}
-	return nil
+	return fetchBatch, nil
 }
 
-func (d *Derivation) argsToBlockDatas(args []interface{}, blockNumber uint64) error {
+func (d *Derivation) argsToBlockDatas(args []interface{}, fetchBatch *FetchBatch) error {
 	zkEVMBatchDatas := args[0].([]struct {
 		BlockNumber  uint64    "json:\"blockNumber\""
 		Transactions []uint8   "json:\"transactions\""
@@ -243,29 +256,9 @@ func (d *Derivation) argsToBlockDatas(args []interface{}, blockNumber uint64) er
 		} "json:\"signature\""
 	})
 	for _, zkEVMBatchData := range zkEVMBatchDatas {
-		bd := batch.BatchData{}
-		lastBatchEndBlock := d.db.ReadLastBatchEndBlock()
-		if lastBatchEndBlock == nil {
-			lastBatchEndBlock = new(uint64)
-		}
-		if zkEVMBatchData.BlockNumber <= *lastBatchEndBlock {
-			d.logger.Info("zkEVMBatchData BlockNumber greater than lastBatchEndBlock", "zkEVMBatchDataBlockNumber", zkEVMBatchData.BlockNumber, "lastBatchEndBlock", *lastBatchEndBlock)
-			continue
-		}
-		batchBlockCount := zkEVMBatchData.BlockNumber - *lastBatchEndBlock
-		d.logger.Info("batchBlockCount", "batchBlockCount", batchBlockCount, "batchLastBlock", zkEVMBatchData.BlockNumber, "lastBatchEndBlock", *lastBatchEndBlock)
-		if err := bd.DecodeBlockContext(uint(batchBlockCount), zkEVMBatchData.BlockWitnes); err != nil {
-			var expectCount int
-			for i := 1; i < MaxCount; i++ {
-				if err := bd.DecodeBlockContext(uint(i), zkEVMBatchData.BlockWitnes); err == nil {
-					expectCount = i
-					break
-				}
-			}
-
-			//return fmt.Errorf("BatchData DecodeBlockContext error:%v,batchBlockCount:%v,expectCount:%v", err, batchBlockCount, expectCount)
-			// TODO test log
-			d.logger.Info("BatchData DecodeBlockContext failed", "error", err, "batchBlockCount", batchBlockCount, "expectCount", expectCount)
+		bd := BatchData{}
+		if err := bd.DecodeBlockContext(zkEVMBatchData.BlockNumber, zkEVMBatchData.BlockWitnes); err != nil {
+			return fmt.Errorf("BatchData DecodeBlockContext error:%v", err)
 		}
 		if err := bd.DecodeTransactions(zkEVMBatchData.Transactions); err != nil {
 			return fmt.Errorf("BatchData DecodeTransactions error:%v", err)
@@ -274,7 +267,6 @@ func (d *Derivation) argsToBlockDatas(args []interface{}, blockNumber uint64) er
 		for index, block := range bd.BlockContexts.Blocks {
 			var blockData BlockData
 			var safeL2Data catalyst.SafeL2Data
-			safeL2Data.ParentHash = block.ParentHash
 			safeL2Data.Number = block.Number.Uint64()
 			safeL2Data.GasLimit = block.GasLimit
 			safeL2Data.BaseFee = block.BaseFee
@@ -292,47 +284,74 @@ func (d *Derivation) argsToBlockDatas(args []interface{}, blockNumber uint64) er
 			blockData.SafeL2Data = &safeL2Data
 			if index == len(bd.BlockContexts.Blocks)-1 {
 				// only last block of batch
+				if blockData.blsData == nil {
+					d.logger.Error("invalid batch", "l1BlockNumber", fetchBatch.L1BlockNumber)
+				}
 				var blsData eth.BLSData
 				blsData.BLSSignature = zkEVMBatchData.Signature.Signature
 				blsData.BLSSigners = zkEVMBatchData.Signature.Signers
 				blockData.blsData = &blsData
 				blockData.Root = bd.BlockContexts.LastBlockStateRoot
 			}
-			// derivation
-			latestBlockNumber, err := d.l2Client.BlockNumber(context.Background())
-			if err != nil {
-				return fmt.Errorf("get derivation geth block number error:%v", err)
-			}
-			if blockData.SafeL2Data.Number <= latestBlockNumber {
-				d.logger.Info("SafeL2Data block number less than latestBlockNumber", "safeL2DataNumber", blockData.SafeL2Data.Number, "latestBlockNumber", latestBlockNumber)
-				continue
-			}
-			header, err := d.l2Client.NewSafeL2Block(context.Background(), blockData.SafeL2Data, blockData.blsData)
-			if err != nil {
-				log.Error("NewL2Block failed", "error", err)
-				return err
-			}
-			if index == len(bd.BlockContexts.Blocks)-1 {
-				// only last block of batch
-				d.db.AddDerivationBatchIndex()
-				d.db.WriteLastBatchEndBlock(header.Number.Uint64())
-				d.logger.Info("batch derivation complete", "batchIndex", d.db.ReadLatestDerivationBatchIndex(), "currentBatchEndBlock", header.Number.Uint64())
+			fetchBatch.BlockDatas = append(fetchBatch.BlockDatas, &blockData)
+		}
+	}
+	return nil
+}
 
-				if blockData.blsData == nil {
-					d.logger.Error("invalid batch", "batchIndex", d.db.ReadLatestDerivationBatchIndex(), "l1BlockNumber", blockNumber)
+func (d *Derivation) derive(fetchBatch *FetchBatch) error {
+	for _, blockData := range fetchBatch.BlockDatas {
+		latestBlockNumber, err := d.l2Client.BlockNumber(context.Background())
+		if err != nil {
+			return fmt.Errorf("get derivation geth block number error:%v", err)
+		}
+		if blockData.SafeL2Data.Number <= latestBlockNumber {
+			d.logger.Info("SafeL2Data block number less than latestBlockNumber", "safeL2DataNumber", blockData.SafeL2Data.Number, "latestBlockNumber", latestBlockNumber)
+			continue
+		}
+		header, err := d.l2Client.NewSafeL2Block(context.Background(), blockData.SafeL2Data, blockData.blsData)
+		if err != nil {
+			log.Error("NewL2Block failed", "error", err)
+			return err
+		}
+		if blockData.blsData != nil {
+			// only last block of batch
+			d.logger.Info("batch derivation complete", "currentBatchEndBlock", header.Number.Uint64())
+			if !bytes.Equal(header.Hash().Bytes(), blockData.Root.Bytes()) && d.validator != nil && d.validator.ChallengeEnable() {
+				batchIndex, err := d.findBatchIndex(fetchBatch.TxHash, blockData.SafeL2Data.Number)
+				if err != nil {
+					return fmt.Errorf("find batch index error:%v", err)
 				}
-				if !bytes.Equal(header.Hash().Bytes(), blockData.Root.Bytes()) && d.validator != nil && d.validator.ChallengeEnable() {
-					// TODO Optimized the BatchIndex acquisition mode
-					log.Info("block hash is not equal", "l1", blockData.Root.Hex(), "l2", header.Hash().Hex())
-					if err := d.validator.ChallengeState(*d.db.ReadLatestDerivationBatchIndex()); err != nil {
-						log.Error("challenge state failed", "error", err)
-					}
-					return err
+				log.Info("block hash is not equal", "l1BlockNumber", blockData.Root.Hex(), "l2", header.Hash().Hex())
+				if err := d.validator.ChallengeState(batchIndex); err != nil {
+					log.Error("challenge state failed", "error", err)
 				}
+				return err
 			}
 		}
 	}
 	return nil
+}
+
+func (d *Derivation) findBatchIndex(txHash common.Hash, blockNumber uint64) (uint64, error) {
+	receipt, err := d.l1Client.TransactionReceipt(context.Background(), txHash)
+	if err != nil {
+		return 0, err
+	}
+	if receipt.Status == eth.ReceiptStatusFailed {
+		return 0, err
+	}
+	for _, lg := range receipt.Logs {
+		fmt.Println("log:===", lg)
+		batchStorage, err := d.zkEvm.ParseBatchStorage(*lg)
+		if err != nil {
+			continue
+		}
+		if batchStorage.BlockNumber == blockNumber {
+			return batchStorage.BatchIndex, nil
+		}
+	}
+	return 0, fmt.Errorf("event not found")
 }
 
 func encodeTransactions(txs []*eth.Transaction) [][]byte {

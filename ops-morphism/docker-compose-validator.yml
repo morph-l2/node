@@ -26,11 +26,10 @@ services:
 
   validator_node:
     depends_on:
-      validator_geth:
-        condition: service_started
+      - validator_geth
     build:
       context: ..
-      dockerfile: ./ops-morphism/Dockerfile.validator
+      dockerfile: ./ops-morphism/Dockerfile
     image: morphism-node:latest
     environment:
       - EMPTY_BLOCK_DELAY=true

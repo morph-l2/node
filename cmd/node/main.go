@@ -3,11 +3,13 @@ package main
 import (
 	"context"
 	"fmt"
+
 	"os"
 	"os/signal"
 	"path/filepath"
 	"syscall"
 
+	"github.com/morphism-labs/morphism-bindings/bindings"
 	"github.com/morphism-labs/node/core"
 	"github.com/morphism-labs/node/db"
 	"github.com/morphism-labs/node/derivation"
@@ -16,6 +18,8 @@ import (
 	"github.com/morphism-labs/node/sequencer/mock"
 	"github.com/morphism-labs/node/sync"
 	"github.com/morphism-labs/node/types"
+	"github.com/morphism-labs/node/validator"
+	"github.com/scroll-tech/go-ethereum/ethclient"
 	tmconfig "github.com/tendermint/tendermint/config"
 	tmlog "github.com/tendermint/tendermint/libs/log"
 	tmnode "github.com/tendermint/tendermint/node"
@@ -91,28 +95,33 @@ func L2NodeMain(ctx *cli.Context) error {
 		if format := ctx.GlobalString(flags.LogFormat.Name); len(format) > 0 && format == tmconfig.LogFormatJSON {
 			logger = tmlog.NewTMJSONLogger(tmlog.NewSyncWriter(os.Stdout))
 		}
-		//validatorCfg := validator.NewConfig()
-		//if err := validatorCfg.SetCliContext(ctx); err != nil {
-		//	return fmt.Errorf("validator set cli context error: %v", err)
-		//}
-		//vt, err := validator.NewValidator(validatorCfg, logger)
-		//if err != nil {
-		//	return fmt.Errorf("new validator client error: %v", err)
-		//}
 		derivationCfg := derivation.DefaultConfig()
 		if err := derivationCfg.SetCliContext(ctx); err != nil {
 			return fmt.Errorf("derivation set cli context error: %v", err)
 		}
-		dv, err := derivation.NewDerivationClient(context.Background(), derivationCfg, store, nil, logger)
+		validatorCfg := validator.NewConfig()
+		if err := validatorCfg.SetCliContext(ctx); err != nil {
+			return fmt.Errorf("validator set cli context error: %v", err)
+		}
+		l1Client, err := ethclient.Dial(derivationCfg.L1.Addr)
+		if err != nil {
+			return fmt.Errorf("dial l1 node error:%v", err)
+		}
+		zkEVM, err := bindings.NewZKEVM(*derivationCfg.ZKEvmContractAddress, l1Client)
+		if err != nil {
+			return fmt.Errorf("NewZKEVMTransactor error:%v", err)
+		}
+		vt, err := validator.NewValidator(validatorCfg, zkEVM, logger)
+		if err != nil {
+			return fmt.Errorf("new validator client error: %v", err)
+		}
+
+		dv, err := derivation.NewDerivationClient(context.Background(), derivationCfg, store, vt, zkEVM, logger)
 		if err != nil {
 			return fmt.Errorf("new derivation client error: %v", err)
 		}
 		dv.Start()
 		logger.Info("derivation node starting")
-		//executor, err = node.NewExecutor(nodeConfig)
-		//if err != nil {
-		//	return fmt.Errorf("failed to create executor, error: %v", err)
-		//}
 	} else {
 		if isMockSequencer {
 			ms, err = mock.NewSequencer(executor)
