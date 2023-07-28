@@ -3,12 +3,12 @@ package sync
 import (
 	"context"
 	"errors"
-	tmlog "github.com/tendermint/tendermint/libs/log"
 	"time"
 
 	"github.com/morphism-labs/node/types"
 	"github.com/scroll-tech/go-ethereum/common"
 	"github.com/scroll-tech/go-ethereum/ethclient"
+	tmlog "github.com/tendermint/tendermint/libs/log"
 )
 
 type Syncer struct {
@@ -18,6 +18,7 @@ type Syncer struct {
 	latestSynced uint64
 	db           Database
 	logger       tmlog.Logger
+	metrics      *Metrics
 
 	fetchBlockRange     uint64
 	pollInterval        time.Duration
@@ -49,6 +50,9 @@ func NewSyncer(ctx context.Context, db Database, config *Config, logger tmlog.Lo
 		h := config.StartHeight - 1
 		latestSynced = &h
 	}
+	metrics := PrometheusMetrics("morphnode")
+	metrics.SyncedL1Height.Set(float64(*latestSynced))
+
 	ctx, cancel := context.WithCancel(ctx)
 	return &Syncer{
 		ctx:          ctx,
@@ -58,6 +62,7 @@ func NewSyncer(ctx context.Context, db Database, config *Config, logger tmlog.Lo
 		db:           db,
 		stop:         make(chan struct{}),
 		logger:       logger,
+		metrics:      metrics,
 
 		fetchBlockRange:     config.FetchBlockRange,
 		pollInterval:        config.PollInterval,
@@ -146,10 +151,15 @@ func (s *Syncer) fetchL1Messages() {
 				return
 			}
 			numMessagesCollected += len(l1Messages)
+
+			s.metrics.SyncedL1MessageCount.Add(float64(len(l1Messages)))
+			s.metrics.SyncedL1MessageNonce.Set(float64(l1Messages[len(l1Messages)-1].QueueIndex))
 		} else {
 			s.db.WriteLatestSyncedL1Height(to)
 		}
 		s.latestSynced = to
+
+		s.metrics.SyncedL1Height.Set(float64(to))
 	}
 }
 

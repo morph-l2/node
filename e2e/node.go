@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"errors"
+	"github.com/prometheus/client_golang/prometheus"
 
 	node "github.com/morphism-labs/node/core"
 	"github.com/morphism-labs/node/sync"
@@ -14,6 +15,7 @@ func NewSequencerNode(geth Geth, syncer *sync.Syncer) (l2node.L2Node, error) {
 	nodeConfig.L2.EthAddr = geth.Node.HTTPEndpoint()
 	nodeConfig.L2.EngineAddr = geth.Node.HTTPAuthEndpoint()
 	nodeConfig.L2.JwtSecret = testingJWTSecret
+	prometheus.DefaultRegisterer = prometheus.NewRegistry()
 	return node.NewSequencerExecutor(nodeConfig, syncer)
 }
 
@@ -85,4 +87,12 @@ func (cn *CustomNode) DeliverBlock(txs [][]byte, l2Config, zkConfig []byte, vali
 		return cn.CustomFuncDeliverBlock(txs, l2Config, zkConfig, validators, blsSignatures)
 	}
 	return cn.origin.DeliverBlock(txs, l2Config, zkConfig, validators, blsSignatures)
+}
+
+func (cn *CustomNode) RequestHeight(tmHeight int64) (height int64, err error) {
+	return cn.origin.RequestHeight(tmHeight)
+}
+
+func (cn *CustomNode) EncodeTxs(batchTxs [][]byte) (encodedTxs []byte, err error) {
+	return cn.origin.EncodeTxs(batchTxs)
 }

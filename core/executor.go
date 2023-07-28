@@ -16,6 +16,7 @@ import (
 	"github.com/scroll-tech/go-ethereum/crypto/bls12381"
 	"github.com/scroll-tech/go-ethereum/ethclient"
 	"github.com/scroll-tech/go-ethereum/ethclient/authclient"
+	"github.com/scroll-tech/go-ethereum/rlp"
 	"github.com/tendermint/tendermint/blssignatures"
 	"github.com/tendermint/tendermint/l2node"
 	tmlog "github.com/tendermint/tendermint/libs/log"
@@ -29,6 +30,39 @@ type Executor struct {
 	maxL1MsgNumPerBlock    uint64
 	syncer                 *sync.Syncer // needed when it is configured as a sequencer
 	logger                 tmlog.Logger
+	metrics                *Metrics
+}
+
+func getLatestProcessedL1Index(cdmAddress common.Address, client *ethclient.Client, logger tmlog.Logger) (*uint64, error) {
+	cdmCaller, err := bindings.NewL2CrossDomainMessengerCaller(cdmAddress, client)
+	if err != nil {
+		return nil, err
+	}
+	receivedNonce, err := cdmCaller.ReceiveNonce(nil)
+	if err != nil {
+		var count = 0
+		for err != nil && strings.Contains(err.Error(), "connection refused") {
+			time.Sleep(5 * time.Second)
+			count++
+			logger.Error("connection refused, try again", "retryCount", count)
+			receivedNonce, err = cdmCaller.ReceiveNonce(nil)
+		}
+		// if no contracts found, we set it as nil
+		if err != nil {
+			logger.Error("failed to get ReceiveNonce", "error", err)
+			return nil, nil
+		}
+	}
+
+	var latestProcessedL1Index *uint64
+	if receivedNonce.Cmp(big.NewInt(0)) != 0 {
+		decodedNonce, err := types.DecodeNonce(receivedNonce)
+		if err != nil {
+			return nil, err
+		}
+		latestProcessedL1Index = &decodedNonce
+	}
+	return latestProcessedL1Index, nil
 }
 
 func NewSequencerExecutor(config *Config, syncer *sync.Syncer) (*Executor, error) {
@@ -45,38 +79,14 @@ func NewSequencerExecutor(config *Config, syncer *sync.Syncer) (*Executor, error
 	if err != nil {
 		return nil, err
 	}
-	cdmCaller, err := bindings.NewL2CrossDomainMessengerCaller(config.L2CrossDomainMessengerAddress, eClient)
+
+	latestProcessedL1Index, err := getLatestProcessedL1Index(config.L2CrossDomainMessengerAddress, eClient, logger)
 	if err != nil {
 		return nil, err
 	}
-
-	receivedNonce, err := cdmCaller.ReceiveNonce(nil)
-	if err != nil {
-		var count = 0
-		for err != nil && strings.Contains(err.Error(), "connection refused") {
-			time.Sleep(5 * time.Second)
-			count++
-			logger.Error("connection refused, try again", "retryCount", count)
-			receivedNonce, err = cdmCaller.ReceiveNonce(nil)
-		}
-		if err != nil {
-			logger.Error("failed to get ReceiveNonce", "error", err)
-			receivedNonce = big.NewInt(0)
-			err = nil // todo for testing consideration, ignore the err. will remove when we have the pre-deployed contracts integrated
-		}
-	}
-
-	var latestProcessedL1Index *uint64
-	if receivedNonce.Cmp(big.NewInt(0)) != 0 {
-		//decodedNonce := new(big.Int).Sub(receivedNonce, types.Version1StartedNonce)
-		//if decodedNonce.Sign() < 0 {
-		//	return nil, errors.New(fmt.Sprintf("wrong receivedNonce: %s", receivedNonce.String()))
-		//}
-		decodedNonce, err := types.DecodeNonce(receivedNonce)
-		if err != nil {
-			return nil, err
-		}
-		latestProcessedL1Index = &decodedNonce
+	metrics := PrometheusMetrics("morphnode")
+	if latestProcessedL1Index != nil {
+		metrics.LatestProcessedQueueIndex.Set(float64(*latestProcessedL1Index))
 	}
 
 	return &Executor{
@@ -86,6 +96,7 @@ func NewSequencerExecutor(config *Config, syncer *sync.Syncer) (*Executor, error
 		maxL1MsgNumPerBlock:    config.MaxL1MessageNumPerBlock,
 		syncer:                 syncer,
 		logger:                 logger,
+		metrics:                metrics,
 	}, err
 }
 
@@ -100,10 +111,20 @@ func NewExecutor(config *Config) (*Executor, error) {
 	if err != nil {
 		return nil, err
 	}
+	latestProcessedL1Index, err := getLatestProcessedL1Index(config.L2CrossDomainMessengerAddress, eClient, logger)
+	if err != nil {
+		return nil, err
+	}
+	metrics := PrometheusMetrics("morphnode")
+	if latestProcessedL1Index != nil {
+		metrics.LatestProcessedQueueIndex.Set(float64(*latestProcessedL1Index))
+	}
 	return &Executor{
-		l2Client: types.NewRetryableClient(aClient, eClient, config.Logger),
-		bc:       &Version1Converter{},
-		logger:   logger,
+		l2Client:               types.NewRetryableClient(aClient, eClient, config.Logger),
+		bc:                     &Version1Converter{},
+		latestProcessedL1Index: latestProcessedL1Index,
+		logger:                 logger,
+		metrics:                metrics,
 	}, err
 }
 
@@ -156,10 +177,6 @@ func (e *Executor) RequestBlockData(height int64) (txs [][]byte, l2Config, zkCon
 }
 
 func (e *Executor) CheckBlockData(txs [][]byte, l2Config, zkConfig, root []byte) (valid bool, err error) {
-	e.logger.Info("CheckBlockData requests",
-		"txs.length", len(txs),
-		"l2Config length", len(l2Config),
-		"zkConfig length", len(zkConfig))
 	if l2Config == nil || zkConfig == nil {
 		e.logger.Error("l2Config and zkConfig cannot be nil")
 		return false, nil
@@ -169,6 +186,11 @@ func (e *Executor) CheckBlockData(txs [][]byte, l2Config, zkConfig, root []byte)
 		e.logger.Error("failed to recover block from separated bytes", "err", err)
 		return false, nil
 	}
+	e.logger.Info("CheckBlockData requests",
+		"txs.length", len(txs),
+		"l2Config length", len(l2Config),
+		"zkConfig length", len(zkConfig),
+		"eth block number", l2Block.Number)
 
 	if err := e.validateL1Messages(txs, l1Messages); err != nil {
 		if err != types.ErrQueryL1Message { // only do not return error if it is not ErrQueryL1Message error
@@ -244,6 +266,7 @@ func (e *Executor) DeliverBlock(txs [][]byte, l2Config, zkConfig []byte, validat
 				BLSSigners:   signers,
 				BLSSignature: bls12381.NewG1().EncodePoint(aggregatedSig),
 			}
+			e.metrics.BatchPointHeight.Set(float64(l2Block.Number))
 		}
 	}
 
@@ -255,7 +278,40 @@ func (e *Executor) DeliverBlock(txs [][]byte, l2Config, zkConfig []byte, validat
 
 	// impossible getting an error here
 	_ = e.updateLatestProcessedL1Index(txs)
+
+	e.metrics.Height.Set(float64(l2Block.Number))
 	return nil
+}
+
+// EncodeTxs
+// decode each transaction bytes into Transaction, and wrap them into an array, then rlpEncode the whole array
+func (e *Executor) EncodeTxs(batchTxs [][]byte) ([]byte, error) {
+	if len(batchTxs) == 0 {
+		return []byte{}, nil
+	}
+	transactions := make([]*eth.Transaction, len(batchTxs))
+	for i, txBz := range batchTxs {
+		if len(txBz) == 0 {
+			return nil, fmt.Errorf("transaction %d is empty", i)
+		}
+		var tx eth.Transaction
+		if err := tx.UnmarshalBinary(txBz); err != nil {
+			return nil, fmt.Errorf("transaction %d is not valid: %v", i, err)
+		}
+		transactions[i] = &tx
+	}
+	return rlp.EncodeToBytes(transactions)
+}
+
+func (e *Executor) RequestHeight(tmHeight int64) (int64, error) {
+	//if tmHeight > 10 {
+	//	return tmHeight - 2, nil
+	//}
+	curHeight, err := e.l2Client.BlockNumber(context.Background())
+	if err != nil {
+		return 0, err
+	}
+	return int64(curHeight), nil
 }
 
 func (e *Executor) L2Client() *types.RetryableClient {
