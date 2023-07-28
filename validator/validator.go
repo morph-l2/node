@@ -66,6 +66,7 @@ func (v *Validator) ChallengeState(batchIndex uint64) error {
 		return err
 	}
 	opts.GasPrice = gasPrice
+	opts.NoSend = true
 	tx, err := v.contract.ChallengeState(opts, batchIndex)
 	if err != nil {
 		return err

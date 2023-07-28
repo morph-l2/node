@@ -247,7 +247,7 @@ func (d *Derivation) argsToBlockDatas(args []interface{}, fetchBatch *FetchBatch
 	zkEVMBatchDatas := args[0].([]struct {
 		BlockNumber   uint64    "json:\"blockNumber\""
 		Transactions  []uint8   "json:\"transactions\""
-		BlockWitness  []uint8   "json:\"blockWitnes\""
+		BlockWitness  []uint8   "json:\"blockWitness\""
 		PreStateRoot  [32]uint8 "json:\"preStateRoot\""
 		PostStateRoot [32]uint8 "json:\"postStateRoot\""
 		WithdrawRoot  [32]uint8 "json:\"withdrawRoot\""

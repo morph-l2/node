@@ -3,6 +3,8 @@ package derivation
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
+	"github.com/scroll-tech/go-ethereum/common"
 	"math/big"
 
 	"github.com/morphism-labs/morphism-bindings/bindings"
@@ -30,6 +32,8 @@ func (b BatchData) DecodeBlockContext(endBlock uint64, bs []byte) error {
 	b.BlockContexts = []*BlockInfo{}
 	// [block1, block2, ..., blockN]
 	reader := bytes.NewReader(bs)
+	fmt.Printf("bs===========%v\n", bs)
+	fmt.Printf("endBlock:%v\n", endBlock)
 	for {
 		block := new(BlockInfo)
 		// number || timestamp || base_fee || gas_limit || num_txs
@@ -54,11 +58,23 @@ func (b BatchData) DecodeBlockContext(endBlock uint64, bs []byte) error {
 		if err := binary.Read(reader, binary.BigEndian, &block.NumTxs); err != nil {
 			return err
 		}
-		b.BlockContexts = append(b.BlockContexts, block)
+		for i := 0; i < int(block.NumTxs); i++ {
+			txHash := common.Hash{}
+			if _, err := reader.Read(txHash[:]); err != nil {
+				return err
+			}
+			// drop txHash
+		}
 		//txCount += int(block.NumTxs)
+		b.BlockContexts = append(b.BlockContexts, block)
+		for _, bb := range b.BlockContexts {
+			fmt.Printf("b.BlockContexts:%v", bb.Number)
+		}
 		if block.Number.Uint64() == endBlock {
 			break
 		}
+		// TODO delete
+		fmt.Printf("block.Number.Uint64():%v\n", block.Number.Uint64())
 	}
 	return nil
 }
