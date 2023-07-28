@@ -244,17 +244,6 @@ func (d *Derivation) fetchRollupData(txHash common.Hash, blockNumber uint64) (*F
 }
 
 func (d *Derivation) argsToBlockDatas(args []interface{}, fetchBatch *FetchBatch) error {
-
-	// type ZKEVMBatchData struct {
-	//	BlockNumber   uint64
-	//	Transactions  []byte
-	//	BlockWitness  []byte
-	//	PreStateRoot  [32]byte
-	//	PostStateRoot [32]byte
-	//	WithdrawRoot  [32]byte
-	//	Signature     ZKEVMBatchSignature
-	//}
-
 	zkEVMBatchDatas := args[0].([]struct {
 		BlockNumber   uint64    "json:\"blockNumber\""
 		Transactions  []uint8   "json:\"transactions\""
@@ -354,7 +343,6 @@ func (d *Derivation) findBatchIndex(txHash common.Hash, blockNumber uint64) (uin
 		return 0, err
 	}
 	for _, lg := range receipt.Logs {
-		fmt.Println("log:===", lg)
 		batchStorage, err := d.zkEvm.ParseBatchStorage(*lg)
 		if err != nil {
 			continue
