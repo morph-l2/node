@@ -3,10 +3,10 @@ package derivation
 import (
 	"bytes"
 	"encoding/binary"
-	"github.com/scroll-tech/go-ethereum/common"
 	"math/big"
 
 	"github.com/morphism-labs/morphism-bindings/bindings"
+	"github.com/scroll-tech/go-ethereum/common"
 	"github.com/scroll-tech/go-ethereum/core/types"
 	"github.com/scroll-tech/go-ethereum/rlp"
 )
