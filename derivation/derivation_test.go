@@ -61,10 +61,7 @@ import (
 
 func TestCompareBlock(t *testing.T) {
 	eClient, err := ethclient.Dial("http://localhost:7545")
-	if err != nil {
-		fmt.Println("ethclient.Dial:", err)
-		return
-	}
+	require.NoError(t, err)
 	l2Client, err := ethclient.Dial("http://localhost:8545")
 	blockNumber, err := eClient.BlockNumber(context.Background())
 	require.NoError(t, err)
@@ -72,7 +69,7 @@ func TestCompareBlock(t *testing.T) {
 		block, err := l2Client.BlockByNumber(context.Background(), big.NewInt(int64(i)))
 		require.NoError(t, err)
 		dBlock, err := eClient.BlockByNumber(context.Background(), big.NewInt(int64(i)))
-		fmt.Printf("is eq：%v\n", reflect.DeepEqual(block.Header(), dBlock.Header()))
+		require.True(t, reflect.DeepEqual(block.Header(), dBlock.Header()))
 	}
 }
 
@@ -107,7 +104,6 @@ func TestDerivation_Block(t *testing.T) {
 	d := testNewDerivationClient(t)
 	batchs, err := d.fetchZkEvmData(context.Background(), 1, 1000)
 	require.NoError(t, err)
-	fmt.Printf("batchs %+v", batchs)
 	for _, batch := range batchs {
 		for _, blockData := range batch.BlockDatas {
 			latestBlockNumber, err := d.l2Client.BlockNumber(context.Background())
@@ -118,10 +114,7 @@ func TestDerivation_Block(t *testing.T) {
 				continue
 			}
 			header, err := d.l2Client.NewSafeL2Block(context.Background(), blockData.SafeL2Data, blockData.blsData)
-			if err != nil {
-				fmt.Println("NewL2Block failed", "error", err)
-				return
-			}
+			require.NoError(t, err)
 			if !bytes.Equal(header.Hash().Bytes(), blockData.Root.Bytes()) && d.validator != nil && d.validator.ChallengeEnable() {
 				fmt.Println("block hash is not equal", "l1", blockData.Root, "l2", header.Hash())
 				err := d.validator.ChallengeState(1)

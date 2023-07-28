@@ -3,10 +3,11 @@ package derivation
 import (
 	"bytes"
 	"encoding/binary"
+	"math/big"
+
 	"github.com/morphism-labs/morphism-bindings/bindings"
 	"github.com/scroll-tech/go-ethereum/core/types"
 	"github.com/scroll-tech/go-ethereum/rlp"
-	"math/big"
 )
 
 type BatchData struct {
@@ -14,14 +15,6 @@ type BatchData struct {
 	BlockContexts []*BlockInfo
 	Signature     *bindings.ZKEVMBatchSignature
 }
-
-// prev_state_root || last block state root || last block withdraw_trie_root || [block1, block2, ..., blockN] || [txHash1, txHash2, ..., txHashN] || [dummy_tx_hash, ..., dummy_tx_hash]
-//type BlockContexts struct {
-//	Blocks []*BlockInfo
-//	TxHashes []common.Hash
-//}
-
-//type BlockContexts []*BlockInfo
 
 // number || timestamp || base_fee || gas_limit || num_txs || tx_hashs
 type BlockInfo struct {
