@@ -150,14 +150,14 @@ func (d *Derivation) derivationBlock(ctx context.Context) {
 		end = latest
 	}
 	d.logger.Info("derivation start pull block form l1", "startBlock", *latestDerivation, "end", end)
-	fetchBatchs, err := d.fetchZkEvmData(ctx, *latestDerivation, end)
+	fetchBatches, err := d.fetchZkEvmData(ctx, *latestDerivation, end)
 	if err != nil {
 		log.Error("FetchZkEvmData failed", "error", err)
 		return
 	}
 
 	//derivation
-	for _, fetchBatch := range fetchBatchs {
+	for _, fetchBatch := range fetchBatches {
 		if err := d.derive(fetchBatch); err != nil {
 			d.logger.Error("derive blocks interrupt", "error", err)
 			return
@@ -247,7 +247,7 @@ func (d *Derivation) argsToBlockDatas(args []interface{}, fetchBatch *FetchBatch
 	zkEVMBatchDatas := args[0].([]struct {
 		BlockNumber   uint64    "json:\"blockNumber\""
 		Transactions  []uint8   "json:\"transactions\""
-		BlockWitness  []uint8   "json:\"blockWitnes\""
+		BlockWitness  []uint8   "json:\"blockWitness\""
 		PreStateRoot  [32]uint8 "json:\"preStateRoot\""
 		PostStateRoot [32]uint8 "json:\"postStateRoot\""
 		WithdrawRoot  [32]uint8 "json:\"withdrawRoot\""
@@ -257,7 +257,7 @@ func (d *Derivation) argsToBlockDatas(args []interface{}, fetchBatch *FetchBatch
 		} "json:\"signature\""
 	})
 	for _, zkEVMBatchData := range zkEVMBatchDatas {
-		bd := BatchData{}
+		bd := new(BatchData)
 		if err := bd.DecodeBlockContext(zkEVMBatchData.BlockNumber, zkEVMBatchData.BlockWitness); err != nil {
 			return fmt.Errorf("BatchData DecodeBlockContext error:%v", err)
 		}
