@@ -3,7 +3,6 @@ package derivation
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 	"github.com/scroll-tech/go-ethereum/common"
 	"math/big"
 
@@ -28,12 +27,10 @@ type BlockInfo struct {
 }
 
 // decode blockcontext
-func (b BatchData) DecodeBlockContext(endBlock uint64, bs []byte) error {
+func (b *BatchData) DecodeBlockContext(endBlock uint64, bs []byte) error {
 	b.BlockContexts = []*BlockInfo{}
 	// [block1, block2, ..., blockN]
 	reader := bytes.NewReader(bs)
-	fmt.Printf("bs===========%v\n", bs)
-	fmt.Printf("endBlock:%v\n", endBlock)
 	for {
 		block := new(BlockInfo)
 		// number || timestamp || base_fee || gas_limit || num_txs
@@ -67,18 +64,13 @@ func (b BatchData) DecodeBlockContext(endBlock uint64, bs []byte) error {
 		}
 		//txCount += int(block.NumTxs)
 		b.BlockContexts = append(b.BlockContexts, block)
-		for _, bb := range b.BlockContexts {
-			fmt.Printf("b.BlockContexts:%v", bb.Number)
-		}
 		if block.Number.Uint64() == endBlock {
 			break
 		}
-		// TODO delete
-		fmt.Printf("block.Number.Uint64():%v\n", block.Number.Uint64())
 	}
 	return nil
 }
 
-func (b BatchData) DecodeTransactions(bs []byte) error {
+func (b *BatchData) DecodeTransactions(bs []byte) error {
 	return rlp.DecodeBytes(bs, &b.Txs)
 }
