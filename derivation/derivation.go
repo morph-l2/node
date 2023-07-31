@@ -142,7 +142,7 @@ func (d *Derivation) derivationBlock(ctx context.Context) {
 	}
 	var end uint64
 	if latest <= *latestDerivation {
-		log.Info("latest <= *latestDerivation", "latest", latest, "latestDerivation", *latestDerivation)
+		log.Info("latest <= latestDerivation", "latest", latest, "latestDerivation", *latestDerivation)
 		return
 	} else if latest-*latestDerivation >= d.fetchBlockRange {
 		end = *latestDerivation + d.fetchBlockRange - 1
@@ -285,7 +285,7 @@ func (d *Derivation) argsToBlockDatas(args []interface{}, fetchBatch *FetchBatch
 			blockData.SafeL2Data = &safeL2Data
 			if index == len(bd.BlockContexts)-1 {
 				// only last block of batch
-				if blockData.blsData == nil {
+				if zkEVMBatchData.Signature.Signature == nil || zkEVMBatchData.Signature.Signers == nil {
 					d.logger.Error("invalid batch", "l1BlockNumber", fetchBatch.L1BlockNumber)
 				}
 				var blsData eth.BLSData
