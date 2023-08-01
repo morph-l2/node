@@ -320,7 +320,7 @@ func (d *Derivation) derive(fetchBatch *FetchBatch) error {
 		if blockData.blsData != nil {
 			// only last block of batch
 			d.logger.Info("batch derivation complete")
-			if !bytes.Equal(header.Hash().Bytes(), blockData.Root.Bytes()) && d.validator != nil && d.validator.ChallengeEnable() {
+			if !bytes.Equal(header.Root.Bytes(), blockData.Root.Bytes()) && d.validator != nil && d.validator.ChallengeEnable() {
 				batchIndex, err := d.findBatchIndex(fetchBatch.TxHash, blockData.SafeL2Data.Number)
 				if err != nil {
 					return fmt.Errorf("find batch index error:%v", err)
