@@ -140,17 +140,18 @@ func (d *Derivation) derivationBlock(ctx context.Context) {
 		log.Error("GetLatestConfirmedBlockNumber failed", "error", err)
 		return
 	}
-	var end uint64
-	if latest <= *latestDerivation {
-		log.Info("latest <= latestDerivation", "latest", latest, "latestDerivation", *latestDerivation)
+	start := *latestDerivation + 1
+	end := latest
+	if latest < start {
+		log.Info("latest <= start", "latest", latest, "start", start)
 		return
-	} else if latest-*latestDerivation >= d.fetchBlockRange {
-		end = *latestDerivation + d.fetchBlockRange - 1
+	} else if latest-start >= d.fetchBlockRange {
+		end = start + d.fetchBlockRange
 	} else {
 		end = latest
 	}
 	d.logger.Info("derivation start pull block form l1", "startBlock", *latestDerivation, "end", end)
-	fetchBatches, err := d.fetchZkEvmData(ctx, *latestDerivation, end)
+	fetchBatches, err := d.fetchZkEvmData(ctx, start, end)
 	if err != nil {
 		log.Error("FetchZkEvmData failed", "error", err)
 		return
@@ -315,9 +316,10 @@ func (d *Derivation) derive(fetchBatch *FetchBatch) error {
 			log.Error("NewL2Block failed", "error", err)
 			return err
 		}
+		d.logger.Info("block derivation complete", "currentBatchEndBlock", header.Number.Uint64())
 		if blockData.blsData != nil {
 			// only last block of batch
-			d.logger.Info("batch derivation complete", "currentBatchEndBlock", header.Number.Uint64())
+			d.logger.Info("batch derivation complete")
 			if !bytes.Equal(header.Hash().Bytes(), blockData.Root.Bytes()) && d.validator != nil && d.validator.ChallengeEnable() {
 				batchIndex, err := d.findBatchIndex(fetchBatch.TxHash, blockData.SafeL2Data.Number)
 				if err != nil {
