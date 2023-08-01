@@ -321,11 +321,12 @@ func (d *Derivation) derive(fetchBatch *FetchBatch) error {
 			// only last block of batch
 			d.logger.Info("batch derivation complete")
 			if !bytes.Equal(header.Root.Bytes(), blockData.Root.Bytes()) && d.validator != nil && d.validator.ChallengeEnable() {
-				d.logger.Info("root hash is not equal", "l1BlockNumber", blockData.Root.Hex(), "l2", header.Hash().Hex())
+				d.logger.Info("root hash is not equal", "originStateRootHash", blockData.Root.Hex(), "deriveStateRootHash", header.Root.Hex())
 				batchIndex, err := d.findBatchIndex(fetchBatch.TxHash, blockData.SafeL2Data.Number)
 				if err != nil {
 					return fmt.Errorf("find batch index error:%v", err)
 				}
+				d.logger.Info("validator start challenge", "batchIndex", batchIndex)
 				if err := d.validator.ChallengeState(batchIndex); err != nil {
 					d.logger.Error("challenge state failed", "error", err)
 				}
