@@ -68,6 +68,18 @@ func (s *Store) ReadLatestDerivationL1Height() *uint64 {
 	return &value
 }
 
+func (s *Store) ReadLatestBatchBls() types.BatchBls {
+	var batchBls types.BatchBls
+	data, err := s.db.Get(derivationL1HeightKey)
+	if err != nil && !isNotFoundErr(err) {
+		panic(fmt.Sprintf("Failed to read batch bls from database,err:%v", err))
+	}
+	if err := rlp.DecodeBytes(data, &batchBls); err != nil {
+		panic(fmt.Sprintf("invalid batch bls RLP, err: %v", err))
+	}
+	return batchBls
+}
+
 func (s *Store) ReadLatestSyncedL1Height() *uint64 {
 	data, err := s.db.Get(syncedL1HeightKey)
 	if err != nil && !isNotFoundErr(err) {
@@ -125,6 +137,16 @@ func (s *Store) ReadL1MessageByIndex(index uint64) *types.L1Message {
 func (s *Store) WriteLatestDerivationL1Height(latest uint64) {
 	if err := s.db.Put(derivationL1HeightKey, new(big.Int).SetUint64(latest).Bytes()); err != nil {
 		panic(fmt.Sprintf("failed to update derivation synced L1 height, err: %v", err))
+	}
+}
+
+func (s *Store) WriteLatestBatchBls(batchBls types.BatchBls) {
+	bytes, err := rlp.EncodeToBytes(batchBls)
+	if err != nil {
+		panic(fmt.Sprintf("failed to RLP encode L1 message, err: %v", err))
+	}
+	if err := s.db.Put(latestBatchBlsKey, bytes); err != nil {
+		panic(fmt.Sprintf("failed to update latest batch bls, err: %v", err))
 	}
 }
 

@@ -31,6 +31,27 @@ var (
 	ZKEvmEventTopicHash = crypto.Keccak256Hash([]byte(ZKEvmEventTopic))
 )
 
+// FetchBatch is all rollup data of one l1 block,maybe contain many rollup batch
+type FetchBatch struct {
+	BlockDatas    []*BlockData
+	L1BlockNumber uint64
+	TxHash        common.Hash
+}
+
+type BlockData struct {
+	SafeL2Data *catalyst.SafeL2Data
+	blsData    *eth.BLSData
+	Root       common.Hash
+}
+
+func newFetchBatch(blockNumber uint64, txHash common.Hash) *FetchBatch {
+	return &FetchBatch{
+		L1BlockNumber: blockNumber,
+		BlockDatas:    []*BlockData{},
+		TxHash:        txHash,
+	}
+}
+
 type Derivation struct {
 	ctx                  context.Context
 	l1Client             DeployContractBackend
@@ -163,6 +184,7 @@ func (d *Derivation) derivationBlock(ctx context.Context) {
 			return
 		}
 		d.db.WriteLatestDerivationL1Height(fetchBatch.L1BlockNumber)
+
 	}
 	d.db.WriteLatestDerivationL1Height(end)
 }
@@ -196,27 +218,6 @@ func (d *Derivation) fetchZkEvmData(ctx context.Context, from, to uint64) ([]*Fe
 		fetchDatas = append(fetchDatas, fetchData)
 	}
 	return fetchDatas, nil
-}
-
-// FetchBatch is all rollup data of one l1 block,maybe contain many rollup batch
-type FetchBatch struct {
-	BlockDatas    []*BlockData
-	L1BlockNumber uint64
-	TxHash        common.Hash
-}
-
-type BlockData struct {
-	SafeL2Data *catalyst.SafeL2Data
-	blsData    *eth.BLSData
-	Root       common.Hash
-}
-
-func newFetchBatch(blockNumber uint64, txHash common.Hash) *FetchBatch {
-	return &FetchBatch{
-		L1BlockNumber: blockNumber,
-		BlockDatas:    []*BlockData{},
-		TxHash:        txHash,
-	}
 }
 
 func (d *Derivation) fetchRollupData(txHash common.Hash, blockNumber uint64) (*FetchBatch, error) {
@@ -256,6 +257,7 @@ func (d *Derivation) argsToBlockDatas(args []interface{}, fetchBatch *FetchBatch
 			Signature []uint8   "json:\"signature\""
 		} "json:\"signature\""
 	})
+	batchBls := d.db.ReadLatestBatchBls()
 	for _, zkEVMBatchData := range zkEVMBatchDatas {
 		bd := new(BatchData)
 		if err := bd.DecodeBlockContext(zkEVMBatchData.BlockNumber, zkEVMBatchData.BlockWitness); err != nil {
@@ -283,6 +285,14 @@ func (d *Derivation) argsToBlockDatas(args []interface{}, fetchBatch *FetchBatch
 			}
 			last = block.NumTxs - 1
 			blockData.SafeL2Data = &safeL2Data
+			if index == 0 {
+				if batchBls.BlockNumber != blockData.SafeL2Data.Number-1 {
+					return fmt.Errorf("miss last batch bls data,expect:%v but got %v", blockData.SafeL2Data.Number-1, batchBls.BlockNumber)
+				}
+				// Puts the Bls signature of the previous Batch in the first
+				// block of the current batch
+				blockData.blsData = batchBls.BlsData
+			}
 			if index == len(bd.BlockContexts)-1 {
 				// only last block of batch
 				if zkEVMBatchData.Signature.Signature == nil || zkEVMBatchData.Signature.Signers == nil {
@@ -291,7 +301,12 @@ func (d *Derivation) argsToBlockDatas(args []interface{}, fetchBatch *FetchBatch
 				var blsData eth.BLSData
 				blsData.BLSSignature = zkEVMBatchData.Signature.Signature
 				blsData.BLSSigners = zkEVMBatchData.Signature.Signers
-				blockData.blsData = &blsData
+				// The Bls signature of the current Batch is temporarily
+				// stored and later placed in the first Block of the next Batch
+				batchBls.BlsData = &blsData
+				batchBls.BlockNumber = block.Number.Uint64()
+				// StateRoot of the last Block of the Batch, used to verify the
+				// validity of the Layer1 BlockData
 				blockData.Root = zkEVMBatchData.PostStateRoot
 			}
 			fetchBatch.BlockDatas = append(fetchBatch.BlockDatas, &blockData)
@@ -315,10 +330,11 @@ func (d *Derivation) derive(fetchBatch *FetchBatch) error {
 			log.Error("NewL2Block failed", "error", err)
 			return err
 		}
-		if blockData.blsData != nil {
+		var zeroHash common.Hash
+		if bytes.Equal(blockData.Root.Bytes(), zeroHash.Bytes()) {
 			// only last block of batch
 			d.logger.Info("batch derivation complete", "currentBatchEndBlock", header.Number.Uint64())
-			if !bytes.Equal(header.Hash().Bytes(), blockData.Root.Bytes()) && d.validator != nil && d.validator.ChallengeEnable() {
+			if !bytes.Equal(header.Root.Bytes(), blockData.Root.Bytes()) && d.validator != nil && d.validator.ChallengeEnable() {
 				batchIndex, err := d.findBatchIndex(fetchBatch.TxHash, blockData.SafeL2Data.Number)
 				if err != nil {
 					return fmt.Errorf("find batch index error:%v", err)
