@@ -124,13 +124,13 @@ func (d *Derivation) Stop() {
 		return
 	}
 
-	log.Info("Stopping Derivation service")
+	d.logger.Info("Stopping Derivation service")
 
 	if d.cancel != nil {
 		d.cancel()
 	}
 	<-d.stop
-	log.Info("Derivation service is stopped")
+	d.logger.Info("Derivation service is stopped")
 }
 
 func (d *Derivation) derivationBlock(ctx context.Context) {
@@ -143,17 +143,17 @@ func (d *Derivation) derivationBlock(ctx context.Context) {
 	start := *latestDerivation + 1
 	end := latest
 	if latest < start {
-		log.Info("latest <= start", "latest", latest, "start", start)
+		d.logger.Info("latest less than or equal to start", "latest", latest, "start", start)
 		return
 	} else if latest-start >= d.fetchBlockRange {
 		end = start + d.fetchBlockRange
 	} else {
 		end = latest
 	}
-	d.logger.Info("derivation start pull block form l1", "startBlock", *latestDerivation, "end", end)
+	d.logger.Info("derivation start pull block form l1", "startBlock", start, "end", end)
 	fetchBatches, err := d.fetchZkEvmData(ctx, start, end)
 	if err != nil {
-		log.Error("FetchZkEvmData failed", "error", err)
+		d.logger.Error("FetchZkEvmData failed", "error", err)
 		return
 	}
 
@@ -181,7 +181,7 @@ func (d *Derivation) fetchZkEvmData(ctx context.Context, from, to uint64) ([]*Fe
 	}
 	logs, err := d.l1Client.FilterLogs(ctx, query)
 	if err != nil {
-		log.Trace("eth_getLogs failed", "query", query, "err", err)
+		d.logger.Error("eth_getLogs failed", "query", query, "err", err)
 		return nil, fmt.Errorf("eth_getLogs failed: %w", err)
 	}
 
@@ -313,7 +313,7 @@ func (d *Derivation) derive(fetchBatch *FetchBatch) error {
 		}
 		header, err := d.l2Client.NewSafeL2Block(context.Background(), blockData.SafeL2Data, blockData.blsData)
 		if err != nil {
-			log.Error("NewL2Block failed", "error", err)
+			d.logger.Error("NewL2Block failed", "error", err)
 			return err
 		}
 		d.logger.Info("block derivation complete", "currentBatchEndBlock", header.Number.Uint64())
@@ -325,9 +325,9 @@ func (d *Derivation) derive(fetchBatch *FetchBatch) error {
 				if err != nil {
 					return fmt.Errorf("find batch index error:%v", err)
 				}
-				log.Info("block hash is not equal", "l1BlockNumber", blockData.Root.Hex(), "l2", header.Hash().Hex())
+				d.logger.Info("block hash is not equal", "l1BlockNumber", blockData.Root.Hex(), "l2", header.Hash().Hex())
 				if err := d.validator.ChallengeState(batchIndex); err != nil {
-					log.Error("challenge state failed", "error", err)
+					d.logger.Error("challenge state failed", "error", err)
 				}
 				return err
 			}
