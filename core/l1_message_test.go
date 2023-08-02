@@ -3,10 +3,12 @@ package node
 import (
 	"bytes"
 	"context"
-	tmlog "github.com/tendermint/tendermint/libs/log"
 	"math/big"
 	"os"
 	"testing"
+
+	"github.com/prometheus/client_golang/prometheus"
+	tmlog "github.com/tendermint/tendermint/libs/log"
 
 	"github.com/morphism-labs/node/db"
 	"github.com/morphism-labs/node/sync"
@@ -44,6 +46,7 @@ func TestExecutor_updateLatestProcessedL1Index(t *testing.T) {
 	//executor
 	nodeConfig := DefaultConfig()
 	nodeConfig.SetCliContext(ctx)
+	prometheus.DefaultRegisterer = prometheus.NewRegistry()
 	executor, err := NewExecutor(nodeConfig)
 	require.NotNil(t, executor)
 	require.NoError(t, err)
@@ -58,7 +61,7 @@ func TestExecutor_validateL1Messages(t *testing.T) {
 	to := common.BigToAddress(big.NewInt(101))
 	msg := types.L1Message{
 		L1MessageTx: gethTypes.L1MessageTx{
-			QueueIndex: 1,
+			QueueIndex: 0,
 			Gas:        500000,
 			To:         &to,
 			Value:      big.NewInt(3e9),
@@ -90,6 +93,7 @@ func TestExecutor_validateL1Messages(t *testing.T) {
 	//SequencerExecutor
 	nodeConfig := DefaultConfig()
 	nodeConfig.SetCliContext(ctx)
+	prometheus.DefaultRegisterer = prometheus.NewRegistry()
 	executor, err := NewSequencerExecutor(nodeConfig, syncer)
 	require.NotNil(t, executor)
 	require.NoError(t, err)
@@ -99,7 +103,7 @@ func TestExecutor_validateL1Messages(t *testing.T) {
 	var buf bytes.Buffer
 	buf.WriteByte(126) //7E
 	rlp.Encode(&buf, tx)
-	var txs [][]byte = make([][]byte, 1)
+	var txs = make([][]byte, 1)
 	txs[0] = buf.Bytes()
 
 	err = executor.validateL1Messages(txs, []types.L1Message{msg})

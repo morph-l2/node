@@ -3,13 +3,14 @@ package node
 import (
 	"context"
 	"flag"
-	tmlog "github.com/tendermint/tendermint/libs/log"
 	"os"
 	"testing"
 
 	"github.com/morphism-labs/node/db"
 	"github.com/morphism-labs/node/sync"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/require"
+	tmlog "github.com/tendermint/tendermint/libs/log"
 	"github.com/urfave/cli"
 )
 
@@ -40,6 +41,7 @@ func TestNewExecutor(t *testing.T) {
 	//executor
 	nodeConfig := DefaultConfig()
 	nodeConfig.SetCliContext(ctx)
+	prometheus.DefaultRegisterer = prometheus.NewRegistry()
 	executor, err := NewExecutor(nodeConfig)
 	require.NotNil(t, executor)
 	require.NoError(t, err)

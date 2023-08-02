@@ -35,9 +35,6 @@ clean:
 test:
 	go test -v ./...
 
-e2e-test:
-	cd e2e && go test -v ./...
-
 devnet-up:
 	cd ops-morphism && docker compose up -d sequencer_node
 .PHONY: dev-up
