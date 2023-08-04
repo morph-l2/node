@@ -3,9 +3,12 @@ package node
 import (
 	"encoding/binary"
 	"fmt"
-	"github.com/morphism-labs/node/types"
-	"github.com/scroll-tech/go-ethereum/eth/catalyst"
 	"math/big"
+
+	"github.com/morphism-labs/node/types"
+	"github.com/scroll-tech/go-ethereum/common"
+	eth "github.com/scroll-tech/go-ethereum/core/types"
+	"github.com/scroll-tech/go-ethereum/eth/catalyst"
 )
 
 type BlockConverter interface {
@@ -28,6 +31,15 @@ func (bc *Version1Converter) Separate(l2Block *catalyst.ExecutableL2Data, l1Msg 
 	copy(blsBytes[48:56], types.Uint64ToBigEndianBytes(l2Block.GasLimit))
 	copy(blsBytes[56:58], types.Uint16ToBigEndianBytes(uint16(len(l2Block.Transactions))))
 
+	// bls signing context includes the tx hash
+	for i, txBz := range l2Block.Transactions {
+		var tx eth.Transaction
+		if err := tx.UnmarshalBinary(txBz); err != nil {
+			return nil, nil, fmt.Errorf("transaction %d is not valid: %v", i, err)
+		}
+		blsBytes = append(blsBytes, tx.Hash().Bytes()...)
+	}
+
 	rest := types.RestMessage{
 		NonBLSMessage: types.NonBLSMessage{
 			StateRoot:   l2Block.StateRoot,
@@ -48,15 +60,16 @@ func (bc *Version1Converter) Separate(l2Block *catalyst.ExecutableL2Data, l1Msg 
 }
 
 func (bc *Version1Converter) Recover(blsMsg []byte, restMsg []byte, txs [][]byte) (*catalyst.ExecutableL2Data, []types.L1Message, error) {
-	if len(blsMsg) != 58 {
-		return nil, nil, fmt.Errorf("wrong blsMsg size, expected: %d, actual: %d", 124, len(blsMsg))
+	expectedBlsMsgLength := 58 + len(txs)*common.HashLength
+	if len(blsMsg) != expectedBlsMsgLength {
+		return nil, nil, fmt.Errorf("wrong blsMsg size, expected: %d, actual: %d", expectedBlsMsgLength, len(blsMsg))
 	}
 	rest := new(types.RestMessage)
 	if err := rest.UnmarshalBinary(restMsg); err != nil {
 		return nil, nil, err
 	}
 	if binary.BigEndian.Uint16(blsMsg[56:58]) != uint16(len(txs)) {
-		return nil, nil, fmt.Errorf("wrong blsMsg, numTxs(%d) is not equal to the length of txs(%d)", binary.BigEndian.Uint16(blsMsg[120:122]), len(txs))
+		return nil, nil, fmt.Errorf("wrong blsMsg, numTxs(%d) is not equal to the length of txs(%d)", binary.BigEndian.Uint16(blsMsg[56:58]), len(txs))
 	}
 
 	baseFee := new(big.Int).SetBytes(blsMsg[16:48])
