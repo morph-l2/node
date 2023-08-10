@@ -285,7 +285,7 @@ func (d *Derivation) argsToBlockDatas(args []interface{}, fetchBatch *FetchBatch
 			}
 			last = block.NumTxs - 1
 			blockData.SafeL2Data = &safeL2Data
-			if index == 0 {
+			if index == 0 && batchBls.BlockNumber != 1 {
 				if batchBls.BlockNumber != blockData.SafeL2Data.Number-1 {
 					return fmt.Errorf("miss last batch bls data,expect:%v but got %v", blockData.SafeL2Data.Number-1, batchBls.BlockNumber)
 				}

@@ -62,7 +62,6 @@ func (b *BatchData) DecodeBlockContext(endBlock uint64, bs []byte) error {
 			}
 			// drop txHash
 		}
-		//txCount += int(block.NumTxs)
 		b.BlockContexts = append(b.BlockContexts, block)
 		if block.Number.Uint64() == endBlock {
 			break
