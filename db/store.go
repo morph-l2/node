@@ -77,6 +77,10 @@ func (s *Store) ReadLatestBatchBls() types.BatchBls {
 		}
 		panic(fmt.Sprintf("Failed to read batch bls from database,err:%v", err))
 	}
+	if len(data) != 0 {
+		fmt.Printf("data:=============%v", data)
+	}
+
 	if err := rlp.DecodeBytes(data, &batchBls); err != nil {
 		panic(fmt.Sprintf("invalid batch bls RLP, err: %v", err))
 	}
