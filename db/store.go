@@ -70,15 +70,12 @@ func (s *Store) ReadLatestDerivationL1Height() *uint64 {
 
 func (s *Store) ReadLatestBatchBls() types.BatchBls {
 	var batchBls types.BatchBls
-	data, err := s.db.Get(derivationL1HeightKey)
+	data, err := s.db.Get(latestBatchBlsKey)
 	if err != nil {
 		if isNotFoundErr(err) {
 			return batchBls
 		}
 		panic(fmt.Sprintf("Failed to read batch bls from database,err:%v", err))
-	}
-	if len(data) != 0 {
-		fmt.Printf("data:=============%v", data)
 	}
 
 	if err := rlp.DecodeBytes(data, &batchBls); err != nil {
