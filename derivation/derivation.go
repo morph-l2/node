@@ -97,7 +97,7 @@ func NewDerivationClient(ctx context.Context, cfg *Config, db Database, validato
 	ctx, cancel := context.WithCancel(ctx)
 	latestDerivation := db.ReadLatestDerivationL1Height()
 	if latestDerivation == nil {
-		db.WriteLatestDerivationL1Height(cfg.StartHeight)
+		db.WriteLatestDerivationL1Height(cfg.StartHeight - 1)
 	}
 	logger = logger.With("module", "derivation")
 	return &Derivation{
@@ -185,6 +185,11 @@ func (d *Derivation) derivationBlock(ctx context.Context) {
 			return
 		}
 		d.db.WriteLatestDerivationL1Height(fetchBatch.L1BlockNumber)
+		d.db.WriteLatestBatchBls(types.BatchBls{
+			// All Batch Block counts are greater than or equal to 1
+			BlockNumber: fetchBatch.BlockDatas[len(fetchBatch.BlockDatas)-1].SafeL2Data.Number,
+			BlsData:     fetchBatch.BlockDatas[len(fetchBatch.BlockDatas)-1].blsData,
+		})
 	}
 	d.db.WriteLatestDerivationL1Height(end)
 }
@@ -265,6 +270,10 @@ func (d *Derivation) argsToBlockDatas(args []interface{}, fetchBatch *FetchBatch
 		}
 		if err := bd.DecodeTransactions(zkEVMBatchData.Transactions); err != nil {
 			return fmt.Errorf("BatchData DecodeTransactions error:%v", err)
+		}
+		if bd.BlockContexts[len(bd.BlockContexts)].Number.Uint64() <= batchBls.BlockNumber {
+			d.logger.Info("The current Batch already exists", "endBlock", bd.BlockContexts[len(bd.BlockContexts)].Number.Uint64(), "batchBlsNumber", batchBls.BlockNumber)
+			continue
 		}
 		var last uint64
 		for index, block := range bd.BlockContexts {
