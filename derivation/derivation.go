@@ -181,11 +181,13 @@ func (d *Derivation) derivationBlock(ctx context.Context) {
 			return
 		}
 		d.db.WriteLatestDerivationL1Height(fetchBatch.L1BlockNumber)
+		d.logger.Info("WriteLatestDerivationL1Height success", "L1BlockNumber", fetchBatch.L1BlockNumber)
 		d.db.WriteLatestBatchBls(types.BatchBls{
 			// All Batch Block counts are greater than or equal to 1
 			BlockNumber: fetchBatch.BlockDatas[len(fetchBatch.BlockDatas)-1].SafeL2Data.Number,
 			BlsData:     fetchBatch.BlockDatas[len(fetchBatch.BlockDatas)-1].blsData,
 		})
+		d.logger.Info("WriteLatestBatchBls success", "lastBlockNumber", fetchBatch.BlockDatas[len(fetchBatch.BlockDatas)-1].SafeL2Data.Number)
 	}
 	d.db.WriteLatestDerivationL1Height(end)
 }
@@ -240,7 +242,7 @@ func (d *Derivation) fetchRollupData(txHash common.Hash, blockNumber uint64) (*F
 	// parse calldata to zkevm batch data
 	fetchBatch := newFetchBatch(blockNumber, txHash)
 	if err := d.argsToBlockDatas(args, fetchBatch); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("argsToBlockDatas failed,txHash:%v\n,error:%v\n", tx.Hash().Hex(), err)
 	}
 	return fetchBatch, nil
 }
@@ -267,8 +269,8 @@ func (d *Derivation) argsToBlockDatas(args []interface{}, fetchBatch *FetchBatch
 		if err := bd.DecodeTransactions(zkEVMBatchData.Transactions); err != nil {
 			return fmt.Errorf("BatchData DecodeTransactions error:%v", err)
 		}
-		if bd.BlockContexts[len(bd.BlockContexts)].Number.Uint64() <= batchBls.BlockNumber {
-			d.logger.Info("The current Batch already exists", "batchEndBlock", bd.BlockContexts[len(bd.BlockContexts)].Number.Uint64(), "localBatchBlsNumber", batchBls.BlockNumber)
+		if bd.BlockContexts[len(bd.BlockContexts)-1].Number.Uint64() <= batchBls.BlockNumber {
+			d.logger.Info("The current Batch already exists", "batchEndBlock", bd.BlockContexts[len(bd.BlockContexts)-1].Number.Uint64(), "localBatchBlsNumber", batchBls.BlockNumber)
 			continue
 		}
 		var last uint64
