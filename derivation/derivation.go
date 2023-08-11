@@ -242,7 +242,7 @@ func (d *Derivation) fetchRollupData(txHash common.Hash, blockNumber uint64) (*F
 	// parse calldata to zkevm batch data
 	fetchBatch := newFetchBatch(blockNumber, txHash)
 	if err := d.argsToBlockDatas(args, fetchBatch); err != nil {
-		return nil, fmt.Errorf("argsToBlockDatas failed,txHash:%v\n,error:%v\n", tx.Hash().Hex(), err)
+		return nil, fmt.Errorf("argsToBlockDatas failed,txHash:%v,txNonce:%v\n,error:%v\n", tx.Hash().Hex(), tx.Nonce(), err)
 	}
 	return fetchBatch, nil
 }
