@@ -272,7 +272,7 @@ func (d *Derivation) argsToBlockDatas(args []interface{}, fetchBatch *FetchBatch
 			return fmt.Errorf("BatchData DecodeTransactions error:%v", err)
 		}
 		if bd.BlockContexts[len(bd.BlockContexts)].Number.Uint64() <= batchBls.BlockNumber {
-			d.logger.Info("The current Batch already exists", "endBlock", bd.BlockContexts[len(bd.BlockContexts)].Number.Uint64(), "batchBlsNumber", batchBls.BlockNumber)
+			d.logger.Info("The current Batch already exists", "batchEndBlock", bd.BlockContexts[len(bd.BlockContexts)].Number.Uint64(), "localBatchBlsNumber", batchBls.BlockNumber)
 			continue
 		}
 		var last uint64
