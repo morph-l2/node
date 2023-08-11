@@ -95,10 +95,6 @@ func NewDerivationClient(ctx context.Context, cfg *Config, db Database, validato
 		return nil, err
 	}
 	ctx, cancel := context.WithCancel(ctx)
-	latestDerivation := db.ReadLatestDerivationL1Height()
-	if latestDerivation == nil {
-		db.WriteLatestDerivationL1Height(cfg.StartHeight - 1)
-	}
 	logger = logger.With("module", "derivation")
 	return &Derivation{
 		ctx:                  ctx,
