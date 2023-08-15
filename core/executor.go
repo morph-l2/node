@@ -91,6 +91,7 @@ func NewSequencerExecutor(config *Config, syncer *sync.Syncer) (*Executor, error
 		metrics.LatestProcessedQueueIndex.Set(0)
 	}
 
+	logger.Info("getLatestProcessedL1Index from L2", "value", latestProcessedL1Index)
 	return &Executor{
 		l2Client:               types.NewRetryableClient(aClient, eClient, config.Logger),
 		bc:                     &Version1Converter{},
@@ -147,6 +148,9 @@ func (e *Executor) RequestBlockData(height int64) (txs [][]byte, l2Config, zkCon
 	}
 	l1Messages := e.syncer.ReadL1MessagesInRange(fromIndex, fromIndex+e.maxL1MsgNumPerBlock-1)
 	transactions := make(eth.Transactions, len(l1Messages))
+	if len(l1Messages) > 0 {
+		e.logger.Info("syncer.ReadL1MessagesInRange", "fromIndex", fromIndex, "1st L1Msg queueIndex", l1Messages[0].QueueIndex)
+	}
 
 	if len(l1Messages) > 0 {
 		queueIndex := fromIndex

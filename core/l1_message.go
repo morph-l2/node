@@ -36,6 +36,7 @@ func (e *Executor) validateL1Messages(txs [][]byte, l1Msgs []types.L1Message) er
 	var queueIndex int64 = -1
 	if e.latestProcessedL1Index != nil {
 		queueIndex = int64(*e.latestProcessedL1Index)
+		e.logger.Info("the latestProcessedL1Index", "value", queueIndex)
 	}
 	for i, txBz := range txs {
 		if !isL1MessageTxType(txBz) {
@@ -44,6 +45,7 @@ func (e *Executor) validateL1Messages(txs [][]byte, l1Msgs []types.L1Message) er
 		}
 		// check that L1 messages are before L2 transactions
 		if L1SectionOver {
+			e.logger.Error("Still have L1 Message after L2 transaction")
 			return types.ErrInvalidL1MessageOrder
 		}
 
@@ -55,6 +57,9 @@ func (e *Executor) validateL1Messages(txs [][]byte, l1Msgs []types.L1Message) er
 
 		// check queue index
 		if tx.AsL1MessageTx().QueueIndex != uint64(queueIndex) {
+			e.logger.Error("tx QueueIndex is not expected",
+				"tx queueIndex", tx.AsL1MessageTx().QueueIndex,
+				"expected", queueIndex)
 			return types.ErrInvalidL1MessageOrder
 		}
 
