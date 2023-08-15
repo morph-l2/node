@@ -261,8 +261,10 @@ func (d *Derivation) argsToBlockDatas(args []interface{}, fetchBatch *FetchBatch
 		} "json:\"signature\""
 	})
 	batchBls := d.db.ReadLatestBatchBls()
-	for _, zkEVMBatchData := range zkEVMBatchDatas {
+	for in, zkEVMBatchData := range zkEVMBatchDatas {
 		bd := new(BatchData)
+		fmt.Printf("zkEVMBatchData.BlockWitness index:%+v\n", in)
+		fmt.Printf("zkEVMBatchData.BlockWitness:%+v\n", zkEVMBatchData.BlockWitness)
 		if err := bd.DecodeBlockContext(zkEVMBatchData.BlockNumber, zkEVMBatchData.BlockWitness); err != nil {
 			return fmt.Errorf("BatchData DecodeBlockContext error:%v", err)
 		}
