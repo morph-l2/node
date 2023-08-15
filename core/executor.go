@@ -149,7 +149,7 @@ func (e *Executor) RequestBlockData(height int64) (txs [][]byte, l2Config, zkCon
 	l1Messages := e.syncer.ReadL1MessagesInRange(fromIndex, fromIndex+e.maxL1MsgNumPerBlock-1)
 	transactions := make(eth.Transactions, len(l1Messages))
 	if len(l1Messages) > 0 {
-		e.logger.Info("syncer.ReadL1MessagesInRange", "fromIndex", fromIndex, "1st L1Msg queueIndex", l1Messages[0].QueueIndex)
+		e.logger.Info("syncer.ReadL1MessagesInRange", "fromIndex", fromIndex, "1st L1Msg queueIndex", l1Messages[0].QueueIndex, "1st L1Msg L1TxHash", l1Messages[0].L1TxHash.Hex(), "1st L1Msg Value", l1Messages[0].Value.String())
 	}
 
 	if len(l1Messages) > 0 {
