@@ -288,7 +288,6 @@ func (d *Derivation) argsToBlockDatas(args []interface{}, fetchBatch *FetchBatch
 				d.logger.Info("fetch rollup transaction success", "txNonce", fetchBatch.Nonce, "txHash", fetchBatch.TxHash,
 					"l1BlockNumber", fetchBatch.L1BlockNumber, "firstL2BlockNumber", block.Number.Uint64(), "lastL2BlockNumber", zkEVMBatchDatas[len(zkEVMBatchDatas)-1].BlockNumber)
 			}
-			d.logger.Info("fetched rollup block", "blockNumber", block.Number.Uint64())
 			var blockData BlockData
 			var safeL2Data catalyst.SafeL2Data
 			safeL2Data.Number = block.Number.Uint64()
