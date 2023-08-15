@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/scroll-tech/go-ethereum/common/hexutil"
 	"math/big"
 	"os"
 	"time"
@@ -264,7 +265,7 @@ func (d *Derivation) argsToBlockDatas(args []interface{}, fetchBatch *FetchBatch
 	for in, zkEVMBatchData := range zkEVMBatchDatas {
 		bd := new(BatchData)
 		fmt.Printf("zkEVMBatchData.BlockWitness index:%+v\n", in)
-		fmt.Printf("zkEVMBatchData.BlockWitness:%+v\n", zkEVMBatchData.BlockWitness)
+		fmt.Printf("zkEVMBatchData.BlockWitness:%+v\n", hexutil.Encode(zkEVMBatchData.BlockWitness))
 		if err := bd.DecodeBlockContext(zkEVMBatchData.BlockNumber, zkEVMBatchData.BlockWitness); err != nil {
 			return fmt.Errorf("BatchData DecodeBlockContext error:%v", err)
 		}
