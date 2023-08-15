@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/scroll-tech/go-ethereum/common/hexutil"
 	"math/big"
 	"os"
 	"time"
@@ -215,6 +214,7 @@ func (d *Derivation) fetchZkEvmData(ctx context.Context, from, to uint64) ([]*Fe
 	}
 	var fetchDatas []*FetchBatch
 	for _, lg := range logs {
+		d.logger.Info("fetch log", "txHash", lg.TxHash, "blockNumber", lg.BlockNumber)
 		fetchData, err := d.fetchRollupData(lg.TxHash, lg.BlockNumber)
 		if err != nil {
 			return nil, err
@@ -232,6 +232,7 @@ func (d *Derivation) fetchRollupData(txHash common.Hash, blockNumber uint64) (*F
 	if pending {
 		return nil, errors.New("pending transaction")
 	}
+	d.logger.Info("fetch rollup transaction success", "nonce", tx.Nonce(), "txHash", tx.Hash().Hex(), "blockNumber", blockNumber)
 	abi, err := bindings.ZKEVMMetaData.GetAbi()
 	if err != nil {
 		return nil, err
@@ -262,10 +263,8 @@ func (d *Derivation) argsToBlockDatas(args []interface{}, fetchBatch *FetchBatch
 		} "json:\"signature\""
 	})
 	batchBls := d.db.ReadLatestBatchBls()
-	for in, zkEVMBatchData := range zkEVMBatchDatas {
+	for _, zkEVMBatchData := range zkEVMBatchDatas {
 		bd := new(BatchData)
-		fmt.Printf("zkEVMBatchData.BlockWitness index:%+v\n", in)
-		fmt.Printf("zkEVMBatchData.BlockWitness:%+v\n", hexutil.Encode(zkEVMBatchData.BlockWitness))
 		if err := bd.DecodeBlockContext(zkEVMBatchData.BlockNumber, zkEVMBatchData.BlockWitness); err != nil {
 			return fmt.Errorf("BatchData DecodeBlockContext error:%v", err)
 		}
