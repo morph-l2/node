@@ -36,6 +36,7 @@ type FetchBatch struct {
 	BlockDatas    []*BlockData
 	L1BlockNumber uint64
 	TxHash        common.Hash
+	Nonce         uint64
 }
 
 type BlockData struct {
@@ -237,7 +238,6 @@ func (d *Derivation) fetchRollupData(txHash common.Hash, blockNumber uint64, bat
 	if pending {
 		return nil, errors.New("pending transaction")
 	}
-	d.logger.Info("fetch rollup transaction success", "nonce", tx.Nonce(), "txHash", tx.Hash().Hex(), "blockNumber", blockNumber)
 	abi, err := bindings.ZKEVMMetaData.GetAbi()
 	if err != nil {
 		return nil, err
@@ -268,7 +268,7 @@ func (d *Derivation) argsToBlockDatas(args []interface{}, fetchBatch *FetchBatch
 		} "json:\"signature\""
 	})
 	//batchBls := d.db.ReadLatestBatchBls()
-	for _, zkEVMBatchData := range zkEVMBatchDatas {
+	for batchDataIndex, zkEVMBatchData := range zkEVMBatchDatas {
 		bd := new(BatchData)
 		if err := bd.DecodeBlockContext(zkEVMBatchData.BlockNumber, zkEVMBatchData.BlockWitness); err != nil {
 			return fmt.Errorf("BatchData DecodeBlockContext error:%v", err)
@@ -282,6 +282,11 @@ func (d *Derivation) argsToBlockDatas(args []interface{}, fetchBatch *FetchBatch
 		}
 		var last uint64
 		for index, block := range bd.BlockContexts {
+			if batchDataIndex == 0 && index == 0 {
+				// first block in once submit
+				d.logger.Info("fetch rollup transaction success", "txNonce", fetchBatch.Nonce, "txHash", fetchBatch.TxHash,
+					"l1BlockNumber", fetchBatch.L1BlockNumber, "firstL2BlockNumber", block.Number.Uint64(), "lastL2BlockNumber", zkEVMBatchDatas[len(zkEVMBatchDatas)-1].BlockNumber)
+			}
 			d.logger.Info("fetched rollup block", "blockNumber", block.Number.Uint64())
 			var blockData BlockData
 			var safeL2Data catalyst.SafeL2Data
