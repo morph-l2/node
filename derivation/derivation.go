@@ -168,7 +168,8 @@ func (d *Derivation) derivationBlock(ctx context.Context) {
 		end = latest
 	}
 	d.logger.Info("derivation start pull block form l1", "startBlock", start, "end", end)
-	fetchBatches, err := d.fetchZkEvmData(ctx, start, end)
+	batchBls := d.db.ReadLatestBatchBls()
+	fetchBatches, err := d.fetchZkEvmData(ctx, start, end, &batchBls)
 	if err != nil {
 		d.logger.Error("FetchZkEvmData failed", "error", err)
 		return
@@ -192,7 +193,11 @@ func (d *Derivation) derivationBlock(ctx context.Context) {
 	d.db.WriteLatestDerivationL1Height(end)
 }
 
-func (d *Derivation) fetchZkEvmData(ctx context.Context, from, to uint64) ([]*FetchBatch, error) {
+func (d *Derivation) fetchZkEvmData(ctx context.Context, from, to uint64, batchBls *types.BatchBls) ([]*FetchBatch, error) {
+	if batchBls == nil {
+		// checks are ignored only in a test environment
+		d.logger.Info("batch bls is empty and will skip the bls check")
+	}
 	query := ethereum.FilterQuery{
 		FromBlock: big.NewInt(0).SetUint64(from),
 		ToBlock:   big.NewInt(0).SetUint64(to),
@@ -215,7 +220,7 @@ func (d *Derivation) fetchZkEvmData(ctx context.Context, from, to uint64) ([]*Fe
 	var fetchDatas []*FetchBatch
 	for _, lg := range logs {
 		d.logger.Info("fetch log", "txHash", lg.TxHash, "blockNumber", lg.BlockNumber)
-		fetchData, err := d.fetchRollupData(lg.TxHash, lg.BlockNumber)
+		fetchData, err := d.fetchRollupData(lg.TxHash, lg.BlockNumber, batchBls)
 		if err != nil {
 			return nil, err
 		}
@@ -224,7 +229,7 @@ func (d *Derivation) fetchZkEvmData(ctx context.Context, from, to uint64) ([]*Fe
 	return fetchDatas, nil
 }
 
-func (d *Derivation) fetchRollupData(txHash common.Hash, blockNumber uint64) (*FetchBatch, error) {
+func (d *Derivation) fetchRollupData(txHash common.Hash, blockNumber uint64, batchBls *types.BatchBls) (*FetchBatch, error) {
 	tx, pending, err := d.l1Client.TransactionByHash(context.Background(), txHash)
 	if err != nil {
 		return nil, err
@@ -243,13 +248,13 @@ func (d *Derivation) fetchRollupData(txHash common.Hash, blockNumber uint64) (*F
 	}
 	// parse calldata to zkevm batch data
 	fetchBatch := newFetchBatch(blockNumber, txHash)
-	if err := d.argsToBlockDatas(args, fetchBatch); err != nil {
+	if err := d.argsToBlockDatas(args, fetchBatch, batchBls); err != nil {
 		return nil, fmt.Errorf("argsToBlockDatas failed,txHash:%v,txNonce:%v\n,error:%v\n", tx.Hash().Hex(), tx.Nonce(), err)
 	}
 	return fetchBatch, nil
 }
 
-func (d *Derivation) argsToBlockDatas(args []interface{}, fetchBatch *FetchBatch) error {
+func (d *Derivation) argsToBlockDatas(args []interface{}, fetchBatch *FetchBatch, batchBls *types.BatchBls) error {
 	zkEVMBatchDatas, ok := args[0].([]struct {
 		BlockNumber   uint64    "json:\"blockNumber\""
 		Transactions  []uint8   "json:\"transactions\""
@@ -269,7 +274,7 @@ func (d *Derivation) argsToBlockDatas(args []interface{}, fetchBatch *FetchBatch
 			d.logger.Info("zkEVMBatchDatas assert failed")
 		}
 	}
-	batchBls := d.db.ReadLatestBatchBls()
+	//batchBls := d.db.ReadLatestBatchBls()
 	for _, zkEVMBatchData := range zkEVMBatchDatas {
 		bd := new(BatchData)
 		if err := bd.DecodeBlockContext(zkEVMBatchData.BlockNumber, zkEVMBatchData.BlockWitness); err != nil {
@@ -291,7 +296,7 @@ func (d *Derivation) argsToBlockDatas(args []interface{}, fetchBatch *FetchBatch
 		if err := bd.DecodeTransactions(zkEVMBatchData.Transactions); err != nil {
 			return fmt.Errorf("BatchData DecodeTransactions error:%v", err)
 		}
-		if bd.BlockContexts[len(bd.BlockContexts)-1].Number.Uint64() <= batchBls.BlockNumber {
+		if batchBls != nil && bd.BlockContexts[len(bd.BlockContexts)-1].Number.Uint64() <= batchBls.BlockNumber {
 			d.logger.Info("The current Batch already exists", "batchEndBlock", bd.BlockContexts[len(bd.BlockContexts)-1].Number.Uint64(), "localBatchBlsNumber", batchBls.BlockNumber)
 			continue
 		}
@@ -314,7 +319,7 @@ func (d *Derivation) argsToBlockDatas(args []interface{}, fetchBatch *FetchBatch
 			}
 			last = block.NumTxs - 1
 			blockData.SafeL2Data = &safeL2Data
-			if index == 0 {
+			if index == 0 && batchBls != nil {
 				if batchBls.BlockNumber != blockData.SafeL2Data.Number-1 {
 					return fmt.Errorf("miss last batch bls data,expect:%v but got %v", blockData.SafeL2Data.Number-1, batchBls.BlockNumber)
 				}
@@ -332,8 +337,10 @@ func (d *Derivation) argsToBlockDatas(args []interface{}, fetchBatch *FetchBatch
 				blsData.BLSSigners = zkEVMBatchData.Signature.Signers
 				// The Bls signature of the current Batch is temporarily
 				// stored and later placed in the first Block of the next Batch
-				batchBls.BlsData = &blsData
-				batchBls.BlockNumber = block.Number.Uint64()
+				if batchBls != nil {
+					batchBls.BlsData = &blsData
+					batchBls.BlockNumber = block.Number.Uint64()
+				}
 				// StateRoot of the last Block of the Batch, used to verify the
 				// validity of the Layer1 BlockData
 				blockData.Root = zkEVMBatchData.PostStateRoot

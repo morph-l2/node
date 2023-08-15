@@ -1,6 +1,7 @@
 package db
 
 import (
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"path/filepath"
@@ -78,8 +79,8 @@ func (s *Store) ReadLatestBatchBls() types.BatchBls {
 		panic(fmt.Sprintf("Failed to read batch bls from database,err:%v", err))
 	}
 
-	if err := rlp.DecodeBytes(data, &batchBls); err != nil {
-		panic(fmt.Sprintf("invalid batch bls RLP, err: %v", err))
+	if err := json.Unmarshal(data, &batchBls); err != nil {
+		panic(fmt.Sprintf("invalid batch bls Unmarshal , err: %v", err))
 	}
 	return batchBls
 }
@@ -145,7 +146,7 @@ func (s *Store) WriteLatestDerivationL1Height(latest uint64) {
 }
 
 func (s *Store) WriteLatestBatchBls(batchBls types.BatchBls) {
-	bytes, err := rlp.EncodeToBytes(batchBls)
+	bytes, err := json.Marshal(batchBls)
 	if err != nil {
 		panic(fmt.Sprintf("failed to RLP encode L1 message, err: %v", err))
 	}
