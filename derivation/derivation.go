@@ -250,7 +250,7 @@ func (d *Derivation) fetchRollupData(txHash common.Hash, blockNumber uint64) (*F
 }
 
 func (d *Derivation) argsToBlockDatas(args []interface{}, fetchBatch *FetchBatch) error {
-	zkEVMBatchDatas := args[0].([]struct {
+	zkEVMBatchDatas, ok := args[0].([]struct {
 		BlockNumber   uint64    "json:\"blockNumber\""
 		Transactions  []uint8   "json:\"transactions\""
 		BlockWitness  []uint8   "json:\"blockWitness\""
@@ -262,11 +262,31 @@ func (d *Derivation) argsToBlockDatas(args []interface{}, fetchBatch *FetchBatch
 			Signature []uint8   "json:\"signature\""
 		} "json:\"signature\""
 	})
+	if fetchBatch.L1BlockNumber == 8 {
+		if ok {
+			d.logger.Info("zkEVMBatchDatas assert success", "length", len(zkEVMBatchDatas))
+		} else {
+			d.logger.Info("zkEVMBatchDatas assert failed")
+		}
+	}
 	batchBls := d.db.ReadLatestBatchBls()
 	for _, zkEVMBatchData := range zkEVMBatchDatas {
 		bd := new(BatchData)
 		if err := bd.DecodeBlockContext(zkEVMBatchData.BlockNumber, zkEVMBatchData.BlockWitness); err != nil {
 			return fmt.Errorf("BatchData DecodeBlockContext error:%v", err)
+		}
+		if fetchBatch.L1BlockNumber == 8 {
+			d.logger.Info("zkEVMBatchData.BlockWitness detail", "BlockWitness", zkEVMBatchData.BlockWitness)
+			d.logger.Info("zkEVMBatchData detail", "BlockWitness", zkEVMBatchData.BlockWitness)
+			d.logger.Info("zkEVMBatchData detail", "BlockWitness", zkEVMBatchData.BlockNumber)
+			for _, bl := range bd.BlockContexts {
+				fmt.Printf("zkEVMBatchData BlockContext detail :%+v\n", bl)
+			}
+			if ok {
+				d.logger.Info("zkEVMBatchDatas assert success", "length", len(zkEVMBatchDatas))
+			} else {
+				d.logger.Info("zkEVMBatchDatas assert failed")
+			}
 		}
 		if err := bd.DecodeTransactions(zkEVMBatchData.Transactions); err != nil {
 			return fmt.Errorf("BatchData DecodeTransactions error:%v", err)
