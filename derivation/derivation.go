@@ -255,7 +255,7 @@ func (d *Derivation) fetchRollupData(txHash common.Hash, blockNumber uint64, bat
 }
 
 func (d *Derivation) argsToBlockDatas(args []interface{}, fetchBatch *FetchBatch, batchBls *types.BatchBls) error {
-	zkEVMBatchDatas, ok := args[0].([]struct {
+	zkEVMBatchDatas := args[0].([]struct {
 		BlockNumber   uint64    "json:\"blockNumber\""
 		Transactions  []uint8   "json:\"transactions\""
 		BlockWitness  []uint8   "json:\"blockWitness\""
@@ -267,31 +267,11 @@ func (d *Derivation) argsToBlockDatas(args []interface{}, fetchBatch *FetchBatch
 			Signature []uint8   "json:\"signature\""
 		} "json:\"signature\""
 	})
-	if fetchBatch.L1BlockNumber == 8 {
-		if ok {
-			d.logger.Info("zkEVMBatchDatas assert success", "length", len(zkEVMBatchDatas))
-		} else {
-			d.logger.Info("zkEVMBatchDatas assert failed")
-		}
-	}
 	//batchBls := d.db.ReadLatestBatchBls()
 	for _, zkEVMBatchData := range zkEVMBatchDatas {
 		bd := new(BatchData)
 		if err := bd.DecodeBlockContext(zkEVMBatchData.BlockNumber, zkEVMBatchData.BlockWitness); err != nil {
 			return fmt.Errorf("BatchData DecodeBlockContext error:%v", err)
-		}
-		if fetchBatch.L1BlockNumber == 8 {
-			d.logger.Info("zkEVMBatchData.BlockWitness detail", "BlockWitness", zkEVMBatchData.BlockWitness)
-			d.logger.Info("zkEVMBatchData detail", "BlockWitness", zkEVMBatchData.BlockWitness)
-			d.logger.Info("zkEVMBatchData detail", "BlockWitness", zkEVMBatchData.BlockNumber)
-			for _, bl := range bd.BlockContexts {
-				fmt.Printf("zkEVMBatchData BlockContext detail :%+v\n", bl)
-			}
-			if ok {
-				d.logger.Info("zkEVMBatchDatas assert success", "length", len(zkEVMBatchDatas))
-			} else {
-				d.logger.Info("zkEVMBatchDatas assert failed")
-			}
 		}
 		if err := bd.DecodeTransactions(zkEVMBatchData.Transactions); err != nil {
 			return fmt.Errorf("BatchData DecodeTransactions error:%v", err)
@@ -302,6 +282,7 @@ func (d *Derivation) argsToBlockDatas(args []interface{}, fetchBatch *FetchBatch
 		}
 		var last uint64
 		for index, block := range bd.BlockContexts {
+			d.logger.Info("fetched rollup block", "blockNumber", block.Number.Uint64())
 			var blockData BlockData
 			var safeL2Data catalyst.SafeL2Data
 			safeL2Data.Number = block.Number.Uint64()
@@ -323,6 +304,8 @@ func (d *Derivation) argsToBlockDatas(args []interface{}, fetchBatch *FetchBatch
 				//if batchBls.BlockNumber != blockData.SafeL2Data.Number-1 {
 				//	return fmt.Errorf("miss last batch bls data,expect:%v but got %v", blockData.SafeL2Data.Number-1, batchBls.BlockNumber)
 				//}
+				fmt.Printf("miss last batch bls data,expect:%v but got %v\n", blockData.SafeL2Data.Number-1, batchBls.BlockNumber)
+
 				// Puts the Bls signature of the previous Batch in the first
 				// block of the current batch
 				blockData.blsData = batchBls.BlsData
