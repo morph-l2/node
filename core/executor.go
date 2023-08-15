@@ -197,6 +197,7 @@ func (e *Executor) CheckBlockData(txs [][]byte, l2Config, zkConfig, root []byte)
 		"eth block number", l2Block.Number)
 
 	if err := e.validateL1Messages(txs, l1Messages); err != nil {
+		e.logger.Error("==========>failed to validateL1Messages", "error", err)
 		if err != types.ErrQueryL1Message { // only do not return error if it is not ErrQueryL1Message error
 			err = nil
 		}
