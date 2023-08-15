@@ -182,7 +182,7 @@ func (d *Derivation) derivationBlock(ctx context.Context) {
 		batchBls := d.db.ReadLatestBatchBls()
 		rollupData, err := d.fetchRollupDataByTxHash(lg.TxHash, lg.BlockNumber, &batchBls)
 		if err != nil {
-			d.logger.Error("fetch rollup data failed", "txHash", lg.TxHash, "blockNumber", lg.BlockNumber)
+			d.logger.Error("fetch rollup data failed", "txHash", lg.TxHash, "blockNumber", lg.BlockNumber, "error", err)
 			return
 		}
 		d.logger.Info("fetch rollup transaction success", "txNonce", rollupData.Nonce, "txHash", rollupData.TxHash,
@@ -253,7 +253,9 @@ func (d *Derivation) fetchRollupDataByTxHash(txHash common.Hash, blockNumber uin
 	// parse input to zkevm batch data
 	rollupData := newRollupData(blockNumber, txHash, tx.Nonce())
 	if err := d.parseArgs(args, rollupData, batchBls); err != nil {
-		return nil, fmt.Errorf("parseArgs failed,txHash:%v,txNonce:%v\n,error:%v\n", tx.Hash().Hex(), tx.Nonce(), err)
+		d.logger.Error("rollupData detail", "txNonce", rollupData.Nonce, "txHash", rollupData.TxHash,
+			"l1BlockNumber", rollupData.L1BlockNumber, "firstL2BlockNumber", rollupData.FirstBlockNumber, "lastL2BlockNumber", rollupData.LastBlockNumber)
+		return rollupData, fmt.Errorf("parseArgs error:%v\n", err)
 	}
 	return rollupData, nil
 }
