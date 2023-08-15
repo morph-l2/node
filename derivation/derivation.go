@@ -320,9 +320,9 @@ func (d *Derivation) argsToBlockDatas(args []interface{}, fetchBatch *FetchBatch
 			}
 			blockData.SafeL2Data = &safeL2Data
 			if index == 0 && batchBls != nil {
-				if batchBls.BlockNumber != blockData.SafeL2Data.Number-1 {
-					return fmt.Errorf("miss last batch bls data,expect:%v but got %v", blockData.SafeL2Data.Number-1, batchBls.BlockNumber)
-				}
+				//if batchBls.BlockNumber != blockData.SafeL2Data.Number-1 {
+				//	return fmt.Errorf("miss last batch bls data,expect:%v but got %v", blockData.SafeL2Data.Number-1, batchBls.BlockNumber)
+				//}
 				// Puts the Bls signature of the previous Batch in the first
 				// block of the current batch
 				blockData.blsData = batchBls.BlsData
