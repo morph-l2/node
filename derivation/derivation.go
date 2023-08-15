@@ -45,11 +45,12 @@ type BlockData struct {
 	Root       common.Hash
 }
 
-func newFetchBatch(blockNumber uint64, txHash common.Hash) *FetchBatch {
+func newFetchBatch(blockNumber uint64, txHash common.Hash, nonce uint64) *FetchBatch {
 	return &FetchBatch{
 		L1BlockNumber: blockNumber,
 		BlockDatas:    []*BlockData{},
 		TxHash:        txHash,
+		Nonce:         nonce,
 	}
 }
 
@@ -247,7 +248,7 @@ func (d *Derivation) fetchRollupData(txHash common.Hash, blockNumber uint64, bat
 		return nil, fmt.Errorf("submitBatches Unpack error:%v", err)
 	}
 	// parse calldata to zkevm batch data
-	fetchBatch := newFetchBatch(blockNumber, txHash)
+	fetchBatch := newFetchBatch(blockNumber, txHash, tx.Nonce())
 	if err := d.argsToBlockDatas(args, fetchBatch, batchBls); err != nil {
 		return nil, fmt.Errorf("argsToBlockDatas failed,txHash:%v,txNonce:%v\n,error:%v\n", tx.Hash().Hex(), tx.Nonce(), err)
 	}

@@ -172,7 +172,7 @@ func TestNewDerivationClient(t *testing.T) {
 	args, err := abi.Methods["submitBatches"].Inputs.Unpack(decodefirstInput[4:])
 	require.NoError(t, err)
 	// parse calldata to zkevm batch data
-	fetchBatch := newFetchBatch(58, common.HexToHash("0x6f74f717059c77203c6518ab345f60757f3a9903f6331bb2c8ebcba02dab6735"))
+	fetchBatch := newFetchBatch(58, common.HexToHash("0x6f74f717059c77203c6518ab345f60757f3a9903f6331bb2c8ebcba02dab6735"), 1)
 	d := testNewDerivationClient(t)
 	err = d.argsToBlockDatas(args, fetchBatch, nil)
 	require.NoError(t, err)
