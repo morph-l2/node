@@ -181,6 +181,16 @@ func (e *Executor) RequestBlockData(height int64) (txs [][]byte, l2Config, zkCon
 	root = l2Block.WithdrawTrieRoot.Bytes()
 	e.logger.Info("RequestBlockData response",
 		"txs.length", len(txs))
+	if len(l1Messages) > 0 && len(txs) > 0 {
+		tx0 := txs[0]
+		var tx eth.Transaction
+		if err := tx.UnmarshalBinary(tx0); err != nil {
+			panic(err)
+		}
+		e.logger.Info("=======>log for test",
+			"actual queueIndex", tx.AsL1MessageTx().QueueIndex,
+			"expected queueIndex", transactions[0].L1MessageQueueIndex())
+	}
 	return
 }
 
