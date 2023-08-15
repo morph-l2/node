@@ -1,7 +1,6 @@
 package derivation
 
 import (
-	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"fmt"
@@ -27,38 +26,6 @@ import (
 	"github.com/stretchr/testify/require"
 	tmlog "github.com/tendermint/tendermint/libs/log"
 )
-
-//
-//func TestDerivationBlock(t *testing.T) {
-//	//prepare msg
-//	key, _ := crypto.GenerateKey()
-//	sim, _ := newSimulatedBackend(key)
-//	opts, _ := bind.NewKeyedTransactorWithChainID(key, big.NewInt(1337))
-//	_, _, zkevm, err := bindings.DeployZKEVM(opts, sim, common.Address{}, opts.From, crypto.PubkeyToAddress(key.PublicKey),"")
-//	require.NoError(t, err)
-//	_, err = zkevm.SubmitBatches(opts, []bindings.ZKEVMBatchData{})
-//	require.NoError(t, err)
-//	sim.Commit()
-//	context.Background()
-//	dbConfig := db.DefaultConfig()
-//	store, err := db.NewStore(dbConfig, "test")
-//	require.NoError(t, err)
-//	ctx := context.Background()
-//	d := Derivation{
-//		ctx:                  ctx,
-//		l1Client:             sim,
-//		ZKEvmContractAddress: &common.Address{},
-//		confirmations:        rpc.BlockNumber(5),
-//		l2Client:             nil,
-//		validator:            nil,
-//		latestDerivation:     9,
-//		db:                   store,
-//		fetchBlockRange:      100,
-//	}
-//
-//	d.derivationBlock(ctx)
-//	require.EqualError(t, err, "execution reverted: FetchBatch not exist")
-//}
 
 func TestCompareBlock(t *testing.T) {
 	eClient, err := ethclient.Dial("http://localhost:7545")
@@ -103,26 +70,18 @@ func testNewDerivationClient(t *testing.T) *Derivation {
 
 func TestDerivation_Block(t *testing.T) {
 	d := testNewDerivationClient(t)
-	batchs, err := d.fetchZkEvmData(context.Background(), 1, 1000, nil)
+	logs, err := d.fetchZkEvmLog(context.Background(), 1, 1000)
 	require.NoError(t, err)
-	for _, batch := range batchs {
-		for _, blockData := range batch.BlockDatas {
-			latestBlockNumber, err := d.l2Client.BlockNumber(context.Background())
-			if err != nil {
-				return
-			}
-			if blockData.SafeL2Data.Number <= latestBlockNumber {
-				continue
-			}
-			header, err := d.l2Client.NewSafeL2Block(context.Background(), blockData.SafeL2Data, blockData.blsData)
-			require.NoError(t, err)
-			if !bytes.Equal(header.Hash().Bytes(), blockData.Root.Bytes()) && d.validator != nil && d.validator.ChallengeEnable() {
-				fmt.Println("block hash is not equal", "l1", blockData.Root, "l2", header.Hash())
-				err := d.validator.ChallengeState(1)
-				require.NoError(t, err)
-				return
-			}
+	for _, lg := range logs {
+		batchBls := d.db.ReadLatestBatchBls()
+		rollupData, err := d.fetchRollupDataByTxHash(lg.TxHash, lg.BlockNumber, &batchBls)
+		if err != nil {
+			d.logger.Error("fetch rollup data failed", "txHash", lg.TxHash, "blockNumber", lg.BlockNumber)
+			return
 		}
+		d.logger.Info("fetch rollup transaction success", "txNonce", rollupData.Nonce, "txHash", rollupData.TxHash,
+			"l1BlockNumber", rollupData.L1BlockNumber, "firstL2BlockNumber", rollupData.FirstBlockNumber, "lastL2BlockNumber", rollupData.LastBlockNumber)
+
 	}
 }
 
@@ -172,9 +131,8 @@ func TestNewDerivationClient(t *testing.T) {
 	args, err := abi.Methods["submitBatches"].Inputs.Unpack(decodefirstInput[4:])
 	require.NoError(t, err)
 	// parse calldata to zkevm batch data
-	fetchBatch := newFetchBatch(58, common.HexToHash("0x6f74f717059c77203c6518ab345f60757f3a9903f6331bb2c8ebcba02dab6735"), 1)
+	fetchBatch := newRollupData(58, common.HexToHash("0x6f74f717059c77203c6518ab345f60757f3a9903f6331bb2c8ebcba02dab6735"), 1)
 	d := testNewDerivationClient(t)
-	err = d.argsToBlockDatas(args, fetchBatch, nil)
+	err = d.parseArgs(args, fetchBatch, nil)
 	require.NoError(t, err)
-	fmt.Printf("fetchBatch:%+v", fetchBatch)
 }
