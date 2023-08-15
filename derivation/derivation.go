@@ -313,11 +313,11 @@ func (d *Derivation) argsToBlockDatas(args []interface{}, fetchBatch *FetchBatch
 			}
 			safeL2Data.Timestamp = block.Timestamp
 			if block.NumTxs > 0 {
-				safeL2Data.Transactions = encodeTransactions(bd.Txs[last : block.NumTxs-1])
+				safeL2Data.Transactions = encodeTransactions(bd.Txs[last : last+block.NumTxs])
+				last += block.NumTxs
 			} else {
 				safeL2Data.Transactions = [][]byte{}
 			}
-			last = block.NumTxs - 1
 			blockData.SafeL2Data = &safeL2Data
 			if index == 0 && batchBls != nil {
 				if batchBls.BlockNumber != blockData.SafeL2Data.Number-1 {

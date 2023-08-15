@@ -103,7 +103,7 @@ func testNewDerivationClient(t *testing.T) *Derivation {
 
 func TestDerivation_Block(t *testing.T) {
 	d := testNewDerivationClient(t)
-	batchs, err := d.fetchZkEvmData(context.Background(), 1, 1000)
+	batchs, err := d.fetchZkEvmData(context.Background(), 1, 1000, nil)
 	require.NoError(t, err)
 	for _, batch := range batchs {
 		for _, blockData := range batch.BlockDatas {
@@ -174,7 +174,7 @@ func TestNewDerivationClient(t *testing.T) {
 	// parse calldata to zkevm batch data
 	fetchBatch := newFetchBatch(58, common.HexToHash("0x6f74f717059c77203c6518ab345f60757f3a9903f6331bb2c8ebcba02dab6735"))
 	d := testNewDerivationClient(t)
-	err = d.argsToBlockDatas(args, fetchBatch)
+	err = d.argsToBlockDatas(args, fetchBatch, nil)
 	require.NoError(t, err)
 	fmt.Printf("fetchBatch:%+v", fetchBatch)
 }
