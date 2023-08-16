@@ -87,6 +87,8 @@ func NewSequencerExecutor(config *Config, syncer *sync.Syncer) (*Executor, error
 	metrics := PrometheusMetrics("morphnode")
 	if latestProcessedL1Index != nil {
 		metrics.LatestProcessedQueueIndex.Set(float64(*latestProcessedL1Index))
+	} else {
+		metrics.LatestProcessedQueueIndex.Set(0)
 	}
 
 	return &Executor{
@@ -118,6 +120,8 @@ func NewExecutor(config *Config) (*Executor, error) {
 	metrics := PrometheusMetrics("morphnode")
 	if latestProcessedL1Index != nil {
 		metrics.LatestProcessedQueueIndex.Set(float64(*latestProcessedL1Index))
+	} else {
+		metrics.LatestProcessedQueueIndex.Set(0)
 	}
 	return &Executor{
 		l2Client:               types.NewRetryableClient(aClient, eClient, config.Logger),
@@ -142,7 +146,7 @@ func (e *Executor) RequestBlockData(height int64) (txs [][]byte, l2Config, zkCon
 		fromIndex = *e.latestProcessedL1Index + 1
 	}
 	l1Messages := e.syncer.ReadL1MessagesInRange(fromIndex, fromIndex+e.maxL1MsgNumPerBlock-1)
-	transactions := make(eth.Transactions, len(l1Messages), len(l1Messages))
+	transactions := make(eth.Transactions, len(l1Messages))
 
 	if len(l1Messages) > 0 {
 		queueIndex := fromIndex
