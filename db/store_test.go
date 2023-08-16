@@ -1,9 +1,6 @@
 package db
 
 import (
-	"encoding/json"
-	"fmt"
-	"github.com/scroll-tech/go-ethereum/rlp"
 	"math/big"
 	"testing"
 
@@ -57,40 +54,9 @@ func TestSyncedL1Messages(t *testing.T) {
 	require.Nil(t, msg)
 }
 
-type BatchBls struct {
-	BlsData     []byte
-	BlockNumber uint64 // last blockNumber of batch
-}
-
 func TestStore_WriteLatestBatchBls(t *testing.T) {
+	db := NewMemoryStore()
 	var batchBls types.BatchBls
-	var storeBatchBls BatchBls
-	storeBlsData, err := json.Marshal(&batchBls.BlsData)
-	storeBatchBls.BlsData = storeBlsData
-	storeBatchBls.BlockNumber = batchBls.BlockNumber
-	bytes, err := rlp.EncodeToBytes(&storeBatchBls)
-	if err != nil {
-		panic(fmt.Sprintf("failed to RLP encode L1 message, err: %v", err))
-	}
-	if err := rlp.DecodeBytes(bytes, &storeBatchBls); err != nil {
-		panic(fmt.Sprintf("invalid batch bls RLP, err: %v", err))
-	}
-	var bls *eth.BLSData
-	if err := json.Unmarshal(storeBatchBls.BlsData, &bls); err != nil {
-		panic(fmt.Sprintf("invalid batch bls RLP, err: %v", err))
-	}
-
-}
-
-func TestStore_WriteLatestBatchBls2(t *testing.T) {
-	var batchBls types.BatchBls
-	storeBlsData, err := json.Marshal(&batchBls)
-
-	if err != nil {
-		panic(fmt.Sprintf("failed to RLP encode L1 message, err: %v", err))
-	}
-	if err := json.Unmarshal(storeBlsData, &batchBls); err != nil {
-		panic(fmt.Sprintf("invalid batch bls RLP, err: %v", err))
-	}
-
+	db.WriteLatestBatchBls(batchBls)
+	batchBls = db.ReadLatestBatchBls()
 }

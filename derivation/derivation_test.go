@@ -3,7 +3,6 @@ package derivation
 import (
 	"context"
 	"crypto/ecdsa"
-	"fmt"
 	"math/big"
 	"os"
 	"reflect"
@@ -68,7 +67,7 @@ func testNewDerivationClient(t *testing.T) *Derivation {
 	return &d
 }
 
-func TestDerivation_Block(t *testing.T) {
+func TestFetchRollupData(t *testing.T) {
 	d := testNewDerivationClient(t)
 	logs, err := d.fetchZkEvmLog(context.Background(), 1, 1000)
 	require.NoError(t, err)
@@ -118,7 +117,7 @@ func TestFindBatchIndex(t *testing.T) {
 		if err != nil {
 			continue
 		}
-		fmt.Printf("batch index :%v", batchIndex)
+		require.NotZero(t, batchIndex)
 		break
 	}
 }
