@@ -1,6 +1,7 @@
 package db
 
 import (
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"path/filepath"
@@ -56,7 +57,7 @@ func (s *Store) ReadLatestDerivationL1Height() *uint64 {
 		panic(fmt.Sprintf("Failed to read batch index from database,err:%v", err))
 	}
 	if len(data) == 0 {
-		return nil
+		return new(uint64)
 	}
 
 	number := new(big.Int).SetBytes(data)
@@ -66,6 +67,22 @@ func (s *Store) ReadLatestDerivationL1Height() *uint64 {
 
 	value := number.Uint64()
 	return &value
+}
+
+func (s *Store) ReadLatestBatchBls() types.BatchBls {
+	var batchBls types.BatchBls
+	data, err := s.db.Get(latestBatchBlsKey)
+	if err != nil {
+		if isNotFoundErr(err) {
+			return batchBls
+		}
+		panic(fmt.Sprintf("Failed to read batch bls from database,err:%v", err))
+	}
+
+	if err := json.Unmarshal(data, &batchBls); err != nil {
+		panic(fmt.Sprintf("invalid batch bls Unmarshal , err: %v", err))
+	}
+	return batchBls
 }
 
 func (s *Store) ReadLatestSyncedL1Height() *uint64 {
@@ -125,6 +142,16 @@ func (s *Store) ReadL1MessageByIndex(index uint64) *types.L1Message {
 func (s *Store) WriteLatestDerivationL1Height(latest uint64) {
 	if err := s.db.Put(derivationL1HeightKey, new(big.Int).SetUint64(latest).Bytes()); err != nil {
 		panic(fmt.Sprintf("failed to update derivation synced L1 height, err: %v", err))
+	}
+}
+
+func (s *Store) WriteLatestBatchBls(batchBls types.BatchBls) {
+	bytes, err := json.Marshal(batchBls)
+	if err != nil {
+		panic(fmt.Sprintf("failed to RLP encode L1 message, err: %v", err))
+	}
+	if err := s.db.Put(latestBatchBlsKey, bytes); err != nil {
+		panic(fmt.Sprintf("failed to update latest batch bls, err: %v", err))
 	}
 }
 
