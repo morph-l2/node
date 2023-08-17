@@ -66,31 +66,6 @@ func L2NodeMain(ctx *cli.Context) error {
 		return err
 	}
 
-	if isSequencer {
-		// configure store
-		dbConfig := db.DefaultConfig()
-		dbConfig.SetCliContext(ctx)
-		store, err := db.NewStore(dbConfig, home)
-		if err != nil {
-			return err
-		}
-		// launch syncer
-		syncConfig := sync.DefaultConfig()
-		if err = syncConfig.SetCliContext(ctx); err != nil {
-			return err
-		}
-		syncer, err = sync.NewSyncer(context.Background(), store, syncConfig, nodeConfig.Logger)
-		if err != nil {
-			return fmt.Errorf("failed to create syncer, error: %v", err)
-		}
-		syncer.Start()
-
-		// create executor
-		executor, err = node.NewSequencerExecutor(nodeConfig, syncer)
-		if err != nil {
-			return fmt.Errorf("failed to create executor, error: %v", err)
-		}
-	}
 	if isValidator {
 		// configure store
 		dbConfig := db.DefaultConfig()
@@ -131,6 +106,34 @@ func L2NodeMain(ctx *cli.Context) error {
 		dv.Start()
 		logger.Info("derivation node starting")
 	} else {
+
+		if isSequencer {
+			// configure store
+			dbConfig := db.DefaultConfig()
+			dbConfig.SetCliContext(ctx)
+			store, err := db.NewStore(dbConfig, home)
+			if err != nil {
+				return err
+			}
+			// launch syncer
+			syncConfig := sync.DefaultConfig()
+			if err = syncConfig.SetCliContext(ctx); err != nil {
+				return err
+			}
+			syncer, err = sync.NewSyncer(context.Background(), store, syncConfig, nodeConfig.Logger)
+			if err != nil {
+				return fmt.Errorf("failed to create syncer, error: %v", err)
+			}
+			syncer.Start()
+
+			// create executor
+			executor, err = node.NewSequencerExecutor(nodeConfig, syncer)
+			if err != nil {
+				return fmt.Errorf("failed to create executor, error: %v", err)
+			}
+		} else {
+			executor, err = node.NewExecutor(nodeConfig)
+		}
 		if isMockSequencer {
 			ms, err = mock.NewSequencer(executor)
 			if err != nil {
