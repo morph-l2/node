@@ -39,9 +39,21 @@ devnet-up:
 	cd ops-morphism && docker compose up -d sequencer_node
 .PHONY: dev-up
 
+devnet-validator-up:
+	cd ops-morphism && docker compose -f docker-compose-validator.yml up -d
+.PHONY: dev-validator-up
+
+devnet-validator-build:
+	cd ops-morphism && docker compose -f docker-compose-validator.yml build
+.PHONY: dev-validator-build
+
 devnet-down:
 	cd ops-morphism && docker compose down
 .PHONY: dev-down
+
+devnet-validator-down:
+	cd ops-morphism && docker compose -f docker-compose-validator.yml down
+.PHONY: dev-validator-down
 
 devnet-clean:
 	cd ops-morphism && docker compose down

@@ -1,0 +1,56 @@
+version: '3.4'
+
+volumes:
+  validator_geth_data:
+  validator_node_data:
+
+services:
+  validator_geth:
+    image: morphism-geth:latest
+    ports:
+      - "7545:8545"
+      - "7546:8546"
+      - "7551:8551"
+    healthcheck:
+      test: curl -f http://localhost:8545
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    volumes:
+      - "validator_geth_data:${GETH_DATA_DIR}"
+      - "${PWD}/jwt-secret.txt:${JWT_SECRET_PATH}"
+      - "${PWD}/genesis-l2.json:${GENESIS_FILE_PATH}"
+    entrypoint: # pass the L2 specific flags by overriding the entry-point and adding extra arguments
+      - "/bin/sh"
+      - "/entrypoint.sh"
+
+  validator_node:
+    depends_on:
+      - validator_geth
+    build:
+      context: ..
+      dockerfile: ./ops-morphism/Dockerfile
+    image: morphism-node:latest
+    environment:
+      - EMPTY_BLOCK_DELAY=true
+      - MORPH_NODE_L2_ETH_RPC=http://validator_geth:8545
+      - MORPH_NODE_L2_ENGINE_RPC=http://validator_geth:8551
+      - MORPH_NODE_L2_ENGINE_AUTH=jwt-secret.txt
+      ## todo need to replace it to a public network
+      - MORPH_NODE_L1_ETH_RPC=http://host.docker.internal:9545
+      - MORPH_NODE_VALIDATOR_PRIVATE_KEY=ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+      - MORPH_NODE_ZK_EVM_ADDRESS=0x6900000000000000000000000000000000000010
+      - MORPH_NODE_DERIVATION_START_HEIGHT=1
+      - MORPH_NODE_DERIVATION_FETCH_BLOCK_RANGE=5000
+      - MORPH_NODE_L1_CHAIN_ID=900
+      - MORPH_NODE_VALIDATOR=true
+      - MORPH_NODE_MOCK_SEQUENCER=false
+      - MORPH_NODE_L1_CONFIRMATIONS=1
+      ## - MORPH_NODE_SYNC_START_HEIGHT=88854536
+    volumes:
+      - "validator_node_data:${NODE_DATA_DIR}"
+      - "${PWD}/jwt-secret.txt:${JWT_SECRET_PATH}"
+    command: >
+      morphnode
+      --validator
+      --home $NODE_DATA_DIR

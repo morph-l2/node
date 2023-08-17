@@ -56,6 +56,12 @@ var (
 		EnvVar: prefixEnvVar("L1_ETH_RPC"),
 	}
 
+	L1ChainID = cli.Uint64Flag{
+		Name:   "l1.chain-id",
+		Usage:  "L1 Chain ID",
+		EnvVar: prefixEnvVar("L1_CHAIN_ID"),
+	}
+
 	L1Confirmations = cli.Int64Flag{
 		Name:   "l1.confirmations",
 		Usage:  "Number of confirmations on L1 needed for finalization",
@@ -142,6 +148,50 @@ var (
 		EnvVar: prefixEnvVar("MOCK_SEQUENCER"),
 	}
 
+	ValidatorEnable = cli.BoolFlag{
+		Name:   "validator",
+		Usage:  "Enable the validator mode",
+		EnvVar: prefixEnvVar("VALIDATOR"),
+	}
+
+	// validator
+	ValidatorPrivateKey = cli.StringFlag{
+		Name:   "validator.privateKey",
+		Usage:  "Private Key corresponding to SUBSIDY Owner",
+		EnvVar: prefixEnvVar("VALIDATOR_PRIVATE_KEY"),
+		Value:  "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+	}
+
+	// derivation
+	ZKEvmContractAddress = cli.StringFlag{
+		Name:   "derivation.zkEvmAddress",
+		Usage:  "Address of ZK evm contract",
+		EnvVar: prefixEnvVar("ZK_EVM_ADDRESS"),
+	}
+
+	DerivationStartHeight = cli.Uint64Flag{
+		Name:   "derivation.startHeight",
+		Usage:  "L1 block height where derivation start to fetch",
+		EnvVar: prefixEnvVar("DERIVATION_START_HEIGHT"),
+	}
+
+	DerivationPollInterval = cli.DurationFlag{
+		Name:   "derivation.pollInterval",
+		Usage:  "Frequency at which we query for rollup data",
+		EnvVar: prefixEnvVar("DERIVATION_POLL_INTERVAL"),
+	}
+
+	DerivationLogProgressInterval = cli.DurationFlag{
+		Name:   "derivation.logProgressInterval",
+		Usage:  "frequency at which we log progress",
+		EnvVar: prefixEnvVar("DERIVATION_LOG_PROGRESS_INTERVAL"),
+	}
+
+	DerivationFetchBlockRange = cli.Uint64Flag{
+		Name:   "derivation.fetchBlockRange",
+		Usage:  "Number of blocks that we collect in a single eth_getLogs query",
+		EnvVar: prefixEnvVar("DERIVATION_FETCH_BLOCK_RANGE"),
+	}
 	// Logger
 	LogLevel = &cli.StringFlag{
 		Name:   "log.level",
@@ -159,6 +209,7 @@ var (
 var Flags = []cli.Flag{
 	Home,
 	L1NodeAddr,
+	L1ChainID,
 	L1Confirmations,
 	L2EthAddr,
 	L2EngineAddr,
@@ -183,7 +234,17 @@ var Flags = []cli.Flag{
 	SequencerEnabled,
 	TendermintConfigPath,
 	MockEnabled,
+	ValidatorEnable,
 
+	// validator
+	ValidatorPrivateKey,
+
+	// derivation
+	ZKEvmContractAddress,
+	DerivationStartHeight,
+	DerivationPollInterval,
+	DerivationLogProgressInterval,
+	DerivationFetchBlockRange,
 	LogLevel,
 	LogFormat,
 }

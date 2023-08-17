@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 
+	nodecommon "github.com/morphism-labs/node/common"
 	"github.com/morphism-labs/node/types"
 	"github.com/scroll-tech/go-ethereum"
 	"github.com/scroll-tech/go-ethereum/common"
@@ -88,40 +89,5 @@ func (c *BridgeClient) L1MessagesFromTxHash(ctx context.Context, txHash common.H
 }
 
 func (c *BridgeClient) getLatestConfirmedBlockNumber(ctx context.Context) (uint64, error) {
-	// confirmation based on "safe" or "finalized" block tag
-	if c.confirmations == rpc.SafeBlockNumber || c.confirmations == rpc.FinalizedBlockNumber {
-		tag := big.NewInt(int64(c.confirmations))
-		header, err := c.l1Client.HeaderByNumber(ctx, tag)
-		if err != nil {
-			return 0, err
-		}
-		if !header.Number.IsInt64() {
-			return 0, fmt.Errorf("received invalid block confirm: %v", header.Number)
-		}
-		return header.Number.Uint64(), nil
-	}
-
-	// confirmation based on latest block number
-	if c.confirmations == rpc.LatestBlockNumber {
-		number, err := c.l1Client.BlockNumber(ctx)
-		if err != nil {
-			return 0, err
-		}
-		return number, nil
-	}
-
-	// confirmation based on a certain number of blocks
-	if c.confirmations.Int64() >= 0 {
-		number, err := c.l1Client.BlockNumber(ctx)
-		if err != nil {
-			return 0, err
-		}
-		confirmations := uint64(c.confirmations.Int64())
-		if number >= confirmations {
-			return number - confirmations, nil
-		}
-		return 0, nil
-	}
-
-	return 0, fmt.Errorf("unknown confirmation type: %v", c.confirmations)
+	return nodecommon.GetLatestConfirmedBlockNumber(ctx, c.l1Client, c.confirmations)
 }

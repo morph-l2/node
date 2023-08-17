@@ -3,18 +3,23 @@ package main
 import (
 	"context"
 	"fmt"
+
 	"os"
 	"os/signal"
 	"path/filepath"
 	"syscall"
 
+	"github.com/morphism-labs/morphism-bindings/bindings"
 	"github.com/morphism-labs/node/core"
 	"github.com/morphism-labs/node/db"
+	"github.com/morphism-labs/node/derivation"
 	"github.com/morphism-labs/node/flags"
 	"github.com/morphism-labs/node/sequencer"
 	"github.com/morphism-labs/node/sequencer/mock"
 	"github.com/morphism-labs/node/sync"
 	"github.com/morphism-labs/node/types"
+	"github.com/morphism-labs/node/validator"
+	"github.com/scroll-tech/go-ethereum/ethclient"
 	tmnode "github.com/tendermint/tendermint/node"
 	"github.com/urfave/cli"
 )
@@ -38,6 +43,7 @@ func L2NodeMain(ctx *cli.Context) error {
 		syncer   *sync.Syncer
 		ms       *mock.Sequencer
 		tmNode   *tmnode.Node
+		dvNode   *derivation.Derivation
 
 		nodeConfig = node.DefaultConfig()
 	)
@@ -46,6 +52,11 @@ func L2NodeMain(ctx *cli.Context) error {
 	if isSequencer && isMockSequencer {
 		return fmt.Errorf("the sequencer and mockSequencer can not be enabled both")
 	}
+
+	isValidator := ctx.GlobalBool(flags.ValidatorEnable.Name)
+	if isValidator && isSequencer {
+		return fmt.Errorf("the validator and sequencer can not be enabled both")
+	}
 	if err = nodeConfig.SetCliContext(ctx); err != nil {
 		return err
 	}
@@ -53,7 +64,8 @@ func L2NodeMain(ctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	if isSequencer {
+
+	if isValidator {
 		// configure store
 		dbConfig := db.DefaultConfig()
 		dbConfig.SetCliContext(ctx)
@@ -61,44 +73,76 @@ func L2NodeMain(ctx *cli.Context) error {
 		if err != nil {
 			return err
 		}
-
-		// launch syncer
-		syncConfig := sync.DefaultConfig()
-		if err = syncConfig.SetCliContext(ctx); err != nil {
-			return err
+		derivationCfg := derivation.DefaultConfig()
+		if err := derivationCfg.SetCliContext(ctx); err != nil {
+			return fmt.Errorf("derivation set cli context error: %v", err)
 		}
-		syncer, err = sync.NewSyncer(context.Background(), store, syncConfig, nodeConfig.Logger)
+		validatorCfg := validator.NewConfig()
+		if err := validatorCfg.SetCliContext(ctx); err != nil {
+			return fmt.Errorf("validator set cli context error: %v", err)
+		}
+		l1Client, err := ethclient.Dial(derivationCfg.L1.Addr)
 		if err != nil {
-			return fmt.Errorf("failed to create syncer, error: %v", err)
+			return fmt.Errorf("dial l1 node error:%v", err)
 		}
-		syncer.Start()
-
-		// create executor
-		executor, err = node.NewSequencerExecutor(nodeConfig, syncer)
+		zkEVM, err := bindings.NewZKEVM(*derivationCfg.ZKEvmContractAddress, l1Client)
 		if err != nil {
-			return fmt.Errorf("failed to create executor, error: %v", err)
+			return fmt.Errorf("NewZKEVMTransactor error:%v", err)
+		}
+		vt, err := validator.NewValidator(validatorCfg, zkEVM, nodeConfig.Logger)
+		if err != nil {
+			return fmt.Errorf("new validator client error: %v", err)
 		}
 
+		dvNode, err = derivation.NewDerivationClient(context.Background(), derivationCfg, store, vt, zkEVM, nodeConfig.Logger)
+		if err != nil {
+			return fmt.Errorf("new derivation client error: %v", err)
+		}
+		dvNode.Start()
+		nodeConfig.Logger.Info("derivation node starting")
 	} else {
-		executor, err = node.NewExecutor(nodeConfig)
-		if err != nil {
-			return fmt.Errorf("failed to create executor, error: %v", err)
-		}
-	}
 
-	if isMockSequencer {
-		ms, err = mock.NewSequencer(executor)
-		if err != nil {
-			return err
+		if isSequencer {
+			// configure store
+			dbConfig := db.DefaultConfig()
+			dbConfig.SetCliContext(ctx)
+			store, err := db.NewStore(dbConfig, home)
+			if err != nil {
+				return err
+			}
+			// launch syncer
+			syncConfig := sync.DefaultConfig()
+			if err = syncConfig.SetCliContext(ctx); err != nil {
+				return err
+			}
+			syncer, err = sync.NewSyncer(context.Background(), store, syncConfig, nodeConfig.Logger)
+			if err != nil {
+				return fmt.Errorf("failed to create syncer, error: %v", err)
+			}
+			syncer.Start()
+
+			// create executor
+			executor, err = node.NewSequencerExecutor(nodeConfig, syncer)
+			if err != nil {
+				return fmt.Errorf("failed to create executor, error: %v", err)
+			}
+		} else {
+			executor, err = node.NewExecutor(nodeConfig)
 		}
-		go ms.Start()
-	} else {
-		// launch tendermint node
-		if tmNode, err = sequencer.SetupNode(ctx, home, executor, nodeConfig.Logger); err != nil {
-			return fmt.Errorf("failed to setup consensus node, error: %v", err)
-		}
-		if err = tmNode.Start(); err != nil {
-			return fmt.Errorf("failed to start consensus node, error: %v", err)
+		if isMockSequencer {
+			ms, err = mock.NewSequencer(executor)
+			if err != nil {
+				return err
+			}
+			go ms.Start()
+		} else {
+			// launch tendermint node
+			if tmNode, err = sequencer.SetupNode(ctx, home, executor, nodeConfig.Logger); err != nil {
+				return fmt.Errorf("failed to setup consensus node, error: %v", err)
+			}
+			if err = tmNode.Start(); err != nil {
+				return fmt.Errorf("failed to start consensus node, error: %v", err)
+			}
 		}
 	}
 
@@ -119,6 +163,9 @@ func L2NodeMain(ctx *cli.Context) error {
 	}
 	if syncer != nil {
 		syncer.Stop()
+	}
+	if dvNode != nil {
+		dvNode.Stop()
 	}
 
 	return nil

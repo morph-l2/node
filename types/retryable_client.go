@@ -128,6 +128,24 @@ func (rc *RetryableClient) BlockNumber(ctx context.Context) (ret uint64, err err
 	return
 }
 
+func (rc *RetryableClient) HeaderByNumber(ctx context.Context, blockNumber *big.Int) (ret *eth.Header, err error) {
+	if retryErr := backoff.Retry(func() error {
+		resp, respErr := rc.ethClient.HeaderByNumber(ctx, blockNumber)
+		if respErr != nil {
+			rc.logger.Info("failed to call BlockNumber", "error", respErr)
+			if retryableError(respErr) {
+				return respErr
+			}
+			err = respErr
+		}
+		ret = resp
+		return nil
+	}, rc.b); retryErr != nil {
+		return nil, retryErr
+	}
+	return
+}
+
 func retryableError(err error) bool {
 	return strings.Contains(err.Error(), ConnectionRefused) ||
 		strings.Contains(err.Error(), EOFError) ||
