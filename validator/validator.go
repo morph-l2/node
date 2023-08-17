@@ -5,10 +5,10 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum"
 	"math/big"
 	"time"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/morphism-labs/morphism-bindings/bindings"
 	"github.com/scroll-tech/go-ethereum/accounts/abi/bind"
 	ethtypes "github.com/scroll-tech/go-ethereum/core/types"

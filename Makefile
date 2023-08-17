@@ -11,12 +11,6 @@ morphnode:
 	env GO111MODULE=on CGO_ENABLED=0 go build -o build/bin/morphnode -v $(LDFLAGS) ./cmd/node
 .PHONY: morphnode
 
-morphnode-alpine:
-	if [ ! -d build/bin ]; then mkdir -p build/bin; fi
-	go mod download
-	env GO111MODULE=on CGO_ENABLED=0 GOOS=linux go build  -tags netgo -o build/bin/morphnode -v $(LDFLAGS) ./cmd/node
-.PHONY: morphnode
-
 tendermint:
 	if [ ! -d build/bin ]; then mkdir -p build/bin; fi
 	go mod download
@@ -42,7 +36,7 @@ test:
 	go test -v ./...
 
 devnet-up:
-	cd ops-morphism && docker compose up -d
+	cd ops-morphism && docker compose up -d sequencer_node
 .PHONY: dev-up
 
 devnet-validator-up:
