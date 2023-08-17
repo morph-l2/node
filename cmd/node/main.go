@@ -20,8 +20,6 @@ import (
 	"github.com/morphism-labs/node/types"
 	"github.com/morphism-labs/node/validator"
 	"github.com/scroll-tech/go-ethereum/ethclient"
-	tmconfig "github.com/tendermint/tendermint/config"
-	tmlog "github.com/tendermint/tendermint/libs/log"
 	tmnode "github.com/tendermint/tendermint/node"
 	"github.com/urfave/cli"
 )
@@ -45,6 +43,7 @@ func L2NodeMain(ctx *cli.Context) error {
 		syncer   *sync.Syncer
 		ms       *mock.Sequencer
 		tmNode   *tmnode.Node
+		dvNode   *derivation.Derivation
 
 		nodeConfig = node.DefaultConfig()
 	)
@@ -74,10 +73,6 @@ func L2NodeMain(ctx *cli.Context) error {
 		if err != nil {
 			return err
 		}
-		logger := tmlog.NewTMLogger(tmlog.NewSyncWriter(os.Stdout))
-		if format := ctx.GlobalString(flags.LogFormat.Name); len(format) > 0 && format == tmconfig.LogFormatJSON {
-			logger = tmlog.NewTMJSONLogger(tmlog.NewSyncWriter(os.Stdout))
-		}
 		derivationCfg := derivation.DefaultConfig()
 		if err := derivationCfg.SetCliContext(ctx); err != nil {
 			return fmt.Errorf("derivation set cli context error: %v", err)
@@ -94,17 +89,17 @@ func L2NodeMain(ctx *cli.Context) error {
 		if err != nil {
 			return fmt.Errorf("NewZKEVMTransactor error:%v", err)
 		}
-		vt, err := validator.NewValidator(validatorCfg, zkEVM, logger)
+		vt, err := validator.NewValidator(validatorCfg, zkEVM, nodeConfig.Logger)
 		if err != nil {
 			return fmt.Errorf("new validator client error: %v", err)
 		}
 
-		dv, err := derivation.NewDerivationClient(context.Background(), derivationCfg, store, vt, zkEVM, logger)
+		dvNode, err = derivation.NewDerivationClient(context.Background(), derivationCfg, store, vt, zkEVM, nodeConfig.Logger)
 		if err != nil {
 			return fmt.Errorf("new derivation client error: %v", err)
 		}
-		dv.Start()
-		logger.Info("derivation node starting")
+		dvNode.Start()
+		nodeConfig.Logger.Info("derivation node starting")
 	} else {
 
 		if isSequencer {
@@ -168,6 +163,9 @@ func L2NodeMain(ctx *cli.Context) error {
 	}
 	if syncer != nil {
 		syncer.Stop()
+	}
+	if dvNode != nil {
+		dvNode.Stop()
 	}
 
 	return nil
