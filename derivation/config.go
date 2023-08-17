@@ -4,16 +4,17 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"io"
+	"os"
+	"strings"
+	"time"
+
 	"github.com/morphism-labs/node/flags"
 	"github.com/morphism-labs/node/types"
 	"github.com/scroll-tech/go-ethereum/common"
 	"github.com/scroll-tech/go-ethereum/common/hexutil"
 	"github.com/scroll-tech/go-ethereum/rpc"
 	"github.com/urfave/cli"
-	"io"
-	"os"
-	"strings"
-	"time"
 )
 
 const (
