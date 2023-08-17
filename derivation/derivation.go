@@ -21,7 +21,6 @@ import (
 	"github.com/scroll-tech/go-ethereum/eth/catalyst"
 	"github.com/scroll-tech/go-ethereum/ethclient"
 	"github.com/scroll-tech/go-ethereum/ethclient/authclient"
-	"github.com/scroll-tech/go-ethereum/log"
 	"github.com/scroll-tech/go-ethereum/rpc"
 	tmlog "github.com/tendermint/tendermint/libs/log"
 )
@@ -158,7 +157,7 @@ func (d *Derivation) derivationBlock(ctx context.Context) {
 	latestDerivation := d.db.ReadLatestDerivationL1Height()
 	latest, err := nodecommon.GetLatestConfirmedBlockNumber(ctx, d.l1Client.(*ethclient.Client), d.confirmations)
 	if err != nil {
-		log.Error("GetLatestConfirmedBlockNumber failed", "error", err)
+		d.logger.Error("GetLatestConfirmedBlockNumber failed", "error", err)
 		return
 	}
 	start := *latestDerivation + 1

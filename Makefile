@@ -8,7 +8,7 @@ LDFLAGS := -ldflags "$(LDFLAGSSTRING)"
 morphnode:
 	if [ ! -d build/bin ]; then mkdir -p build/bin; fi
 	go mod download
-	env GO111MODULE=on CGO_ENABLED=0 go build -o build/bin/morphnode -v $(LDFLAGS) ./cmd/node
+	env GO111MODULE=on CGO_ENABLED=1 go build -o build/bin/morphnode -v $(LDFLAGS) ./cmd/node
 .PHONY: morphnode
 
 tendermint:
