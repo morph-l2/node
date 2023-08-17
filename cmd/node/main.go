@@ -65,14 +65,15 @@ func L2NodeMain(ctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	// configure store
-	dbConfig := db.DefaultConfig()
-	dbConfig.SetCliContext(ctx)
-	store, err := db.NewStore(dbConfig, home)
-	if err != nil {
-		return err
-	}
+
 	if isSequencer {
+		// configure store
+		dbConfig := db.DefaultConfig()
+		dbConfig.SetCliContext(ctx)
+		store, err := db.NewStore(dbConfig, home)
+		if err != nil {
+			return err
+		}
 		// launch syncer
 		syncConfig := sync.DefaultConfig()
 		if err = syncConfig.SetCliContext(ctx); err != nil {
@@ -91,6 +92,13 @@ func L2NodeMain(ctx *cli.Context) error {
 		}
 	}
 	if isValidator {
+		// configure store
+		dbConfig := db.DefaultConfig()
+		dbConfig.SetCliContext(ctx)
+		store, err := db.NewStore(dbConfig, home)
+		if err != nil {
+			return err
+		}
 		logger := tmlog.NewTMLogger(tmlog.NewSyncWriter(os.Stdout))
 		if format := ctx.GlobalString(flags.LogFormat.Name); len(format) > 0 && format == tmconfig.LogFormatJSON {
 			logger = tmlog.NewTMJSONLogger(tmlog.NewSyncWriter(os.Stdout))
