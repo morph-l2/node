@@ -31,6 +31,8 @@ services:
       context: ..
       dockerfile: ./ops-morphism/Dockerfile
     image: morphism-node:latest
+    ports:
+      - "26660:26660"
     environment:
       - EMPTY_BLOCK_DELAY=true
       - MORPH_NODE_L2_ETH_RPC=http://validator_geth:8545
@@ -46,6 +48,8 @@ services:
       - MORPH_NODE_VALIDATOR=true
       - MORPH_NODE_MOCK_SEQUENCER=false
       - MORPH_NODE_L1_CONFIRMATIONS=1
+      - MORPH_METRICS_SERVER_ENABLE=true
+      - MORPH_METRICS_PORT=26660
       ## - MORPH_NODE_SYNC_START_HEIGHT=88854536
     volumes:
       - "validator_node_data:${NODE_DATA_DIR}"

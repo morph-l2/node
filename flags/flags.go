@@ -204,6 +204,25 @@ var (
 		Usage:  "log format: plain(default), json",
 		EnvVar: prefixEnvVar("LOG_FORMAT"),
 	}
+
+	// metrics
+	MetricsServerEnable = cli.BoolFlag{
+		Name:   "metrics-server-enable",
+		Usage:  "Whether or not to run the embedded metrics server",
+		EnvVar: prefixEnvVar("METRICS_SERVER_ENABLE"),
+	}
+	MetricsHostname = cli.StringFlag{
+		Name:   "metrics-hostname",
+		Usage:  "The hostname of the metrics server",
+		Value:  "0.0.0.0",
+		EnvVar: prefixEnvVar("METRICS_HOSTNAME"),
+	}
+	MetricsPort = cli.Uint64Flag{
+		Name:   "metrics-port",
+		Usage:  "The port of the metrics server",
+		Value:  26660,
+		EnvVar: prefixEnvVar("METRICS_PORT"),
+	}
 )
 
 var Flags = []cli.Flag{
@@ -245,6 +264,13 @@ var Flags = []cli.Flag{
 	DerivationPollInterval,
 	DerivationLogProgressInterval,
 	DerivationFetchBlockRange,
+
+	// logger
 	LogLevel,
 	LogFormat,
+
+	// metrics
+	MetricsServerEnable,
+	MetricsPort,
+	MetricsHostname,
 }

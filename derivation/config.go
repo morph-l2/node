@@ -36,6 +36,9 @@ type Config struct {
 	PollInterval         time.Duration   `json:"poll_interval"`
 	LogProgressInterval  time.Duration   `json:"log_progress_interval"`
 	FetchBlockRange      uint64          `json:"fetch_block_range"`
+	MetricsPort          uint64          `json:"metrics_port"`
+	MetricsHostname      string          `json:"metrics_hostname"`
+	MetricsServerEnable  bool            `json:"metrics_server_enable"`
 }
 
 func DefaultConfig() *Config {
@@ -114,6 +117,9 @@ func (c *Config) SetCliContext(ctx *cli.Context) error {
 	c.L2.EthAddr = l2EthAddr
 	c.L2.EngineAddr = l2EngineAddr
 	c.L2.JwtSecret = secret
+	c.MetricsServerEnable = ctx.GlobalBool(flags.MetricsServerEnable.Name)
+	c.MetricsHostname = ctx.GlobalString(flags.MetricsHostname.Name)
+	c.MetricsPort = ctx.GlobalUint64(flags.MetricsPort.Name)
 
 	return nil
 }
