@@ -8,7 +8,6 @@ import (
 	"github.com/morphism-labs/morphism-bindings/bindings"
 	"github.com/scroll-tech/go-ethereum/accounts/abi/bind"
 	"github.com/scroll-tech/go-ethereum/accounts/abi/bind/backends"
-	"github.com/scroll-tech/go-ethereum/common"
 	"github.com/scroll-tech/go-ethereum/core"
 	"github.com/scroll-tech/go-ethereum/core/rawdb"
 	"github.com/scroll-tech/go-ethereum/crypto"
@@ -22,14 +21,14 @@ func TestValidator_ChallengeState(t *testing.T) {
 	sim, _ := newSimulatedBackend(key)
 	opts, err := bind.NewKeyedTransactorWithChainID(key, big.NewInt(1337))
 	require.NoError(t, err)
-	addr, _, zkevm, err := bindings.DeployZKEVM(opts, sim, common.Address{}, common.Address{}, crypto.PubkeyToAddress(key.PublicKey))
+	addr, _, zkevm, err := bindings.DeployZKEVM(opts, sim, crypto.PubkeyToAddress(key.PublicKey), crypto.PubkeyToAddress(key.PublicKey), nil, nil, nil, nil, nil, nil, nil, 0, [32]byte{})
 	require.NoError(t, err)
 	sim.Commit()
 	v := Validator{
 		cli:        sim,
 		privateKey: key,
 		l1ChainID:  big.NewInt(1),
-		contract:   &zkevm.ZKEVMTransactor,
+		contract:   zkevm,
 	}
 	err = v.ChallengeState(10)
 	log.Info("addr:", addr)

@@ -64,6 +64,7 @@ type Derivation struct {
 	validator            *validator.Validator
 	logger               tmlog.Logger
 	zkEvm                *bindings.ZKEVM
+	metrics              *Metrics
 
 	latestDerivation uint64
 	db               Database
@@ -99,6 +100,16 @@ func NewDerivationClient(ctx context.Context, cfg *Config, db Database, validato
 	}
 	ctx, cancel := context.WithCancel(ctx)
 	logger = logger.With("module", "derivation")
+	metrics := PrometheusMetrics("morphnode")
+	if cfg.MetricsServerEnable {
+		go func() {
+			_, err := metrics.Serve(cfg.MetricsHostname, cfg.MetricsPort)
+			if err != nil {
+				panic(fmt.Errorf("metrics server start error:%v", err))
+			}
+		}()
+		logger.Info("metrics server enabled", "host", cfg.MetricsHostname, "port", cfg.MetricsPort)
+	}
 	return &Derivation{
 		ctx:                  ctx,
 		db:                   db,
@@ -114,6 +125,7 @@ func NewDerivationClient(ctx context.Context, cfg *Config, db Database, validato
 		fetchBlockRange:      cfg.FetchBlockRange,
 		pollInterval:         cfg.PollInterval,
 		logProgressInterval:  cfg.LogProgressInterval,
+		metrics:              metrics,
 	}, nil
 }
 
@@ -170,12 +182,20 @@ func (d *Derivation) derivationBlock(ctx context.Context) {
 	} else {
 		end = latest
 	}
-	d.logger.Info("derivation start pull block form l1", "startBlock", start, "end", end)
+	d.logger.Info("derivation start pull rollupData form l1", "startBlock", start, "end", end)
 	logs, err := d.fetchZkEvmLog(ctx, start, end)
 	if err != nil {
 		d.logger.Error("eth_getLogs failed", "err", err)
 		return
 	}
+	latestL2BlockNumber, err := d.zkEvm.LastL2BlockNumber(nil)
+	if err != nil {
+		d.logger.Error("query zkEvm LastL2BlockNumber failed", "err", err)
+		return
+	}
+	d.logger.Info(fmt.Sprintf("zkEvm latest l2Blocknumber:%v", latestL2BlockNumber))
+	d.logger.Info("fetched rollup tx", "txNum", len(logs))
+	d.metrics.SetZkEvmL2Height(latestL2BlockNumber)
 
 	for _, lg := range logs {
 		batchBls := d.db.ReadLatestBatchBls()
@@ -196,6 +216,7 @@ func (d *Derivation) derivationBlock(ctx context.Context) {
 			}
 			// only last block of batch
 			d.logger.Info("batch derivation complete", "currentBatchEndBlock", lastHeader.Number.Uint64())
+			d.metrics.SetL2DeriveHeight(lastHeader.Number.Uint64())
 			if !bytes.Equal(lastHeader.Root.Bytes(), batchData[len(batchData)-1].Root.Bytes()) && d.validator != nil && d.validator.ChallengeEnable() {
 				d.logger.Info("root hash is not equal", "originStateRootHash", batchData[len(batchData)-1].Root.Hex(), "deriveStateRootHash", lastHeader.Root.Hex())
 				batchIndex, err := d.findBatchIndex(rollupData.TxHash, batchData[len(batchData)-1].SafeL2Data.Number)
@@ -211,12 +232,14 @@ func (d *Derivation) derivationBlock(ctx context.Context) {
 			}
 		}
 		d.db.WriteLatestDerivationL1Height(lg.BlockNumber)
+		d.metrics.SetL1SyncHeight(lg.BlockNumber)
 		d.logger.Info("WriteLatestDerivationL1Height success", "L1BlockNumber", lg.BlockNumber)
 		d.db.WriteLatestBatchBls(batchBls)
 		d.logger.Info("WriteLatestBatchBls success", "lastBlockNumber", batchBls.BlockNumber)
 	}
 
 	d.db.WriteLatestDerivationL1Height(end)
+	d.metrics.SetL1SyncHeight(end)
 }
 
 func (d *Derivation) fetchZkEvmLog(ctx context.Context, from, to uint64) ([]eth.Log, error) {
