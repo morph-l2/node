@@ -58,7 +58,7 @@ func newRollupData(blockNumber uint64, txHash common.Hash, nonce uint64) *Rollup
 type Derivation struct {
 	ctx                  context.Context
 	l1Client             DeployContractBackend
-	ZKEvmContractAddress *common.Address
+	ZKEvmContractAddress common.Address
 	confirmations        rpc.BlockNumber
 	l2Client             *types.RetryableClient
 	validator            *validator.Validator
@@ -247,7 +247,7 @@ func (d *Derivation) fetchZkEvmLog(ctx context.Context, from, to uint64) ([]eth.
 		FromBlock: big.NewInt(0).SetUint64(from),
 		ToBlock:   big.NewInt(0).SetUint64(to),
 		Addresses: []common.Address{
-			*d.ZKEvmContractAddress,
+			d.ZKEvmContractAddress,
 		},
 		Topics: [][]common.Hash{
 			{ZKEvmEventTopicHash},
