@@ -85,7 +85,7 @@ func L2NodeMain(ctx *cli.Context) error {
 		if err != nil {
 			return fmt.Errorf("dial l1 node error:%v", err)
 		}
-		zkEVM, err := bindings.NewZKEVM(*derivationCfg.ZKEvmContractAddress, l1Client)
+		zkEVM, err := bindings.NewZKEVM(derivationCfg.ZKEvmContractAddress, l1Client)
 		if err != nil {
 			return fmt.Errorf("NewZKEVMTransactor error:%v", err)
 		}
