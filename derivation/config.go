@@ -31,7 +31,7 @@ const (
 type Config struct {
 	L1                   *types.L1Config `json:"l1"`
 	L2                   *types.L2Config `json:"l2"`
-	ZKEvmContractAddress common.Address  `json:"deposit_contract_address"`
+	ZKEvmContractAddress common.Address  `json:"zk_evm_contract_address"`
 	StartHeight          uint64          `json:"start_height"`
 	PollInterval         time.Duration   `json:"poll_interval"`
 	LogProgressInterval  time.Duration   `json:"log_progress_interval"`
