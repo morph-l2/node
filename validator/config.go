@@ -14,7 +14,7 @@ type Config struct {
 	l1RPC           string
 	PrivateKey      *ecdsa.PrivateKey
 	L1ChainID       *big.Int
-	zkEvmContract   *common.Address
+	rollupContract  common.Address
 	challengeEnable bool
 }
 
@@ -31,11 +31,11 @@ func (c *Config) SetCliContext(ctx *cli.Context) error {
 		return err
 	}
 	c.challengeEnable = ctx.GlobalIsSet(flags.ValidatorEnable.Name)
-	addrHex := ctx.GlobalString(flags.ZKEvmContractAddress.Name)
-	zkEvmContract := common.HexToAddress(addrHex)
+	addrHex := ctx.GlobalString(flags.RollupContractAddress.Name)
+	rollupContract := common.HexToAddress(addrHex)
 	c.l1RPC = l1NodeAddr
 	c.L1ChainID = big.NewInt(int64(l1ChainID))
 	c.PrivateKey = privateKey
-	c.zkEvmContract = &zkEvmContract
+	c.rollupContract = rollupContract
 	return nil
 }

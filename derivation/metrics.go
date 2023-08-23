@@ -15,7 +15,7 @@ const MetricsSubsystem = "derivation"
 
 type Metrics struct {
 	L1SyncHeight   metrics.Gauge
-	ZkEvmL2Height  metrics.Gauge
+	RollupL2Height metrics.Gauge
 	DeriveL2Height metrics.Gauge
 }
 
@@ -31,10 +31,10 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 			Name:      "l1_sync_height",
 			Help:      "",
 		}, labels).With(labelsAndValues...),
-		ZkEvmL2Height: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
+		RollupL2Height: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
 			Namespace: namespace,
 			Subsystem: MetricsSubsystem,
-			Name:      "zkevm_l2_height",
+			Name:      "rollup_l2_height",
 			Help:      "",
 		}, labels).With(labelsAndValues...),
 		DeriveL2Height: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
@@ -54,8 +54,8 @@ func (m *Metrics) SetL2DeriveHeight(height uint64) {
 	m.DeriveL2Height.Set(float64(height))
 }
 
-func (m *Metrics) SetZkEvmL2Height(height uint64) {
-	m.ZkEvmL2Height.Set(float64(height))
+func (m *Metrics) SetRollupL2Height(height uint64) {
+	m.RollupL2Height.Set(float64(height))
 }
 
 func (m *Metrics) Serve(hostname string, port uint64) (*http.Server, error) {

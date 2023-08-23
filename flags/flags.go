@@ -163,10 +163,10 @@ var (
 	}
 
 	// derivation
-	ZKEvmContractAddress = cli.StringFlag{
-		Name:   "derivation.zkEvmAddress",
-		Usage:  "Address of ZK evm contract",
-		EnvVar: prefixEnvVar("ZK_EVM_ADDRESS"),
+	RollupContractAddress = cli.StringFlag{
+		Name:   "derivation.rollupAddress",
+		Usage:  "Address of rollup contract",
+		EnvVar: prefixEnvVar("ROLLUP_ADDRESS"),
 	}
 
 	DerivationStartHeight = cli.Uint64Flag{
@@ -259,7 +259,7 @@ var Flags = []cli.Flag{
 	ValidatorPrivateKey,
 
 	// derivation
-	ZKEvmContractAddress,
+	RollupContractAddress,
 	DerivationStartHeight,
 	DerivationPollInterval,
 	DerivationLogProgressInterval,

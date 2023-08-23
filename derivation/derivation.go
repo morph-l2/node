@@ -26,8 +26,8 @@ import (
 )
 
 var (
-	ZKEvmEventTopic     = "SubmitBatches(uint64,uint64)"
-	ZKEvmEventTopicHash = crypto.Keccak256Hash([]byte(ZKEvmEventTopic))
+	RollupEventTopic     = "SubmitBatches(uint64,uint64)"
+	RollupEventTopicHash = crypto.Keccak256Hash([]byte(RollupEventTopic))
 )
 
 // RollupData is all rollup data of one l1 block,maybe contain many rollup batch
@@ -56,15 +56,15 @@ func newRollupData(blockNumber uint64, txHash common.Hash, nonce uint64) *Rollup
 }
 
 type Derivation struct {
-	ctx                  context.Context
-	l1Client             DeployContractBackend
-	ZKEvmContractAddress common.Address
-	confirmations        rpc.BlockNumber
-	l2Client             *types.RetryableClient
-	validator            *validator.Validator
-	logger               tmlog.Logger
-	zkEvm                *bindings.ZKEVM
-	metrics              *Metrics
+	ctx                   context.Context
+	l1Client              DeployContractBackend
+	RollupContractAddress common.Address
+	confirmations         rpc.BlockNumber
+	l2Client              *types.RetryableClient
+	validator             *validator.Validator
+	logger                tmlog.Logger
+	rollup                *bindings.Rollup
+	metrics               *Metrics
 
 	latestDerivation uint64
 	db               Database
@@ -85,7 +85,7 @@ type DeployContractBackend interface {
 	ethereum.TransactionReader
 }
 
-func NewDerivationClient(ctx context.Context, cfg *Config, db Database, validator *validator.Validator, zkEvm *bindings.ZKEVM, logger tmlog.Logger) (*Derivation, error) {
+func NewDerivationClient(ctx context.Context, cfg *Config, db Database, validator *validator.Validator, rollup *bindings.Rollup, logger tmlog.Logger) (*Derivation, error) {
 	l1Client, err := ethclient.Dial(cfg.L1.Addr)
 	if err != nil {
 		return nil, err
@@ -111,21 +111,21 @@ func NewDerivationClient(ctx context.Context, cfg *Config, db Database, validato
 		logger.Info("metrics server enabled", "host", cfg.MetricsHostname, "port", cfg.MetricsPort)
 	}
 	return &Derivation{
-		ctx:                  ctx,
-		db:                   db,
-		l1Client:             l1Client,
-		validator:            validator,
-		zkEvm:                zkEvm,
-		logger:               logger,
-		ZKEvmContractAddress: cfg.ZKEvmContractAddress,
-		confirmations:        cfg.L1.Confirmations,
-		l2Client:             types.NewRetryableClient(aClient, eClient, tmlog.NewTMLogger(tmlog.NewSyncWriter(os.Stdout))),
-		cancel:               cancel,
-		stop:                 make(chan struct{}),
-		fetchBlockRange:      cfg.FetchBlockRange,
-		pollInterval:         cfg.PollInterval,
-		logProgressInterval:  cfg.LogProgressInterval,
-		metrics:              metrics,
+		ctx:                   ctx,
+		db:                    db,
+		l1Client:              l1Client,
+		validator:             validator,
+		rollup:                rollup,
+		logger:                logger,
+		RollupContractAddress: cfg.RollupContractAddress,
+		confirmations:         cfg.L1.Confirmations,
+		l2Client:              types.NewRetryableClient(aClient, eClient, tmlog.NewTMLogger(tmlog.NewSyncWriter(os.Stdout))),
+		cancel:                cancel,
+		stop:                  make(chan struct{}),
+		fetchBlockRange:       cfg.FetchBlockRange,
+		pollInterval:          cfg.PollInterval,
+		logProgressInterval:   cfg.LogProgressInterval,
+		metrics:               metrics,
 	}, nil
 }
 
@@ -183,19 +183,19 @@ func (d *Derivation) derivationBlock(ctx context.Context) {
 		end = latest
 	}
 	d.logger.Info("derivation start pull rollupData form l1", "startBlock", start, "end", end)
-	logs, err := d.fetchZkEvmLog(ctx, start, end)
+	logs, err := d.fetchRollupLog(ctx, start, end)
 	if err != nil {
 		d.logger.Error("eth_getLogs failed", "err", err)
 		return
 	}
-	latestL2BlockNumber, err := d.zkEvm.LastL2BlockNumber(nil)
+	latestL2BlockNumber, err := d.rollup.LastL2BlockNumber(nil)
 	if err != nil {
-		d.logger.Error("query zkEvm LastL2BlockNumber failed", "err", err)
+		d.logger.Error("query rollup LastL2BlockNumber failed", "err", err)
 		return
 	}
-	d.logger.Info(fmt.Sprintf("zkEvm latest l2Blocknumber:%v", latestL2BlockNumber))
+	d.logger.Info(fmt.Sprintf("rollup latest l2Blocknumber:%v", latestL2BlockNumber))
 	d.logger.Info("fetched rollup tx", "txNum", len(logs))
-	d.metrics.SetZkEvmL2Height(latestL2BlockNumber)
+	d.metrics.SetRollupL2Height(latestL2BlockNumber)
 
 	for _, lg := range logs {
 		batchBls := d.db.ReadLatestBatchBls()
@@ -242,15 +242,15 @@ func (d *Derivation) derivationBlock(ctx context.Context) {
 	d.metrics.SetL1SyncHeight(end)
 }
 
-func (d *Derivation) fetchZkEvmLog(ctx context.Context, from, to uint64) ([]eth.Log, error) {
+func (d *Derivation) fetchRollupLog(ctx context.Context, from, to uint64) ([]eth.Log, error) {
 	query := ethereum.FilterQuery{
 		FromBlock: big.NewInt(0).SetUint64(from),
 		ToBlock:   big.NewInt(0).SetUint64(to),
 		Addresses: []common.Address{
-			d.ZKEvmContractAddress,
+			d.RollupContractAddress,
 		},
 		Topics: [][]common.Hash{
-			{ZKEvmEventTopicHash},
+			{RollupEventTopicHash},
 		},
 	}
 	return d.l1Client.FilterLogs(ctx, query)
@@ -264,7 +264,7 @@ func (d *Derivation) fetchRollupDataByTxHash(txHash common.Hash, blockNumber uin
 	if pending {
 		return nil, errors.New("pending transaction")
 	}
-	abi, err := bindings.ZKEVMMetaData.GetAbi()
+	abi, err := bindings.RollupMetaData.GetAbi()
 	if err != nil {
 		return nil, err
 	}
@@ -272,7 +272,7 @@ func (d *Derivation) fetchRollupDataByTxHash(txHash common.Hash, blockNumber uin
 	if err != nil {
 		return nil, fmt.Errorf("submitBatches Unpack error:%v", err)
 	}
-	// parse input to zkevm batch data
+	// parse input to rollup batch data
 	rollupData := newRollupData(blockNumber, txHash, tx.Nonce())
 	if err := d.parseArgs(args, rollupData, batchBls); err != nil {
 		d.logger.Error("rollupData detail", "txNonce", rollupData.Nonce, "txHash", rollupData.TxHash,
@@ -284,7 +284,7 @@ func (d *Derivation) fetchRollupDataByTxHash(txHash common.Hash, blockNumber uin
 
 func (d *Derivation) parseArgs(args []interface{}, rollupData *RollupData, batchBls *types.BatchBls) error {
 	// Currently cannot be asserted using custom structures
-	zkEVMBatchDatas := args[0].([]struct {
+	rollupBatchDatas := args[0].([]struct {
 		BlockNumber   uint64    "json:\"blockNumber\""
 		Transactions  []uint8   "json:\"transactions\""
 		BlockWitness  []uint8   "json:\"blockWitness\""
@@ -296,12 +296,12 @@ func (d *Derivation) parseArgs(args []interface{}, rollupData *RollupData, batch
 			Signature []uint8   "json:\"signature\""
 		} "json:\"signature\""
 	})
-	for batchDataIndex, zkEVMBatchData := range zkEVMBatchDatas {
+	for batchDataIndex, rollupBatchData := range rollupBatchDatas {
 		bd := new(BatchData)
-		if err := bd.DecodeBlockContext(zkEVMBatchData.BlockNumber, zkEVMBatchData.BlockWitness); err != nil {
+		if err := bd.DecodeBlockContext(rollupBatchData.BlockNumber, rollupBatchData.BlockWitness); err != nil {
 			return fmt.Errorf("BatchData DecodeBlockContext error:%v", err)
 		}
-		if err := bd.DecodeTransactions(zkEVMBatchData.Transactions); err != nil {
+		if err := bd.DecodeTransactions(rollupBatchData.Transactions); err != nil {
 			return fmt.Errorf("BatchData DecodeTransactions error:%v", err)
 		}
 		if batchBls != nil && bd.BlockContexts[len(bd.BlockContexts)-1].Number.Uint64() <= batchBls.BlockNumber {
@@ -314,7 +314,7 @@ func (d *Derivation) parseArgs(args []interface{}, rollupData *RollupData, batch
 			if batchDataIndex == 0 && index == 0 {
 				// first block in once submit
 				rollupData.FirstBlockNumber = block.Number.Uint64()
-				rollupData.LastBlockNumber = zkEVMBatchDatas[len(zkEVMBatchDatas)-1].BlockNumber
+				rollupData.LastBlockNumber = rollupBatchDatas[len(rollupBatchDatas)-1].BlockNumber
 			}
 			var blockData BlockData
 			var safeL2Data catalyst.SafeL2Data
@@ -343,12 +343,12 @@ func (d *Derivation) parseArgs(args []interface{}, rollupData *RollupData, batch
 			}
 			if index == len(bd.BlockContexts)-1 {
 				// only last block of batch
-				if zkEVMBatchData.Signature.Signature == nil || zkEVMBatchData.Signature.Signers == nil {
+				if rollupBatchData.Signature.Signature == nil || rollupBatchData.Signature.Signers == nil {
 					d.logger.Error("invalid batch", "l1BlockNumber", rollupData.L1BlockNumber)
 				}
 				var blsData eth.BLSData
-				blsData.BLSSignature = zkEVMBatchData.Signature.Signature
-				blsData.BLSSigners = zkEVMBatchData.Signature.Signers
+				blsData.BLSSignature = rollupBatchData.Signature.Signature
+				blsData.BLSSigners = rollupBatchData.Signature.Signers
 				// The Bls signature of the current Batch is temporarily
 				// stored and later placed in the first Block of the next Batch
 				if batchBls != nil {
@@ -357,7 +357,7 @@ func (d *Derivation) parseArgs(args []interface{}, rollupData *RollupData, batch
 				}
 				// StateRoot of the last Block of the Batch, used to verify the
 				// validity of the Layer1 BlockData
-				blockData.Root = zkEVMBatchData.PostStateRoot
+				blockData.Root = rollupBatchData.PostStateRoot
 			}
 			batchBlocks = append(batchBlocks, &blockData)
 		}
@@ -395,7 +395,7 @@ func (d *Derivation) findBatchIndex(txHash common.Hash, blockNumber uint64) (uin
 		return 0, err
 	}
 	for _, lg := range receipt.Logs {
-		batchStorage, err := d.zkEvm.ParseBatchStorage(*lg)
+		batchStorage, err := d.rollup.ParseBatchStorage(*lg)
 		if err != nil {
 			continue
 		}
