@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/morphism-labs/morphism-bindings/bindings"
-	"github.com/morphism-labs/node/sync"
 	"github.com/morphism-labs/node/types"
 	"github.com/scroll-tech/go-ethereum/common"
 	eth "github.com/scroll-tech/go-ethereum/core/types"
@@ -24,13 +23,21 @@ import (
 )
 
 type Executor struct {
-	l2Client               *types.RetryableClient
-	bc                     BlockConverter
-	latestProcessedL1Index *uint64
-	maxL1MsgNumPerBlock    uint64
-	syncer                 *sync.Syncer // needed when it is configured as a sequencer
-	logger                 tmlog.Logger
-	metrics                *Metrics
+	l2Client            *types.RetryableClient
+	bc                  BlockConverter
+	nextL1MsgIndex      uint64
+	maxL1MsgNumPerBlock uint64
+	l1MsgReader         types.L1MessageReader // needed when it is configured as a sequencer
+	logger              tmlog.Logger
+	metrics             *Metrics
+}
+
+func getNextL1MsgIndex(client *ethclient.Client) (uint64, error) {
+	currentHeader, err := client.HeaderByNumber(context.Background(), nil)
+	if err != nil {
+		return 0, err
+	}
+	return currentHeader.NextL1MsgIndex, nil
 }
 
 func getLatestProcessedL1Index(cdmAddress common.Address, client *ethclient.Client, logger tmlog.Logger) (*uint64, error) {
@@ -65,9 +72,9 @@ func getLatestProcessedL1Index(cdmAddress common.Address, client *ethclient.Clie
 	return latestProcessedL1Index, nil
 }
 
-func NewSequencerExecutor(config *Config, syncer *sync.Syncer) (*Executor, error) {
-	if syncer == nil {
-		return nil, errors.New("syncer has to be provided for sequencer")
+func NewSequencerExecutor(config *Config, l1MsgReader types.L1MessageReader) (*Executor, error) {
+	if l1MsgReader == nil {
+		return nil, errors.New("l1MsgReader has to be provided for sequencer")
 	}
 	logger := config.Logger
 	logger = logger.With("module", "executor")
@@ -80,25 +87,19 @@ func NewSequencerExecutor(config *Config, syncer *sync.Syncer) (*Executor, error
 		return nil, err
 	}
 
-	latestProcessedL1Index, err := getLatestProcessedL1Index(config.L2CrossDomainMessengerAddress, eClient, logger)
+	index, err := getNextL1MsgIndex(eClient)
 	if err != nil {
 		return nil, err
 	}
-	metrics := PrometheusMetrics("morphnode")
-	if latestProcessedL1Index != nil {
-		metrics.LatestProcessedQueueIndex.Set(float64(*latestProcessedL1Index))
-	} else {
-		metrics.LatestProcessedQueueIndex.Set(0)
-	}
 
 	return &Executor{
-		l2Client:               types.NewRetryableClient(aClient, eClient, config.Logger),
-		bc:                     &Version1Converter{},
-		latestProcessedL1Index: latestProcessedL1Index,
-		maxL1MsgNumPerBlock:    config.MaxL1MessageNumPerBlock,
-		syncer:                 syncer,
-		logger:                 logger,
-		metrics:                metrics,
+		l2Client:            types.NewRetryableClient(aClient, eClient, config.Logger),
+		bc:                  &Version1Converter{},
+		nextL1MsgIndex:      index,
+		maxL1MsgNumPerBlock: config.MaxL1MessageNumPerBlock,
+		l1MsgReader:         l1MsgReader,
+		logger:              logger,
+		metrics:             PrometheusMetrics("morphnode"),
 	}, err
 }
 
@@ -113,39 +114,31 @@ func NewExecutor(config *Config) (*Executor, error) {
 	if err != nil {
 		return nil, err
 	}
-	latestProcessedL1Index, err := getLatestProcessedL1Index(config.L2CrossDomainMessengerAddress, eClient, logger)
+
+	index, err := getNextL1MsgIndex(eClient)
 	if err != nil {
 		return nil, err
 	}
-	metrics := PrometheusMetrics("morphnode")
-	if latestProcessedL1Index != nil {
-		metrics.LatestProcessedQueueIndex.Set(float64(*latestProcessedL1Index))
-	} else {
-		metrics.LatestProcessedQueueIndex.Set(0)
-	}
 	return &Executor{
-		l2Client:               types.NewRetryableClient(aClient, eClient, config.Logger),
-		bc:                     &Version1Converter{},
-		latestProcessedL1Index: latestProcessedL1Index,
-		logger:                 logger,
-		metrics:                metrics,
+		l2Client:       types.NewRetryableClient(aClient, eClient, config.Logger),
+		bc:             &Version1Converter{},
+		nextL1MsgIndex: index,
+		logger:         logger,
+		metrics:        PrometheusMetrics("morphnode"),
 	}, err
 }
 
 var _ l2node.L2Node = (*Executor)(nil)
 
 func (e *Executor) RequestBlockData(height int64) (txs [][]byte, l2Config, zkConfig []byte, root []byte, err error) {
-	if e.syncer == nil {
+	if e.l1MsgReader == nil {
 		err = fmt.Errorf("RequestBlockData is not alllowed to be called")
 		return
 	}
 	e.logger.Info("RequestBlockData request", "height", height)
 	// read the l1 messages
-	var fromIndex uint64
-	if e.latestProcessedL1Index != nil {
-		fromIndex = *e.latestProcessedL1Index + 1
-	}
-	l1Messages := e.syncer.ReadL1MessagesInRange(fromIndex, fromIndex+e.maxL1MsgNumPerBlock-1)
+	fromIndex := e.nextL1MsgIndex
+	l1Messages := e.l1MsgReader.ReadL1MessagesInRange(fromIndex, fromIndex+e.maxL1MsgNumPerBlock-1)
 	transactions := make(eth.Transactions, len(l1Messages))
 
 	if len(l1Messages) > 0 {
@@ -185,7 +178,7 @@ func (e *Executor) CheckBlockData(txs [][]byte, l2Config, zkConfig, root []byte)
 		e.logger.Error("l2Config and zkConfig cannot be nil")
 		return false, nil
 	}
-	l2Block, l1Messages, err := e.bc.Recover(zkConfig, l2Config, txs)
+	l2Block, collectedL1Messages, err := e.bc.Recover(zkConfig, l2Config, txs)
 	if err != nil {
 		e.logger.Error("failed to recover block from separated bytes", "err", err)
 		return false, nil
@@ -196,7 +189,7 @@ func (e *Executor) CheckBlockData(txs [][]byte, l2Config, zkConfig, root []byte)
 		"zkConfig length", len(zkConfig),
 		"eth block number", l2Block.Number)
 
-	if err := e.validateL1Messages(txs, l1Messages); err != nil {
+	if err, _ := e.validateL1Messages(l2Block, collectedL1Messages); err != nil {
 		if err != types.ErrQueryL1Message { // only do not return error if it is not ErrQueryL1Message error
 			err = nil
 		}
@@ -280,8 +273,7 @@ func (e *Executor) DeliverBlock(txs [][]byte, l2Config, zkConfig []byte, validat
 		return err
 	}
 
-	// impossible getting an error here
-	_ = e.updateLatestProcessedL1Index(txs)
+	e.updateNextL1MessageIndex(l2Block)
 
 	e.metrics.Height.Set(float64(l2Block.Number))
 	return nil

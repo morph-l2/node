@@ -11,7 +11,7 @@ const (
 //go:generate go run ../ops-morphism/metricsgen -struct=Metrics
 
 type Metrics struct {
-	Height                    metrics.Gauge
-	BatchPointHeight          metrics.Gauge
-	LatestProcessedQueueIndex metrics.Gauge
+	Height                  metrics.Gauge
+	BatchPointHeight        metrics.Gauge
+	NextL1MessageQueueIndex metrics.Gauge
 }
