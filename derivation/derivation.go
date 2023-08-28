@@ -285,13 +285,13 @@ func (d *Derivation) fetchRollupDataByTxHash(txHash common.Hash, blockNumber uin
 func (d *Derivation) parseArgs(args []interface{}, rollupData *RollupData, batchBls *types.BatchBls) error {
 	// Currently cannot be asserted using custom structures
 	rollupBatchDatas := args[0].([]struct {
-		BlockNumber   uint64    "json:\"blockNumber\""
-		Transactions  []uint8   "json:\"transactions\""
-		BlockWitness  []uint8   "json:\"blockWitness\""
-		PreStateRoot  [32]uint8 "json:\"preStateRoot\""
-		PostStateRoot [32]uint8 "json:\"postStateRoot\""
-		WithdrawRoot  [32]uint8 "json:\"withdrawRoot\""
-		Signature     struct {
+		BlockNumber    uint64    "json:\"blockNumber\""
+		Transactions   []uint8   "json:\"transactions\""
+		BlockWitness   []uint8   "json:\"blockWitness\""
+		PreStateRoot   [32]uint8 "json:\"preStateRoot\""
+		PostStateRoot  [32]uint8 "json:\"postStateRoot\""
+		WithdrawalRoot [32]uint8 "json:\"withdrawalRoot\""
+		Signature      struct {
 			Signers   [][]uint8 "json:\"signers\""
 			Signature []uint8   "json:\"signature\""
 		} "json:\"signature\""
