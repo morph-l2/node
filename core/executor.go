@@ -200,7 +200,7 @@ func (e *Executor) CheckBlockData(txs [][]byte, l2Config, zkConfig, root []byte)
 		l2Block.WithdrawTrieRoot = common.BytesToHash(root)
 	}
 
-	validated, err := e.l2Client.ValidateL2Block(context.Background(), l2Block)
+	validated, err := e.l2Client.ValidateL2Block(context.Background(), l2Block, L1MessagesToTxs(collectedL1Messages))
 	e.logger.Info("CheckBlockData response", "validated", validated, "error", err)
 	return validated, err
 }
@@ -220,7 +220,7 @@ func (e *Executor) DeliverBlock(txs [][]byte, l2Config, zkConfig []byte, validat
 		return nil
 	}
 
-	l2Block, _, err := e.bc.Recover(zkConfig, l2Config, txs)
+	l2Block, collectedL1Messages, err := e.bc.Recover(zkConfig, l2Config, txs)
 	if err != nil {
 		e.logger.Error("failed to recover block from separated bytes", "err", err)
 		return err
@@ -267,7 +267,7 @@ func (e *Executor) DeliverBlock(txs [][]byte, l2Config, zkConfig []byte, validat
 		}
 	}
 
-	err = e.l2Client.NewL2Block(context.Background(), l2Block, &blsData)
+	err = e.l2Client.NewL2Block(context.Background(), l2Block, &blsData, L1MessagesToTxs(collectedL1Messages))
 	if err != nil {
 		e.logger.Error("failed to NewL2Block", "error", err)
 		return err
@@ -312,4 +312,12 @@ func (e *Executor) RequestHeight(tmHeight int64) (int64, error) {
 
 func (e *Executor) L2Client() *types.RetryableClient {
 	return e.l2Client
+}
+
+func L1MessagesToTxs(l1Messages []types.L1Message) []eth.L1MessageTx {
+	txs := make([]eth.L1MessageTx, len(l1Messages))
+	for i, l1Message := range l1Messages {
+		txs[i] = l1Message.L1MessageTx
+	}
+	return txs
 }

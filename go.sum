@@ -333,6 +333,8 @@ github.com/mitchellh/mapstructure v1.5.0 h1:jeMsZIYE/09sWLaz43PL7Gy6RuMjD2eJVyua
 github.com/mitchellh/mapstructure v1.5.0/go.mod h1:bFUtVrKA4DC2yAKiSyO/QUcy7e+RRV2QTWOzhPopBRo=
 github.com/mitchellh/pointerstructure v1.2.0 h1:O+i9nHnXS3l/9Wu7r4NrEdwA2VFTicjUEN1uBnDo34A=
 github.com/mitchellh/pointerstructure v1.2.0/go.mod h1:BRAsLI5zgXmw97Lf6s25bs8ohIXc3tViBH44KcwB2g4=
+github.com/morphism-labs/go-ethereum v1.10.14-0.20230830034843-cd7885537130 h1:/WeW1lNsjIXlcCBz/fTrCukIMwDZzslhBaP88J0BdNc=
+github.com/morphism-labs/go-ethereum v1.10.14-0.20230830034843-cd7885537130/go.mod h1:IBp0LyxzLYfIvJaahCVjOvp0dLojIS2LSUXctcCERAg=
 github.com/morphism-labs/morphism-bindings v0.0.0-20230726100231-a01af4e20001 h1:IlMev1QmHv6YAyr/KdjLnIzF+ttIevbpztKe5/j2dSw=
 github.com/morphism-labs/morphism-bindings v0.0.0-20230726100231-a01af4e20001/go.mod h1:xI6/pzFFIB0G6N4eIMI8FRFqmqIxcN6caXgSUiZV/qw=
 github.com/morphism-labs/tendermint v0.0.0-20230818041846-8b7b39522d20 h1:LvQvJrO8uJrOYQS4S/hzrZugnOSQmIfhB+4yrtwcTBQ=
