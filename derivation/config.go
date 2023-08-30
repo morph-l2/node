@@ -29,16 +29,16 @@ const (
 )
 
 type Config struct {
-	L1                   *types.L1Config `json:"l1"`
-	L2                   *types.L2Config `json:"l2"`
-	ZKEvmContractAddress common.Address  `json:"zk_evm_contract_address"`
-	StartHeight          uint64          `json:"start_height"`
-	PollInterval         time.Duration   `json:"poll_interval"`
-	LogProgressInterval  time.Duration   `json:"log_progress_interval"`
-	FetchBlockRange      uint64          `json:"fetch_block_range"`
-	MetricsPort          uint64          `json:"metrics_port"`
-	MetricsHostname      string          `json:"metrics_hostname"`
-	MetricsServerEnable  bool            `json:"metrics_server_enable"`
+	L1                    *types.L1Config `json:"l1"`
+	L2                    *types.L2Config `json:"l2"`
+	RollupContractAddress common.Address  `json:"rollup_contract_address"`
+	StartHeight           uint64          `json:"start_height"`
+	PollInterval          time.Duration   `json:"poll_interval"`
+	LogProgressInterval   time.Duration   `json:"log_progress_interval"`
+	FetchBlockRange       uint64          `json:"fetch_block_range"`
+	MetricsPort           uint64          `json:"metrics_port"`
+	MetricsHostname       string          `json:"metrics_hostname"`
+	MetricsServerEnable   bool            `json:"metrics_server_enable"`
 }
 
 func DefaultConfig() *Config {
@@ -58,11 +58,11 @@ func (c *Config) SetCliContext(ctx *cli.Context) error {
 	if ctx.GlobalIsSet(flags.L1Confirmations.Name) {
 		c.L1.Confirmations = rpc.BlockNumber(ctx.GlobalInt64(flags.L1Confirmations.Name))
 	}
-	if ctx.GlobalIsSet(flags.ZKEvmContractAddress.Name) {
-		addr := common.HexToAddress(ctx.GlobalString(flags.ZKEvmContractAddress.Name))
-		c.ZKEvmContractAddress = addr
-		if len(c.ZKEvmContractAddress.Bytes()) == 0 {
-			return errors.New("invalid ZKEvmContractAddress")
+	if ctx.GlobalIsSet(flags.RollupContractAddress.Name) {
+		addr := common.HexToAddress(ctx.GlobalString(flags.RollupContractAddress.Name))
+		c.RollupContractAddress = addr
+		if len(c.RollupContractAddress.Bytes()) == 0 {
+			return errors.New("invalid DerivationDepositContractAddr")
 		}
 	}
 

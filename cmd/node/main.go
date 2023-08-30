@@ -85,16 +85,16 @@ func L2NodeMain(ctx *cli.Context) error {
 		if err != nil {
 			return fmt.Errorf("dial l1 node error:%v", err)
 		}
-		zkEVM, err := bindings.NewZKEVM(derivationCfg.ZKEvmContractAddress, l1Client)
+		rollup, err := bindings.NewRollup(derivationCfg.RollupContractAddress, l1Client)
 		if err != nil {
-			return fmt.Errorf("NewZKEVMTransactor error:%v", err)
+			return fmt.Errorf("NewRollup error:%v", err)
 		}
-		vt, err := validator.NewValidator(validatorCfg, zkEVM, nodeConfig.Logger)
+		vt, err := validator.NewValidator(validatorCfg, rollup, nodeConfig.Logger)
 		if err != nil {
 			return fmt.Errorf("new validator client error: %v", err)
 		}
 
-		dvNode, err = derivation.NewDerivationClient(context.Background(), derivationCfg, store, vt, zkEVM, nodeConfig.Logger)
+		dvNode, err = derivation.NewDerivationClient(context.Background(), derivationCfg, store, vt, rollup, nodeConfig.Logger)
 		if err != nil {
 			return fmt.Errorf("new derivation client error: %v", err)
 		}

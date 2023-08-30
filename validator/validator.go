@@ -21,7 +21,7 @@ type Validator struct {
 	cli             DeployContractBackend
 	privateKey      *ecdsa.PrivateKey
 	l1ChainID       *big.Int
-	contract        *bindings.ZKEVM
+	contract        *bindings.Rollup
 	challengeEnable bool
 	logger          tmlog.Logger
 }
@@ -31,14 +31,14 @@ type DeployContractBackend interface {
 	bind.ContractBackend
 }
 
-func NewValidator(cfg *Config, zkEVM *bindings.ZKEVM, logger tmlog.Logger) (*Validator, error) {
+func NewValidator(cfg *Config, rollup *bindings.Rollup, logger tmlog.Logger) (*Validator, error) {
 	cli, err := ethclient.Dial(cfg.l1RPC)
 	if err != nil {
 		return nil, fmt.Errorf("dial l1 node error:%v", err)
 	}
 	return &Validator{
 		cli:        cli,
-		contract:   zkEVM,
+		contract:   rollup,
 		privateKey: cfg.PrivateKey,
 		l1ChainID:  cfg.L1ChainID,
 		logger:     logger,
