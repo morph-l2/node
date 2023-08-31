@@ -50,7 +50,7 @@ services:
       - MORPH_NODE_L1_CONFIRMATIONS=1
       - MORPH_NODE_METRICS_SERVER_ENABLE=true
       - MORPH_NODE_METRICS_PORT=26660
-      ## - MORPH_NODE_SYNC_START_HEIGHT=88854536
+      - MORPH_NODE_SYNC_START_HEIGHT=1
     volumes:
       - "validator_node_data:${NODE_DATA_DIR}"
       - "${PWD}/jwt-secret.txt:${JWT_SECRET_PATH}"
