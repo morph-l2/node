@@ -189,7 +189,7 @@ func (e *Executor) CheckBlockData(txs [][]byte, l2Config, zkConfig, root []byte)
 		"zkConfig length", len(zkConfig),
 		"eth block number", l2Block.Number)
 
-	if err, _ := e.validateL1Messages(l2Block, collectedL1Messages); err != nil {
+	if err := e.validateL1Messages(l2Block, collectedL1Messages); err != nil {
 		if err != types.ErrQueryL1Message { // only do not return error if it is not ErrQueryL1Message error
 			err = nil
 		}

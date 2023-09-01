@@ -2,6 +2,7 @@ package node
 
 import (
 	"fmt"
+
 	"github.com/scroll-tech/go-ethereum/eth/catalyst"
 
 	"github.com/morphism-labs/node/types"
@@ -22,7 +23,7 @@ func (e *Executor) updateNextL1MessageIndex(l2Block *catalyst.ExecutableL2Data) 
 // 4. the L1 message from the block.Transactions must be one of the collected L1Messages.
 // 5. all the L1 messages from the block.Transactions must precede other normal L2 transactions.
 // 6. the block.NextL1MessageIndex MUST be greater the queue index of the last involved L1Message in the block.
-func (e *Executor) validateL1Messages(block *catalyst.ExecutableL2Data, collectedL1Msgs []types.L1Message) (error, []uint64) {
+func (e *Executor) validateL1Messages(block *catalyst.ExecutableL2Data, collectedL1Msgs []types.L1Message) error {
 	nextExpectedIndex := e.nextL1MsgIndex
 
 	// cache: queueIndex -> L1Message Tx Hash(L2)
@@ -33,23 +34,23 @@ func (e *Executor) validateL1Messages(block *catalyst.ExecutableL2Data, collecte
 
 		// constraints 2
 		if l1Msg.QueueIndex != nextExpectedIndex {
-			return types.ErrInvalidL1MessageOrder, nil
+			return types.ErrInvalidL1MessageOrder
 		}
 
 		// constraints 1
 		get, err := e.l1MsgReader.GetL1Message(l1Msg.QueueIndex, l1Msg.L1TxHash)
 		if err != nil {
 			e.logger.Error("error getting L1 message from l1MsgReader", "error", err)
-			return types.ErrQueryL1Message, nil
+			return types.ErrQueryL1Message
 		}
 		if get == nil { // has not been synced from L1 yet
 			e.logger.Error("the collected L1 message is not valid", "index", l1Msg.QueueIndex, "L1TxHash", l1Msg.L1TxHash.Hex())
-			return types.ErrUnknownL1Message, nil
+			return types.ErrUnknownL1Message
 		}
 		txHash := eth.NewTx(&l1Msg.L1MessageTx).Hash()
 		if txHash != eth.NewTx(&get.L1MessageTx).Hash() {
 			e.logger.Error("the collected L1 message is not equals to the actual L1 message", "index", l1Msg.QueueIndex, "L1TxHash", l1Msg.L1TxHash.Hex())
-			return types.ErrUnknownL1Message, nil
+			return types.ErrUnknownL1Message
 		}
 		cache[l1Msg.QueueIndex] = txHash
 		nextExpectedIndex++
@@ -57,7 +58,6 @@ func (e *Executor) validateL1Messages(block *catalyst.ExecutableL2Data, collecte
 
 	nextExpectedIndex = e.nextL1MsgIndex
 	L1SectionOver := false
-	skippedIndexes := make([]uint64, 0)
 	// check the L1 messages from block.Transactions
 	for i, txBz := range block.Transactions {
 		if !isL1MessageTxType(txBz) {
@@ -67,22 +67,18 @@ func (e *Executor) validateL1Messages(block *catalyst.ExecutableL2Data, collecte
 		// constraints 5
 		// check that L1 messages are before L2 transactions
 		if L1SectionOver {
-			return types.ErrInvalidL1MessageOrder, nil
+			return types.ErrInvalidL1MessageOrder
 		}
 
 		var tx eth.Transaction
 		if err := tx.UnmarshalBinary(txBz); err != nil {
-			return fmt.Errorf("transaction %d is not valid: %v", i, err), nil
+			return fmt.Errorf("transaction %d is not valid: %v", i, err)
 		}
 		currentTxQueueIndex := tx.L1MessageQueueIndex()
 
 		// constraints 3
 		if currentTxQueueIndex < nextExpectedIndex {
-			return types.ErrInvalidL1MessageOrder, nil
-		} else if currentTxQueueIndex > nextExpectedIndex {
-			for j := nextExpectedIndex; j < currentTxQueueIndex; j++ {
-				skippedIndexes = append(skippedIndexes, j)
-			}
+			return types.ErrInvalidL1MessageOrder
 		}
 
 		// constraints 4
@@ -97,13 +93,14 @@ func (e *Executor) validateL1Messages(block *catalyst.ExecutableL2Data, collecte
 					"max index of collected L1Messages", collectedL1Msgs[collectedCount-1].QueueIndex,
 				)
 			}
-			return types.ErrInvalidL1MessageOrder, nil
+			return types.ErrUnknownL1Message
 		}
 
 		if tx.Hash() != expectedTxHash {
 			e.logger.Error("wrong L1Message content", "index", currentTxQueueIndex)
-			return types.ErrUnknownL1Message, nil
+			return types.ErrUnknownL1Message
 		}
+
 		nextExpectedIndex = currentTxQueueIndex + 1
 	}
 
@@ -112,20 +109,10 @@ func (e *Executor) validateL1Messages(block *catalyst.ExecutableL2Data, collecte
 		e.logger.Error("wrong NextL1MessageIndex in the block",
 			"index of the last involved L1 tx", nextExpectedIndex-1,
 			"block.NextL1MessageIndex", block.NextL1MessageIndex)
-		return types.ErrWrongNextL1MessageIndex, nil
+		return types.ErrWrongNextL1MessageIndex
 	}
 
-	// collect the queue indexes of the skipped L1 messages
-	if block.NextL1MessageIndex > nextExpectedIndex {
-		for i := nextExpectedIndex; i < block.NextL1MessageIndex; i++ {
-			skippedIndexes = append(skippedIndexes, i)
-		}
-	}
-
-	if len(skippedIndexes) > 0 {
-		e.logger.Info("found the skipped L1 messages", "skipped queue indexes", fmt.Sprintf("%v", skippedIndexes))
-	}
-	return nil, skippedIndexes
+	return nil
 }
 
 func isL1MessageTxType(rlpEncoded []byte) bool {
