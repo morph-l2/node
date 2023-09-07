@@ -107,7 +107,7 @@ func UnmarshalDepositLogEvent(ev *eth.Log) (*eth.L1MessageTx, error) {
 	var err error
 	switch version {
 	case DepositEventVersion0:
-		tx, err = unmarshalDepositVersion0(to, opaqueData)
+		tx, err = UnmarshalDepositVersion0(to, opaqueData)
 	default:
 		return nil, fmt.Errorf("invalid deposit version, got %s", version)
 	}
@@ -122,7 +122,7 @@ func UnmarshalDepositLogEvent(ev *eth.Log) (*eth.L1MessageTx, error) {
 	return tx, nil
 }
 
-func unmarshalDepositVersion0(to common.Address, opaqueData []byte) (*eth.L1MessageTx, error) {
+func UnmarshalDepositVersion0(to common.Address, opaqueData []byte) (*eth.L1MessageTx, error) {
 	var message eth.L1MessageTx
 	if len(opaqueData) < 32+32+8+1 {
 		return nil, fmt.Errorf("unexpected opaqueData length: %d", len(opaqueData))
