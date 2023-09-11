@@ -3,6 +3,7 @@ package sync
 import (
 	"errors"
 	"fmt"
+	"github.com/scroll-tech/go-ethereum/common/hexutil"
 	"math/big"
 
 	"github.com/hashicorp/go-multierror"
@@ -102,6 +103,9 @@ func UnmarshalDepositLogEvent(ev *eth.Log) (*eth.L1MessageTx, error) {
 	// The remaining data is the opaqueData which is tightly packed
 	// and then padded to 32 bytes by the EVM.
 	opaqueData := ev.Data[64 : 64+opaqueContentLength.Uint64()]
+	// TODO delete
+	fmt.Println("opaqueData==================", opaqueData)
+	fmt.Println("opaqueData hex=================", hexutil.Encode(opaqueData))
 
 	var tx *eth.L1MessageTx
 	var err error
