@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/tendermint/tendermint/privval"
 
 	"os"
 	"os/signal"
@@ -47,16 +48,9 @@ func L2NodeMain(ctx *cli.Context) error {
 
 		nodeConfig = node.DefaultConfig()
 	)
-	isSequencer := ctx.GlobalBool(flags.SequencerEnabled.Name)
 	isMockSequencer := ctx.GlobalBool(flags.MockEnabled.Name)
-	if isSequencer && isMockSequencer {
-		return fmt.Errorf("the sequencer and mockSequencer can not be enabled both")
-	}
-
 	isValidator := ctx.GlobalBool(flags.ValidatorEnable.Name)
-	if isValidator && isSequencer {
-		return fmt.Errorf("the validator and sequencer can not be enabled both")
-	}
+
 	if err = nodeConfig.SetCliContext(ctx); err != nil {
 		return err
 	}
@@ -101,34 +95,17 @@ func L2NodeMain(ctx *cli.Context) error {
 		dvNode.Start()
 		nodeConfig.Logger.Info("derivation node starting")
 	} else {
-
-		if isSequencer {
-			// configure store
-			dbConfig := db.DefaultConfig()
-			dbConfig.SetCliContext(ctx)
-			store, err := db.NewStore(dbConfig, home)
-			if err != nil {
-				return err
-			}
-			// launch syncer
-			syncConfig := sync.DefaultConfig()
-			if err = syncConfig.SetCliContext(ctx); err != nil {
-				return err
-			}
-			syncer, err = sync.NewSyncer(context.Background(), store, syncConfig, nodeConfig.Logger)
-			if err != nil {
-				return fmt.Errorf("failed to create syncer, error: %v", err)
-			}
-			syncer.Start()
-
-			// create executor
-			executor, err = node.NewSequencerExecutor(nodeConfig, syncer)
-			if err != nil {
-				return fmt.Errorf("failed to create executor, error: %v", err)
-			}
-		} else {
-			executor, err = node.NewExecutor(nodeConfig)
+		// launch tendermint node
+		tmCfg, err := sequencer.LoadTmConfig(ctx, home)
+		if err != nil {
+			return err
 		}
+		tmVal := privval.LoadOrGenFilePV(tmCfg.PrivValidatorKeyFile(), tmCfg.PrivValidatorStateFile())
+		pubKey, err := tmVal.GetPubKey()
+		if err != nil {
+
+		}
+		executor, err = node.NewExecutor(ctx, home, nodeConfig, pubKey)
 		if isMockSequencer {
 			ms, err = mock.NewSequencer(executor)
 			if err != nil {
@@ -136,8 +113,7 @@ func L2NodeMain(ctx *cli.Context) error {
 			}
 			go ms.Start()
 		} else {
-			// launch tendermint node
-			if tmNode, err = sequencer.SetupNode(ctx, home, executor, nodeConfig.Logger); err != nil {
+			if tmNode, err = sequencer.SetupNode(tmCfg, tmVal, executor, nodeConfig.Logger); err != nil {
 				return fmt.Errorf("failed to setup consensus node, error: %v", err)
 			}
 			if err = tmNode.Start(); err != nil {

@@ -50,6 +50,18 @@ var (
 		EnvVar: prefixEnvVar("L2_CDM_CONTRACT_ADDRESS"),
 	}
 
+	L2SequencerAddr = cli.StringFlag{
+		Name:   "l2SequencerContractAddr",
+		Usage:  "l2sequencer contract address",
+		EnvVar: prefixEnvVar("L2_SEQUENCER_CONTRACT_ADDRESS"),
+	}
+
+	GovAddr = cli.StringFlag{
+		Name:   "govContractAddr",
+		Usage:  "gov contract address",
+		EnvVar: prefixEnvVar("GOV_CONTRACT_ADDRESS"),
+	}
+
 	L1NodeAddr = cli.StringFlag{
 		Name:   "l1.rpc",
 		Usage:  "Address of L1 User JSON-RPC endpoint to use (eth namespace required)",
@@ -128,12 +140,6 @@ var (
 		Name:   "db.freezer",
 		Usage:  "Database freezer",
 		EnvVar: prefixEnvVar("DB_FREEZER"),
-	}
-
-	SequencerEnabled = &cli.BoolFlag{
-		Name:   "sequencer",
-		Usage:  "Enable the sequencer mode",
-		EnvVar: prefixEnvVar("SEQUENCER"),
 	}
 
 	TendermintConfigPath = &cli.StringFlag{
@@ -235,6 +241,8 @@ var Flags = []cli.Flag{
 	L2EngineJWTSecret,
 	MaxL1MessageNumPerBlock,
 	L2CrossDomainMessengerContractAddr,
+	L2SequencerAddr,
+	GovAddr,
 
 	// sync optioins
 	SyncDepositContractAddr,
@@ -250,7 +258,6 @@ var Flags = []cli.Flag{
 	DBCache,
 	DBFreezer,
 
-	SequencerEnabled,
 	TendermintConfigPath,
 	MockEnabled,
 	ValidatorEnable,
