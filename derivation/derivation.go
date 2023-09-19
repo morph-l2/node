@@ -327,8 +327,8 @@ func (d *Derivation) parseArgs(args []interface{}, rollupData *RollupData, batch
 			}
 			safeL2Data.Timestamp = block.Timestamp
 			if block.NumTxs > 0 {
-				safeL2Data.Transactions = encodeTransactions(bd.Txs[last : last+block.NumTxs])
-				last += block.NumTxs
+				safeL2Data.Transactions = encodeTransactions(bd.Txs[last : last+uint64(block.NumTxs)])
+				last += uint64(block.NumTxs)
 			} else {
 				safeL2Data.Transactions = [][]byte{}
 			}
