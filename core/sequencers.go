@@ -3,6 +3,7 @@ package node
 import (
 	"errors"
 	"fmt"
+	"github.com/scroll-tech/go-ethereum/crypto"
 	"math/big"
 	"time"
 
@@ -20,12 +21,12 @@ type sequencerKey struct {
 	blsPubKey blssignatures.PublicKey
 }
 
-func (e *Executor) VerifyBLSSignature(blsSig []byte, message []byte, publicKey []byte) (bool, error) {
+func (e *Executor) VerifySignature(tmPubKey []byte, message []byte, blsSig []byte) (bool, error) {
 	if len(e.sequencerSet) == 0 {
 		return false, errors.New("no available sequencers found in layer2")
 	}
 	var pk [tmKeySize]byte
-	copy(pk[:], publicKey)
+	copy(pk[:], tmPubKey)
 
 	seqKey, ok := e.sequencerSet[pk]
 	if !ok {
@@ -37,7 +38,8 @@ func (e *Executor) VerifyBLSSignature(blsSig []byte, message []byte, publicKey [
 		e.logger.Error("failed to recover bytes to signature", "error", err)
 		return false, fmt.Errorf("failed to recover bytes to signature, error: %v", err)
 	}
-	return blssignatures.VerifySignature(sig, message, seqKey.blsPubKey)
+	messageHash := crypto.Keccak256(message)
+	return blssignatures.VerifySignature(sig, messageHash, seqKey.blsPubKey)
 }
 
 func (e *Executor) sequencerSetUpdates() ([][]byte, error) {
