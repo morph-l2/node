@@ -23,7 +23,7 @@ type BlockInfo struct {
 	Timestamp uint64
 	BaseFee   *big.Int
 	GasLimit  uint64
-	NumTxs    uint64
+	NumTxs    uint16
 }
 
 // decode blockcontext
@@ -34,7 +34,8 @@ func (b *BatchData) DecodeBlockContext(endBlock uint64, bs []byte) error {
 	for {
 		block := new(BlockInfo)
 		// number || timestamp || base_fee || gas_limit || num_txs
-		bsBlockNumber := make([]byte, 32)
+		// Number(8) || Timestamp(8) || BaseFee(32) || GasLimit(8) || numTxs(2)
+		bsBlockNumber := make([]byte, 8)
 		if _, err := reader.Read(bsBlockNumber[:]); err != nil {
 			return err
 		}

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/urfave/cli"
 	"math/big"
 	"strings"
 	"time"
@@ -24,13 +23,15 @@ import (
 	"github.com/tendermint/tendermint/l2node"
 	tmlog "github.com/tendermint/tendermint/libs/log"
 	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
+	"github.com/urfave/cli"
 )
 
 type Executor struct {
-	l2Client               *types.RetryableClient
-	bc                     BlockConverter
-	latestProcessedL1Index *uint64
-	maxL1MsgNumPerBlock    uint64
+	l2Client            *types.RetryableClient
+	bc                  BlockConverter
+	nextL1MsgIndex      uint64
+	maxL1MsgNumPerBlock uint64
+	l1MsgReader         types.L1MessageReader // needed when it is configured as a sequencer
 
 	newSyncerFunc func() (*sync.Syncer, error)
 	syncer        *sync.Syncer
@@ -46,6 +47,14 @@ type Executor struct {
 
 	logger  tmlog.Logger
 	metrics *Metrics
+}
+
+func getNextL1MsgIndex(client *ethclient.Client) (uint64, error) {
+	currentHeader, err := client.HeaderByNumber(context.Background(), nil)
+	if err != nil {
+		return 0, err
+	}
+	return currentHeader.NextL1MsgIndex, nil
 }
 
 func getLatestProcessedL1Index(cdmAddress common.Address, client *ethclient.Client, logger tmlog.Logger) (*uint64, error) {
@@ -92,15 +101,9 @@ func NewExecutor(ctx *cli.Context, home string, config *Config, tmPubKey crypto.
 		return nil, err
 	}
 
-	latestProcessedL1Index, err := getLatestProcessedL1Index(config.L2CrossDomainMessengerAddress, eClient, logger)
+	index, err := getNextL1MsgIndex(eClient)
 	if err != nil {
 		return nil, err
-	}
-	metrics := PrometheusMetrics("morphnode")
-	if latestProcessedL1Index != nil {
-		metrics.LatestProcessedQueueIndex.Set(float64(*latestProcessedL1Index))
-	} else {
-		metrics.LatestProcessedQueueIndex.Set(0)
 	}
 
 	sequencer, err := bindings.NewL2Sequencer(config.L2SequencerAddress, eClient)
@@ -110,15 +113,15 @@ func NewExecutor(ctx *cli.Context, home string, config *Config, tmPubKey crypto.
 	// todo add gov contract bindings
 
 	executor := &Executor{
-		l2Client:               types.NewRetryableClient(aClient, eClient, config.Logger),
-		bc:                     &Version1Converter{},
-		sequencerContract:      sequencer,
-		tmPubKey:               tmPubKey.Bytes(),
-		latestProcessedL1Index: latestProcessedL1Index,
-		maxL1MsgNumPerBlock:    config.MaxL1MessageNumPerBlock,
-		newSyncerFunc:          func() (*sync.Syncer, error) { return newSyncer(ctx, home, config) },
-		logger:                 logger,
-		metrics:                metrics,
+		l2Client:            types.NewRetryableClient(aClient, eClient, config.Logger),
+		bc:                  &Version1Converter{},
+		sequencerContract:   sequencer,
+		tmPubKey:            tmPubKey.Bytes(),
+		nextL1MsgIndex:      index,
+		maxL1MsgNumPerBlock: config.MaxL1MessageNumPerBlock,
+		newSyncerFunc:       func() (*sync.Syncer, error) { return newSyncer(ctx, home, config) },
+		logger:              logger,
+		metrics:             PrometheusMetrics("morphnode"),
 	}
 
 	if _, err = executor.updateSequencerSet(); err != nil {
@@ -137,11 +140,8 @@ func (e *Executor) RequestBlockData(height int64) (txs [][]byte, configs l2node.
 	}
 	e.logger.Info("RequestBlockData request", "height", height)
 	// read the l1 messages
-	var fromIndex uint64
-	if e.latestProcessedL1Index != nil {
-		fromIndex = *e.latestProcessedL1Index + 1
-	}
-	l1Messages := e.syncer.ReadL1MessagesInRange(fromIndex, fromIndex+e.maxL1MsgNumPerBlock-1)
+	fromIndex := e.nextL1MsgIndex
+	l1Messages := e.l1MsgReader.ReadL1MessagesInRange(fromIndex, fromIndex+e.maxL1MsgNumPerBlock-1)
 	transactions := make(eth.Transactions, len(l1Messages))
 
 	if len(l1Messages) > 0 {
@@ -184,7 +184,7 @@ func (e *Executor) CheckBlockData(txs [][]byte, l2Data l2node.Configs) (valid bo
 		e.logger.Error("l2Config and zkConfig cannot be nil")
 		return false, nil
 	}
-	l2Block, l1Messages, err := e.bc.Recover(l2Data.ZKConfig, l2Data.L2Config, txs)
+	l2Block, collectedL1Messages, err := e.bc.Recover(l2Data.ZKConfig, l2Data.L2Config, txs)
 	if err != nil {
 		e.logger.Error("failed to recover block from separated bytes", "err", err)
 		return false, nil
@@ -195,7 +195,7 @@ func (e *Executor) CheckBlockData(txs [][]byte, l2Data l2node.Configs) (valid bo
 		"zkConfig length", len(l2Data.ZKConfig),
 		"eth block number", l2Block.Number)
 
-	if err := e.validateL1Messages(txs, l1Messages); err != nil {
+	if err := e.validateL1Messages(l2Block, collectedL1Messages); err != nil {
 		if err != types.ErrQueryL1Message { // only do not return error if it is not ErrQueryL1Message error
 			err = nil
 		}
@@ -206,7 +206,7 @@ func (e *Executor) CheckBlockData(txs [][]byte, l2Data l2node.Configs) (valid bo
 		l2Block.WithdrawTrieRoot = common.BytesToHash(l2Data.Root)
 	}
 
-	validated, err := e.l2Client.ValidateL2Block(context.Background(), l2Block)
+	validated, err := e.l2Client.ValidateL2Block(context.Background(), l2Block, L1MessagesToTxs(collectedL1Messages))
 	e.logger.Info("CheckBlockData response", "validated", validated, "error", err)
 	return validated, err
 }
@@ -226,7 +226,7 @@ func (e *Executor) DeliverBlock(txs [][]byte, l2Data l2node.Configs, consensusDa
 		return nil, nil, errors.New("l2Config and zkConfig cannot be nil")
 	}
 
-	l2Block, _, err := e.bc.Recover(l2Data.ZKConfig, l2Data.L2Config, txs)
+	l2Block, collectedL1Messages, err := e.bc.Recover(l2Data.ZKConfig, l2Data.L2Config, txs)
 	if err != nil {
 		e.logger.Error("failed to recover block from separated bytes", "err", err)
 		return nil, nil, err
@@ -281,14 +281,14 @@ func (e *Executor) DeliverBlock(txs [][]byte, l2Data l2node.Configs, consensusDa
 		}
 	}
 
-	err = e.l2Client.NewL2Block(context.Background(), l2Block, &blsData)
+	err = e.l2Client.NewL2Block(context.Background(), l2Block, &blsData, L1MessagesToTxs(collectedL1Messages))
 	if err != nil {
 		e.logger.Error("failed to NewL2Block", "error", err)
 		return nil, nil, err
 	}
 
 	// end block
-	_ = e.updateLatestProcessedL1Index(txs)
+	e.updateNextL1MessageIndex(l2Block)
 	newValidatorSet, err := e.updateSequencerSet()
 	newBatchParams := e.batchParamsUpdates(l2Block.Number)
 	if err != nil {
@@ -330,4 +330,12 @@ func (e *Executor) RequestHeight(tmHeight int64) (int64, error) {
 
 func (e *Executor) L2Client() *types.RetryableClient {
 	return e.l2Client
+}
+
+func L1MessagesToTxs(l1Messages []types.L1Message) []eth.L1MessageTx {
+	txs := make([]eth.L1MessageTx, len(l1Messages))
+	for i, l1Message := range l1Messages {
+		txs[i] = l1Message.L1MessageTx
+	}
+	return txs
 }
