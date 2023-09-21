@@ -57,9 +57,9 @@ func (rc *RetryableClient) AssembleL2Block(ctx context.Context, number *big.Int,
 	return
 }
 
-func (rc *RetryableClient) ValidateL2Block(ctx context.Context, executableL2Data *catalyst.ExecutableL2Data) (ret bool, err error) {
+func (rc *RetryableClient) ValidateL2Block(ctx context.Context, executableL2Data *catalyst.ExecutableL2Data, l1Txs []eth.L1MessageTx) (ret bool, err error) {
 	if retryErr := backoff.Retry(func() error {
-		resp, respErr := rc.authClient.ValidateL2Block(ctx, executableL2Data)
+		resp, respErr := rc.authClient.ValidateL2Block(ctx, executableL2Data, l1Txs)
 		if respErr != nil {
 			rc.logger.Info("failed to ValidateL2Block", "error", respErr)
 			if retryableError(respErr) {
@@ -75,9 +75,9 @@ func (rc *RetryableClient) ValidateL2Block(ctx context.Context, executableL2Data
 	return
 }
 
-func (rc *RetryableClient) NewL2Block(ctx context.Context, executableL2Data *catalyst.ExecutableL2Data, blsData *eth.BLSData) (err error) {
+func (rc *RetryableClient) NewL2Block(ctx context.Context, executableL2Data *catalyst.ExecutableL2Data, blsData *eth.BLSData, l1Txs []eth.L1MessageTx) (err error) {
 	if retryErr := backoff.Retry(func() error {
-		respErr := rc.authClient.NewL2Block(ctx, executableL2Data, blsData)
+		respErr := rc.authClient.NewL2Block(ctx, executableL2Data, blsData, l1Txs)
 		if respErr != nil {
 			rc.logger.Info("failed to NewL2Block", "error", respErr)
 			if retryableError(respErr) {

@@ -48,9 +48,10 @@ func (bc *Version1Converter) Separate(l2Block *catalyst.ExecutableL2Data, l1Msg 
 			LogsBloom:   l2Block.LogsBloom,
 			L1Messages:  l1Msg,
 		},
-		BlockHash:  l2Block.Hash,
-		ParentHash: l2Block.ParentHash,
-		Miner:      l2Block.Miner,
+		BlockHash:          l2Block.Hash,
+		ParentHash:         l2Block.ParentHash,
+		Miner:              l2Block.Miner,
+		NextL1MessageIndex: l2Block.NextL1MessageIndex,
 	}
 	restBytes, err := rest.MarshalBinary()
 	if err != nil {
@@ -78,18 +79,19 @@ func (bc *Version1Converter) Recover(blsMsg []byte, restMsg []byte, txs [][]byte
 	}
 
 	return &catalyst.ExecutableL2Data{
-		Hash:         rest.BlockHash,
-		ParentHash:   rest.ParentHash,
-		Miner:        rest.Miner,
-		Number:       binary.BigEndian.Uint64(blsMsg[:8]),
-		Timestamp:    binary.BigEndian.Uint64(blsMsg[8:16]),
-		BaseFee:      baseFee,
-		GasLimit:     binary.BigEndian.Uint64(blsMsg[48:56]),
-		StateRoot:    rest.StateRoot,
-		GasUsed:      rest.GasUsed,
-		ReceiptRoot:  rest.ReceiptRoot,
-		LogsBloom:    rest.LogsBloom,
-		Transactions: txs,
+		Hash:               rest.BlockHash,
+		ParentHash:         rest.ParentHash,
+		Miner:              rest.Miner,
+		Number:             binary.BigEndian.Uint64(blsMsg[:8]),
+		Timestamp:          binary.BigEndian.Uint64(blsMsg[8:16]),
+		BaseFee:            baseFee,
+		GasLimit:           binary.BigEndian.Uint64(blsMsg[48:56]),
+		StateRoot:          rest.StateRoot,
+		GasUsed:            rest.GasUsed,
+		ReceiptRoot:        rest.ReceiptRoot,
+		LogsBloom:          rest.LogsBloom,
+		NextL1MessageIndex: rest.NextL1MessageIndex,
+		Transactions:       txs,
 	}, rest.L1Messages, nil
 }
 
