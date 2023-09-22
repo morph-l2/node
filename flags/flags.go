@@ -148,6 +148,12 @@ var (
 		EnvVar: prefixEnvVar("TDM_CONFIG"),
 	}
 
+	DevSequencer = &cli.BoolFlag{
+		Name:   "dev-sequencer",
+		Usage:  "explicitly specify that running as a sequencer. If it enables, the tendermint validator/batch params won't be changed no matter what happens to staking/gov contacts. Only use in dev/test mode",
+		EnvVar: prefixEnvVar("DEV_SEQUENCER"),
+	}
+
 	MockEnabled = &cli.BoolFlag{
 		Name:   "mock",
 		Usage:  "Enable mock; If enabled, we start a simulated sequencer to manage the block production, just for dev/test use",
@@ -258,6 +264,7 @@ var Flags = []cli.Flag{
 	DBCache,
 	DBFreezer,
 
+	DevSequencer,
 	TendermintConfigPath,
 	MockEnabled,
 	ValidatorEnable,

@@ -292,8 +292,8 @@ func (d *Derivation) parseArgs(args []interface{}, rollupData *RollupData, batch
 		PostStateRoot  [32]uint8 "json:\"postStateRoot\""
 		WithdrawalRoot [32]uint8 "json:\"withdrawalRoot\""
 		Signature      struct {
-			Signers   [][]uint8 "json:\"signers\""
-			Signature []uint8   "json:\"signature\""
+			Signers   []uint64 "json:\"signers\""
+			Signature []uint8  "json:\"signature\""
 		} "json:\"signature\""
 	})
 	for batchDataIndex, rollupBatchData := range rollupBatchDatas {

@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/tendermint/tendermint/privval"
 
 	"os"
 	"os/signal"
@@ -22,6 +21,7 @@ import (
 	"github.com/morphism-labs/node/validator"
 	"github.com/scroll-tech/go-ethereum/ethclient"
 	tmnode "github.com/tendermint/tendermint/node"
+	"github.com/tendermint/tendermint/privval"
 	"github.com/urfave/cli"
 )
 
@@ -101,10 +101,7 @@ func L2NodeMain(ctx *cli.Context) error {
 			return err
 		}
 		tmVal := privval.LoadOrGenFilePV(tmCfg.PrivValidatorKeyFile(), tmCfg.PrivValidatorStateFile())
-		pubKey, err := tmVal.GetPubKey()
-		if err != nil {
-
-		}
+		pubKey, _ := tmVal.GetPubKey()
 		executor, err = node.NewExecutor(ctx, home, nodeConfig, pubKey)
 		if isMockSequencer {
 			ms, err = mock.NewSequencer(executor)

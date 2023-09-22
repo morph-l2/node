@@ -5,8 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"strings"
-	"time"
 
 	"github.com/morphism-labs/morphism-bindings/bindings"
 	"github.com/morphism-labs/node/sync"
@@ -31,7 +29,7 @@ type Executor struct {
 	bc                  BlockConverter
 	nextL1MsgIndex      uint64
 	maxL1MsgNumPerBlock uint64
-	l1MsgReader         types.L1MessageReader // needed when it is configured as a sequencer
+	l1MsgReader         types.L1MessageReader
 
 	newSyncerFunc func() (*sync.Syncer, error)
 	syncer        *sync.Syncer
@@ -44,6 +42,7 @@ type Executor struct {
 	batchParams       tmproto.BatchParams
 	tmPubKey          []byte
 	isSequencer       bool
+	devSequencer      bool
 
 	logger  tmlog.Logger
 	metrics *Metrics
@@ -55,38 +54,6 @@ func getNextL1MsgIndex(client *ethclient.Client) (uint64, error) {
 		return 0, err
 	}
 	return currentHeader.NextL1MsgIndex, nil
-}
-
-func getLatestProcessedL1Index(cdmAddress common.Address, client *ethclient.Client, logger tmlog.Logger) (*uint64, error) {
-	cdmCaller, err := bindings.NewL2CrossDomainMessengerCaller(cdmAddress, client)
-	if err != nil {
-		return nil, err
-	}
-	receivedNonce, err := cdmCaller.ReceiveNonce(nil)
-	if err != nil {
-		var count = 0
-		for err != nil && strings.Contains(err.Error(), "connection refused") {
-			time.Sleep(5 * time.Second)
-			count++
-			logger.Error("connection refused, try again", "retryCount", count)
-			receivedNonce, err = cdmCaller.ReceiveNonce(nil)
-		}
-		// if no contracts found, we set it as nil
-		if err != nil {
-			logger.Error("failed to get ReceiveNonce", "error", err)
-			return nil, nil
-		}
-	}
-
-	var latestProcessedL1Index *uint64
-	if receivedNonce.Cmp(big.NewInt(0)) != 0 {
-		decodedNonce, err := types.DecodeNonce(receivedNonce)
-		if err != nil {
-			return nil, err
-		}
-		latestProcessedL1Index = &decodedNonce
-	}
-	return latestProcessedL1Index, nil
 }
 
 func NewExecutor(ctx *cli.Context, home string, config *Config, tmPubKey crypto.PubKey) (*Executor, error) {
@@ -120,8 +87,19 @@ func NewExecutor(ctx *cli.Context, home string, config *Config, tmPubKey crypto.
 		nextL1MsgIndex:      index,
 		maxL1MsgNumPerBlock: config.MaxL1MessageNumPerBlock,
 		newSyncerFunc:       func() (*sync.Syncer, error) { return newSyncer(ctx, home, config) },
+		devSequencer:        config.DevSequencer,
 		logger:              logger,
 		metrics:             PrometheusMetrics("morphnode"),
+	}
+
+	if config.DevSequencer {
+		executor.syncer, err = executor.newSyncerFunc()
+		if err != nil {
+			return nil, err
+		}
+		executor.syncer.Start()
+		executor.l1MsgReader = executor.syncer
+		return executor, nil
 	}
 
 	if _, err = executor.updateSequencerSet(); err != nil {
@@ -134,7 +112,7 @@ func NewExecutor(ctx *cli.Context, home string, config *Config, tmPubKey crypto.
 var _ l2node.L2Node = (*Executor)(nil)
 
 func (e *Executor) RequestBlockData(height int64) (txs [][]byte, configs l2node.Configs, err error) {
-	if e.syncer == nil {
+	if e.l1MsgReader == nil {
 		err = fmt.Errorf("RequestBlockData is not alllowed to be called")
 		return
 	}
@@ -180,6 +158,9 @@ func (e *Executor) RequestBlockData(height int64) (txs [][]byte, configs l2node.
 }
 
 func (e *Executor) CheckBlockData(txs [][]byte, l2Data l2node.Configs) (valid bool, err error) {
+	if e.l1MsgReader == nil {
+		return false, fmt.Errorf("RequestBlockData is not alllowed to be called")
+	}
 	if l2Data.L2Config == nil || l2Data.ZKConfig == nil {
 		e.logger.Error("l2Config and zkConfig cannot be nil")
 		return false, nil
@@ -244,16 +225,18 @@ func (e *Executor) DeliverBlock(txs [][]byte, l2Data l2node.Configs, consensusDa
 	}
 
 	signers := make([]uint64, 0)
-	for _, v := range consensusData.Validators {
-		if len(v) > 0 {
-			var pk [tmKeySize]byte
-			copy(pk[:], v)
+	if !e.devSequencer {
+		for _, v := range consensusData.Validators {
+			if len(v) > 0 {
+				var pk [tmKeySize]byte
+				copy(pk[:], v)
 
-			seqKey, ok := e.sequencerSet[pk]
-			if !ok {
-				return nil, nil, fmt.Errorf("found invalid validator: %s", hexutil.Encode(v))
+				seqKey, ok := e.sequencerSet[pk]
+				if !ok {
+					return nil, nil, fmt.Errorf("found invalid validator: %s", hexutil.Encode(v))
+				}
+				signers = append(signers, seqKey.index)
 			}
-			signers = append(signers, seqKey.index)
 		}
 	}
 
@@ -271,9 +254,13 @@ func (e *Executor) DeliverBlock(txs [][]byte, l2Data l2node.Configs, consensusDa
 			}
 		}
 		if len(sigs) > 0 {
+			var curVersion uint64
+			if e.currentVersion != nil {
+				curVersion = *e.currentVersion
+			}
 			aggregatedSig := blssignatures.AggregateSignatures(sigs)
 			blsData = eth.BLSData{
-				Version:      *e.currentVersion,
+				Version:      curVersion,
 				BLSSigners:   signers,
 				BLSSignature: bls12381.NewG1().EncodePoint(aggregatedSig),
 			}
@@ -289,10 +276,16 @@ func (e *Executor) DeliverBlock(txs [][]byte, l2Data l2node.Configs, consensusDa
 
 	// end block
 	e.updateNextL1MessageIndex(l2Block)
-	newValidatorSet, err := e.updateSequencerSet()
-	newBatchParams := e.batchParamsUpdates(l2Block.Number)
-	if err != nil {
-		return nil, nil, err
+
+	var newValidatorSet = consensusData.ValidatorSet
+	var newBatchParams *tmproto.BatchParams
+	if !e.devSequencer {
+		if newValidatorSet, err = e.updateSequencerSet(); err != nil {
+			return nil, nil, err
+		}
+		if newBatchParams = e.batchParamsUpdates(l2Block.Number); err != nil {
+			return nil, nil, err
+		}
 	}
 
 	e.metrics.Height.Set(float64(l2Block.Number))

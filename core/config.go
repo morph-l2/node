@@ -4,11 +4,11 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
-	"github.com/morphism-labs/morphism-bindings/predeploys"
 	"io"
 	"os"
 	"strings"
 
+	"github.com/morphism-labs/morphism-bindings/predeploys"
 	"github.com/morphism-labs/node/flags"
 	"github.com/morphism-labs/node/types"
 	"github.com/scroll-tech/go-ethereum/common"
@@ -22,8 +22,9 @@ type Config struct {
 	L2                            *types.L2Config `json:"l2"`
 	L2CrossDomainMessengerAddress common.Address  `json:"cross_domain_messenger_address"`
 	L2SequencerAddress            common.Address  `json:"l2_sequencer_address"`
-	GovAddress                    common.Address  `json:"gov_address"`
+	L2GovAddress                  common.Address  `json:"l2_gov_address"`
 	MaxL1MessageNumPerBlock       uint64          `json:"max_l1_message_num_per_block"`
+	DevSequencer                  bool            `json:"dev_sequencer"`
 	Logger                        tmlog.Logger    `json:"logger"`
 }
 
@@ -105,10 +106,14 @@ func (c *Config) SetCliContext(ctx *cli.Context) error {
 
 	if ctx.GlobalIsSet(flags.GovAddr.Name) {
 		addr := common.HexToAddress(ctx.GlobalString(flags.GovAddr.Name))
-		c.GovAddress = addr
-		if len(c.GovAddress.Bytes()) == 0 {
+		c.L2GovAddress = addr
+		if len(c.L2GovAddress.Bytes()) == 0 {
 			return errors.New("invalid GovAddr")
 		}
+	}
+
+	if ctx.GlobalIsSet(flags.DevSequencer.Name) {
+		c.DevSequencer = ctx.GlobalBool(flags.DevSequencer.Name)
 	}
 
 	return nil

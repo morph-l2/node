@@ -3,11 +3,11 @@ package node
 import (
 	"errors"
 	"fmt"
-	"github.com/scroll-tech/go-ethereum/crypto"
 	"math/big"
 	"time"
 
 	"github.com/scroll-tech/go-ethereum/common/hexutil"
+	"github.com/scroll-tech/go-ethereum/crypto"
 	"github.com/scroll-tech/go-ethereum/crypto/bls12381"
 	"github.com/tendermint/tendermint/blssignatures"
 	"github.com/tendermint/tendermint/crypto/ed25519"
@@ -22,6 +22,10 @@ type sequencerKey struct {
 }
 
 func (e *Executor) VerifySignature(tmPubKey []byte, message []byte, blsSig []byte) (bool, error) {
+	if e.devSequencer {
+		e.logger.Info("we are in dev mode, do not verify the bls signature")
+		return true, nil
+	}
 	if len(e.sequencerSet) == 0 {
 		return false, errors.New("no available sequencers found in layer2")
 	}
@@ -117,6 +121,7 @@ func (e *Executor) updateSequencerSet() ([][]byte, error) {
 				return nil, err
 			}
 			e.syncer = syncer
+			e.l1MsgReader = syncer // syncer works as l1MsgReader
 			e.syncer.Start()
 		} else {
 			go e.syncer.Start()
