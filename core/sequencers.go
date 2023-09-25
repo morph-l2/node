@@ -78,10 +78,22 @@ func (e *Executor) sequencerSetUpdates() ([][]byte, error) {
 	return newValidators, nil
 }
 
-func (e *Executor) batchParamsUpdates(height uint64) *tmproto.BatchParams {
-	var batchBlockInterval *big.Int
-	var batchMaxBytes *big.Int
-	var batchTimeout *big.Int
+func (e *Executor) batchParamsUpdates(height uint64) (*tmproto.BatchParams, error) {
+	var (
+		batchBlockInterval, batchMaxBytes, batchTimeout *big.Int
+		err                                             error
+	)
+
+	if batchBlockInterval, err = e.govContract.BatchBlockInterval(nil); err != nil {
+		return nil, err
+	}
+	if batchMaxBytes, err = e.govContract.BatchMaxBytes(nil); err != nil {
+		return nil, err
+	}
+	if batchTimeout, err = e.govContract.BatchTimeout(nil); err != nil {
+		return nil, err
+	}
+
 	changed := e.batchParams.BlocksInterval != batchBlockInterval.Int64() ||
 		e.batchParams.MaxBytes != batchMaxBytes.Int64() ||
 		int64(e.batchParams.Timeout.Seconds()) != batchTimeout.Int64()
@@ -98,9 +110,9 @@ func (e *Executor) batchParamsUpdates(height uint64) *tmproto.BatchParams {
 			BlocksInterval: batchBlockInterval.Int64(),
 			MaxBytes:       batchMaxBytes.Int64(),
 			Timeout:        time.Duration(batchTimeout.Int64() * int64(time.Second)),
-		}
+		}, nil
 	}
-	return nil
+	return nil, nil
 }
 
 func (e *Executor) updateSequencerSet() ([][]byte, error) {

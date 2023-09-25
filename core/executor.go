@@ -34,7 +34,7 @@ type Executor struct {
 	newSyncerFunc func() (*sync.Syncer, error)
 	syncer        *sync.Syncer
 
-	//govContract  *bindings.
+	govContract       *bindings.Gov
 	sequencerContract *bindings.L2Sequencer
 	currentVersion    *uint64
 	sequencerSet      map[[tmKeySize]byte]sequencerKey // tendermint pk -> bls pk
@@ -77,12 +77,16 @@ func NewExecutor(ctx *cli.Context, home string, config *Config, tmPubKey crypto.
 	if err != nil {
 		return nil, err
 	}
-	// todo add gov contract bindings
+	gov, err := bindings.NewGov(config.L2GovAddress, eClient)
+	if err != nil {
+		return nil, err
+	}
 
 	executor := &Executor{
 		l2Client:            types.NewRetryableClient(aClient, eClient, config.Logger),
 		bc:                  &Version1Converter{},
 		sequencerContract:   sequencer,
+		govContract:         gov,
 		tmPubKey:            tmPubKey.Bytes(),
 		nextL1MsgIndex:      index,
 		maxL1MsgNumPerBlock: config.MaxL1MessageNumPerBlock,
@@ -283,7 +287,7 @@ func (e *Executor) DeliverBlock(txs [][]byte, l2Data l2node.Configs, consensusDa
 		if newValidatorSet, err = e.updateSequencerSet(); err != nil {
 			return nil, nil, err
 		}
-		if newBatchParams = e.batchParamsUpdates(l2Block.Number); err != nil {
+		if newBatchParams, err = e.batchParamsUpdates(l2Block.Number); err != nil {
 			return nil, nil, err
 		}
 	}
