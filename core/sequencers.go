@@ -51,7 +51,12 @@ func (e *Executor) sequencerSetUpdates() ([][]byte, error) {
 	if e.currentVersion != nil && *e.currentVersion == currentVersion.Uint64() {
 		return e.validators, nil
 	}
-	e.logger.Info("sequencers updates, version changed", "before", *e.currentVersion, "now", currentVersion.Uint64())
+
+	var beforeVersion uint64
+	if e.currentVersion != nil {
+		beforeVersion = *e.currentVersion
+	}
+	e.logger.Info("sequencers updates, version changed", "before", beforeVersion, "now", currentVersion.Uint64())
 	sequencersInfo, err := e.sequencerContract.GetSequencerInfos(nil)
 	if err != nil {
 		return nil, err
