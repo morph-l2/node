@@ -14,9 +14,11 @@ import (
 const MetricsSubsystem = "derivation"
 
 type Metrics struct {
-	L1SyncHeight   metrics.Gauge
-	RollupL2Height metrics.Gauge
-	DeriveL2Height metrics.Gauge
+	L1SyncHeight       metrics.Gauge
+	RollupL2Height     metrics.Gauge
+	DeriveL2Height     metrics.Gauge
+	ValidateL2Height   metrics.Gauge
+	ValidateBatchIndex metrics.Gauge
 }
 
 func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
@@ -56,6 +58,14 @@ func (m *Metrics) SetL2DeriveHeight(height uint64) {
 
 func (m *Metrics) SetRollupL2Height(height uint64) {
 	m.RollupL2Height.Set(float64(height))
+}
+
+func (m *Metrics) SetValidateBatch(index uint64) {
+	m.ValidateBatchIndex.Set(float64(index))
+}
+
+func (m *Metrics) SetValidateHeight(height uint64) {
+	m.ValidateL2Height.Set(float64(height))
 }
 
 func (m *Metrics) Serve(hostname string, port uint64) (*http.Server, error) {

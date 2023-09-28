@@ -218,13 +218,15 @@ func (d *Derivation) derivationBlock(ctx context.Context) {
 			d.logger.Info("batch derivation complete", "currentBatchEndBlock", lastHeader.Number.Uint64())
 			d.metrics.SetL2DeriveHeight(lastHeader.Number.Uint64())
 			if !bytes.Equal(lastHeader.Root.Bytes(), batchData[len(batchData)-1].Root.Bytes()) && d.validator != nil && d.validator.ChallengeEnable() {
-				d.logger.Info("root hash is not equal", "originStateRootHash", batchData[len(batchData)-1].Root.Hex(), "deriveStateRootHash", lastHeader.Root.Hex())
 				batchIndex, err := d.findBatchIndex(rollupData.TxHash, batchData[len(batchData)-1].SafeL2Data.Number)
 				if err != nil {
 					d.logger.Error("find batch index failed", "error", err)
 					return
 				}
-				d.logger.Info("validator start challenge", "batchIndex", batchIndex)
+				d.logger.Error("root hash is not equal", "originStateRootHash", batchData[len(batchData)-1].Root.Hex(), "deriveStateRootHash", lastHeader.Root.Hex(), "l1TxHash", lg.TxHash, "l2BlockNumber", lastHeader.Number.Uint64(), "batchIndex", batchIndex)
+				d.logger.Info("validator start challenge")
+				d.metrics.SetValidateHeight(lastHeader.Number.Uint64())
+				d.metrics.SetValidateBatch(batchIndex)
 				if err := d.validator.ChallengeState(batchIndex); err != nil {
 					d.logger.Error("challenge state failed", "error", err)
 				}
