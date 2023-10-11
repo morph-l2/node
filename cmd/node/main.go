@@ -103,6 +103,9 @@ func L2NodeMain(ctx *cli.Context) error {
 		tmVal := privval.LoadOrGenFilePV(tmCfg.PrivValidatorKeyFile(), tmCfg.PrivValidatorStateFile())
 		pubKey, _ := tmVal.GetPubKey()
 		executor, err = node.NewExecutor(ctx, home, nodeConfig, pubKey)
+		if err != nil {
+			return err
+		}
 		if isMockSequencer {
 			ms, err = mock.NewSequencer(executor)
 			if err != nil {
