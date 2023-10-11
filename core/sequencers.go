@@ -48,6 +48,9 @@ func (e *Executor) VerifySignature(tmPubKey []byte, message []byte, blsSig []byt
 
 func (e *Executor) sequencerSetUpdates() ([][]byte, error) {
 	currentVersion, err := e.sequencerContract.CurrentVersion(nil)
+	if err != nil {
+		return nil, err
+	}
 	if e.currentVersion != nil && *e.currentVersion == currentVersion.Uint64() {
 		return e.validators, nil
 	}
