@@ -16,11 +16,45 @@ import (
 )
 
 var (
-	DepositEventABI              = "TransactionDeposited(address,address,uint256,bytes)"
+	DepositEventABI              = "QueueTransaction(address,address,uint256,uint64,uint256,bytes)"
 	DepositEventABIHash          = crypto.Keccak256Hash([]byte(DepositEventABI))
 	DepositEventVersion0         = common.Hash{}
 	L2CrossDomainMessengerABI, _ = bindings.L2CrossDomainMessengerMetaData.GetAbi()
 )
+
+func (c *BridgeClient) deriveFromReceipt(receipts []*eth.Receipt) ([]types.L1Message, error) {
+	var out []types.L1Message
+	var result error
+	for i, rec := range receipts {
+		if rec.Status != eth.ReceiptStatusSuccessful {
+			continue
+		}
+		for j, lg := range rec.Logs {
+			if lg.Address == c.morphismPortalAddress && len(lg.Topics) > 0 && lg.Topics[0] == DepositEventABIHash {
+				event, err := c.filter.ParseQueueTransaction(*lg)
+				if err != nil {
+					result = multierror.Append(result, fmt.Errorf("malformatted L1 deposit log in receipt %d, log %d: %w", i, j, err))
+				} else {
+					if event == nil {
+						continue
+					}
+					out = append(out, types.L1Message{
+						L1MessageTx: eth.L1MessageTx{
+							QueueIndex: event.QueueIndex,
+							Gas:        event.GasLimit.Uint64(),
+							To:         &event.Target,
+							Value:      event.Value,
+							Data:       event.Data,
+							Sender:     event.Sender,
+						},
+						L1TxHash: lg.TxHash,
+					})
+				}
+			}
+		}
+	}
+	return out, result
+}
 
 func deriveFromReceipt(receipts []*eth.Receipt, depositContractAddr common.Address) ([]types.L1Message, error) {
 	var out []types.L1Message

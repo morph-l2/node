@@ -36,7 +36,10 @@ func NewSyncer(ctx context.Context, db Database, config *Config, logger tmlog.Lo
 		return nil, errors.New("deposit contract address cannot be nil")
 	}
 
-	bridgeClient := NewBridgeClient(l1Client, *config.DepositContractAddress, config.L1.Confirmations, logger)
+	bridgeClient, err := NewBridgeClient(l1Client, *config.DepositContractAddress, config.L1.Confirmations, logger)
+	if err != nil {
+		return nil, err
+	}
 
 	logger = logger.With("module", "syncer")
 	latestSynced := db.ReadLatestSyncedL1Height()

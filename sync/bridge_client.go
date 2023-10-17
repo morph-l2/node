@@ -3,11 +3,11 @@ package sync
 import (
 	"context"
 	"fmt"
-	"math/big"
 
+	"github.com/morphism-labs/morphism-bindings/bindings"
 	nodecommon "github.com/morphism-labs/node/common"
 	"github.com/morphism-labs/node/types"
-	"github.com/scroll-tech/go-ethereum"
+	"github.com/scroll-tech/go-ethereum/accounts/abi/bind"
 	"github.com/scroll-tech/go-ethereum/common"
 	eth "github.com/scroll-tech/go-ethereum/core/types"
 	"github.com/scroll-tech/go-ethereum/ethclient"
@@ -16,58 +16,59 @@ import (
 )
 
 type BridgeClient struct {
-	l1Client               *ethclient.Client
-	depositContractAddress common.Address
-	confirmations          rpc.BlockNumber
-	logger                 tmlog.Logger
+	l1Client              *ethclient.Client
+	filter                *bindings.MorphismPortalFilterer
+	morphismPortalAddress common.Address
+	confirmations         rpc.BlockNumber
+	logger                tmlog.Logger
 }
 
-func NewBridgeClient(l1Client *ethclient.Client, depositContractAddress common.Address, confirmations rpc.BlockNumber, logger tmlog.Logger) *BridgeClient {
+func NewBridgeClient(l1Client *ethclient.Client, morphismPortalAddress common.Address, confirmations rpc.BlockNumber, logger tmlog.Logger) (*BridgeClient, error) {
 	logger = logger.With("module", "bridge")
-	return &BridgeClient{
-		l1Client:               l1Client,
-		depositContractAddress: depositContractAddress,
-		confirmations:          confirmations,
-		logger:                 logger,
+	filter, err := bindings.NewMorphismPortalFilterer(morphismPortalAddress, l1Client)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize MorphismPortalFilterer, err = %w", err)
 	}
+	return &BridgeClient{
+		l1Client:              l1Client,
+		filter:                filter,
+		morphismPortalAddress: morphismPortalAddress,
+		confirmations:         confirmations,
+		logger:                logger,
+	}, nil
 }
 
 func (c *BridgeClient) L1Messages(ctx context.Context, from, to uint64) ([]types.L1Message, error) {
-	query := ethereum.FilterQuery{
-		FromBlock: big.NewInt(0).SetUint64(from),
-		ToBlock:   big.NewInt(0).SetUint64(to),
-		Addresses: []common.Address{
-			c.depositContractAddress,
-		},
-		Topics: [][]common.Hash{
-			{DepositEventABIHash},
-		},
+	opts := bind.FilterOpts{
+		Start:   from,
+		End:     &to,
+		Context: ctx,
 	}
-
-	logs, err := c.l1Client.FilterLogs(ctx, query)
+	it, err := c.filter.FilterQueueTransaction(&opts, nil, nil)
 	if err != nil {
-		c.logger.Error("eth_getLogs failed", "query", query, "err", err)
-		return nil, fmt.Errorf("eth_getLogs failed: %w", err)
+		return nil, err
 	}
 
-	if len(logs) == 0 {
-		return nil, nil
-	}
+	txs := make([]types.L1Message, 0)
+	for it.Next() {
+		event := it.Event
+		c.logger.Debug("Received new L1 QueueTransaction event", "event", event)
 
-	txs := make([]types.L1Message, len(logs), len(logs))
-	for i, lg := range logs {
-		l1MessageTx, err := UnmarshalDepositLogEvent(&lg)
-		if err != nil {
-			return nil, err
+		if !event.GasLimit.IsUint64() {
+			return nil, fmt.Errorf("invalid QueueTransaction event: QueueIndex = %v, GasLimit = %v", event.QueueIndex, event.GasLimit)
 		}
-		if l1MessageTx == nil { // it indicates that the message is not sent by L1CrossDomainMessage
-			continue
+		l1MessageTx := eth.L1MessageTx{
+			QueueIndex: event.QueueIndex,
+			Gas:        event.GasLimit.Uint64(),
+			To:         &event.Target,
+			Value:      event.Value,
+			Data:       event.Data,
+			Sender:     event.Sender,
 		}
-		l1Message := types.L1Message{
-			L1MessageTx: *l1MessageTx,
-			L1TxHash:    lg.TxHash,
-		}
-		txs[i] = l1Message
+		txs = append(txs, types.L1Message{
+			L1MessageTx: l1MessageTx,
+			L1TxHash:    event.Raw.TxHash,
+		})
 	}
 	return txs, nil
 }
@@ -85,7 +86,8 @@ func (c *BridgeClient) L1MessagesFromTxHash(ctx context.Context, txHash common.H
 		c.logger.Error("the target block has not been considered to be confirmed", "latestConfirmedHeight", latestConfirmed, "receiptAtBlockHeight", receipt.BlockNumber.Uint64())
 		return nil, types.ErrNotConfirmedBlock
 	}
-	return deriveFromReceipt([]*eth.Receipt{receipt}, c.depositContractAddress)
+
+	return c.deriveFromReceipt([]*eth.Receipt{receipt})
 }
 
 func (c *BridgeClient) getLatestConfirmedBlockNumber(ctx context.Context) (uint64, error) {

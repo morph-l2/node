@@ -335,8 +335,8 @@ github.com/mitchellh/pointerstructure v1.2.0 h1:O+i9nHnXS3l/9Wu7r4NrEdwA2VFTicjU
 github.com/mitchellh/pointerstructure v1.2.0/go.mod h1:BRAsLI5zgXmw97Lf6s25bs8ohIXc3tViBH44KcwB2g4=
 github.com/morphism-labs/go-ethereum v1.10.14-0.20230830034843-cd7885537130 h1:/WeW1lNsjIXlcCBz/fTrCukIMwDZzslhBaP88J0BdNc=
 github.com/morphism-labs/go-ethereum v1.10.14-0.20230830034843-cd7885537130/go.mod h1:IBp0LyxzLYfIvJaahCVjOvp0dLojIS2LSUXctcCERAg=
-github.com/morphism-labs/morphism-bindings v0.0.0-20230823040716-efc3bc08f84a h1:0w1pdx7KRepCuSuUTgZepFtxsuVt9tzz3ABWX1fp4gM=
-github.com/morphism-labs/morphism-bindings v0.0.0-20230823040716-efc3bc08f84a/go.mod h1:xI6/pzFFIB0G6N4eIMI8FRFqmqIxcN6caXgSUiZV/qw=
+github.com/morphism-labs/morphism-bindings v0.0.0-20231016062003-9c91575dca80 h1:raP72Jm4DzpPljn6ZJgt8ZyWbIY7dWMOBohJagiP8nY=
+github.com/morphism-labs/morphism-bindings v0.0.0-20231016062003-9c91575dca80/go.mod h1:xI6/pzFFIB0G6N4eIMI8FRFqmqIxcN6caXgSUiZV/qw=
 github.com/morphism-labs/tendermint v0.0.0-20230901035329-a2d45481b2f5 h1:dAmlyDsRRcGASLedBJUwzBqzTgNxVbaj91qxpJuK7xY=
 github.com/morphism-labs/tendermint v0.0.0-20230901035329-a2d45481b2f5/go.mod h1:zJcxhzs3kbX6xs90IBX1vIQy1KmSfm4MgNbv3Lt+Rns=
 github.com/nxadm/tail v1.4.4/go.mod h1:kenIhsEOeOJmVchQTgglprH7qJGnHDVpk1VPCcaMI8A=
