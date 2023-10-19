@@ -310,7 +310,6 @@ func (e *Executor) DeliverBlock(txs [][]byte, l2Data l2node.Configs, consensusDa
 
 	e.metrics.Height.Set(float64(l2Block.Number))
 
-	newValidatorSet = nil // no changes for mock, todo waiting for checking from tendermint
 	return newBatchParams, newValidatorSet,
 		nil
 }

@@ -66,17 +66,17 @@ func (e *Executor) sequencerSetUpdates() ([][]byte, error) {
 	}
 	newValidators := make([][]byte, 0)
 	newSequencerSet := make(map[[tmKeySize]byte]sequencerKey)
-	for i, sequencerInfo := range sequencersInfo {
-		blsPK, err := decodeBlsPubKey(sequencerInfo.BlsKey)
+	for i := range sequencersInfo {
+		blsPK, err := decodeBlsPubKey(sequencersInfo[i].BlsKey)
 		if err != nil {
-			e.logger.Error("failed to decode bls key", "key bytes", hexutil.Encode(sequencerInfo.BlsKey), "error", err)
+			e.logger.Error("failed to decode bls key", "key bytes", hexutil.Encode(sequencersInfo[i].BlsKey), "error", err)
 			return nil, err
 		}
-		newSequencerSet[sequencerInfo.TmKey] = sequencerKey{
+		newSequencerSet[sequencersInfo[i].TmKey] = sequencerKey{
 			index:     uint64(i),
 			blsPubKey: blsPK,
 		}
-		newValidators = append(newValidators, sequencerInfo.TmKey[:])
+		newValidators = append(newValidators, sequencersInfo[i].TmKey[:])
 	}
 
 	e.sequencerSet = newSequencerSet
