@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/scroll-tech/go-ethereum/common/hexutil"
-	"github.com/scroll-tech/go-ethereum/crypto"
 	"github.com/scroll-tech/go-ethereum/crypto/bls12381"
 	"github.com/tendermint/tendermint/blssignatures"
 	"github.com/tendermint/tendermint/crypto/ed25519"
@@ -21,7 +20,7 @@ type sequencerKey struct {
 	blsPubKey blssignatures.PublicKey
 }
 
-func (e *Executor) VerifySignature(tmPubKey []byte, message []byte, blsSig []byte) (bool, error) {
+func (e *Executor) VerifySignature(tmPubKey []byte, messageHash []byte, blsSig []byte) (bool, error) {
 	if e.devSequencer {
 		e.logger.Info("we are in dev mode, do not verify the bls signature")
 		return true, nil
@@ -42,7 +41,7 @@ func (e *Executor) VerifySignature(tmPubKey []byte, message []byte, blsSig []byt
 		e.logger.Error("failed to recover bytes to signature", "error", err)
 		return false, fmt.Errorf("failed to recover bytes to signature, error: %v", err)
 	}
-	messageHash := crypto.Keccak256(message)
+	//messageHash := crypto.Keccak256(message)
 	return blssignatures.VerifySignature(sig, messageHash, seqKey.blsPubKey)
 }
 
