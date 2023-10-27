@@ -131,7 +131,7 @@ func NewExecutor(ctx *cli.Context, home string, config *Config, tmPubKey crypto.
 
 var _ l2node.L2Node = (*Executor)(nil)
 
-func (e *Executor) RequestBlockData(height int64) (txs [][]byte, configs l2node.Configs, err error) {
+func (e *Executor) RequestBlockData(height int64) (txs [][]byte, configs l2node.Configs, collectedL1Msgs bool, err error) {
 	if e.l1MsgReader == nil {
 		err = fmt.Errorf("RequestBlockData is not alllowed to be called")
 		return
@@ -154,6 +154,7 @@ func (e *Executor) RequestBlockData(height int64) (txs [][]byte, configs l2node.
 			}
 			queueIndex++
 		}
+		collectedL1Msgs = true
 	}
 
 	l2Block, err := e.l2Client.AssembleL2Block(context.Background(), big.NewInt(height), transactions)
@@ -173,7 +174,8 @@ func (e *Executor) RequestBlockData(height int64) (txs [][]byte, configs l2node.
 	configs.Root = l2Block.WithdrawTrieRoot.Bytes()
 	txs = l2Block.Transactions
 	e.logger.Info("RequestBlockData response",
-		"txs.length", len(txs))
+		"txs.length", len(txs),
+		"collectedL1Msgs", collectedL1Msgs)
 	return
 }
 
