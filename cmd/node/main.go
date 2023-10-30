@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
-
+	"github.com/morphism-labs/node/cmd/keyconverter"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -25,11 +25,22 @@ import (
 	"github.com/urfave/cli"
 )
 
+var keyConverterCmd = cli.Command{
+	Name:    "key-converter",
+	Aliases: []string{"kc"},
+	Usage:   "tools to convert base64-encoded keys(tendermint key/bls key) to the format used by contracts",
+	Action:  keyconverter.ConvertKey,
+	Flags:   keyconverter.Flags,
+}
+
 func main() {
 	app := cli.NewApp()
 	app.Flags = flags.Flags
 	app.Name = "morphnode"
 	app.Action = L2NodeMain
+	app.Commands = []cli.Command{
+		keyConverterCmd,
+	}
 	err := app.Run(os.Args)
 	if err != nil {
 		fmt.Println("Application failed, message: ", err)

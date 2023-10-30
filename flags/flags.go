@@ -17,17 +17,15 @@ var (
 	}
 
 	L2EthAddr = cli.StringFlag{
-		Name:     "l2.eth",
-		Usage:    "Address of L2 Engine JSON-RPC endpoints to use (eth namespace required)",
-		EnvVar:   prefixEnvVar("L2_ETH_RPC"),
-		Required: true,
+		Name:   "l2.eth",
+		Usage:  "Address of L2 Engine JSON-RPC endpoints to use (eth namespace required)",
+		EnvVar: prefixEnvVar("L2_ETH_RPC"),
 	}
 
 	L2EngineAddr = cli.StringFlag{
-		Name:     "l2.engine",
-		Usage:    "Address of L2 Engine JSON-RPC endpoints to use (engine namespace required)",
-		EnvVar:   prefixEnvVar("L2_ENGINE_RPC"),
-		Required: true,
+		Name:   "l2.engine",
+		Usage:  "Address of L2 Engine JSON-RPC endpoints to use (engine namespace required)",
+		EnvVar: prefixEnvVar("L2_ENGINE_RPC"),
 	}
 
 	L2EngineJWTSecret = cli.StringFlag{
