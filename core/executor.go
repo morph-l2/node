@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/scroll-tech/go-ethereum/accounts/abi"
 	"math/big"
 	"strings"
 	"time"
@@ -45,6 +46,9 @@ type Executor struct {
 	tmPubKey          []byte
 	isSequencer       bool
 	devSequencer      bool
+
+	rollupABI     *abi.ABI
+	batchingCache *BatchingCache
 
 	logger  tmlog.Logger
 	metrics *Metrics
@@ -98,6 +102,10 @@ func NewExecutor(ctx *cli.Context, home string, config *Config, tmPubKey crypto.
 		return nil, err
 	}
 
+	rollupAbi, err := bindings.RollupMetaData.GetAbi()
+	if err != nil {
+		return nil, err
+	}
 	executor := &Executor{
 		l2Client:            types.NewRetryableClient(aClient, eClient, config.Logger),
 		bc:                  &Version1Converter{},
@@ -108,6 +116,8 @@ func NewExecutor(ctx *cli.Context, home string, config *Config, tmPubKey crypto.
 		maxL1MsgNumPerBlock: config.MaxL1MessageNumPerBlock,
 		newSyncerFunc:       func() (*sync.Syncer, error) { return newSyncer(ctx, home, config) },
 		devSequencer:        config.DevSequencer,
+		rollupABI:           rollupAbi,
+		batchingCache:       NewBatchingCache(),
 		logger:              logger,
 		metrics:             PrometheusMetrics("morphnode"),
 	}
