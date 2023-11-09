@@ -5,19 +5,20 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"math/big"
+
 	"github.com/morphism-labs/morphism-bindings/bindings"
 	"github.com/morphism-labs/node/types"
 	"github.com/scroll-tech/go-ethereum/common"
 	eth "github.com/scroll-tech/go-ethereum/core/types"
 	tmtypes "github.com/tendermint/tendermint/types"
-	"math/big"
 )
 
 type BatchingCache struct {
 	parentBatchHeader types.BatchHeader
 	prevStateRoot     common.Hash
 
-	chunks               types.Chunks
+	chunks               *types.Chunks
 	totalL1MessagePopped uint64
 	skippedBitmap        []*big.Int
 	postStateRoot        common.Hash
@@ -25,6 +26,7 @@ type BatchingCache struct {
 
 	currentBlockContext               []byte
 	currentTxsPayload                 []byte
+	currentTxs                        tmtypes.Txs
 	currentTxsHashes                  []common.Hash
 	totalL1MessagePoppedAfterCurBlock uint64
 	skippedBitmapAfterCurBlock        []*big.Int
@@ -33,7 +35,9 @@ type BatchingCache struct {
 }
 
 func NewBatchingCache() *BatchingCache {
-	return &BatchingCache{}
+	return &BatchingCache{
+		chunks: types.NewChunks(),
+	}
 }
 
 func (bc *BatchingCache) IsEmpty() bool {
@@ -42,21 +46,24 @@ func (bc *BatchingCache) IsEmpty() bool {
 
 func (bc *BatchingCache) ClearCurrent() {
 	bc.currentTxsPayload = nil
+	bc.currentTxsHashes = nil
 	bc.currentBlockContext = nil
 	bc.skippedBitmapAfterCurBlock = nil
 	bc.totalL1MessagePoppedAfterCurBlock = 0
+	bc.currentStateRoot = common.Hash{}
+	bc.currentWithdrawRoot = common.Hash{}
 }
 
-type GetFromBatchStartFunc func() ([][]byte, []tmtypes.Txs, error)
+type GetFromBatchStartFunc func() ([]byte, [][]byte, []tmtypes.Txs, error)
 
-func (e *Executor) CalculateBatchSizeWithCurrentBlock(parentBatchHeaderBytes []byte, get GetFromBatchStartFunc, currentBlockBytes []byte, currentTxs tmtypes.Txs) (int, error) {
+func (e *Executor) CalculateBatchSizeWithCurrentBlock(get GetFromBatchStartFunc, currentBlockBytes []byte, currentTxs tmtypes.Txs) (int, error) {
 	if e.batchingCache.IsEmpty() {
-		parentBatchHeader, err := types.DecodeBatchHeader(parentBatchHeaderBytes)
+		parentBatchHeaderBytes, blocks, transactions, err := get()
 		if err != nil {
 			return 0, err
 		}
 
-		blocks, transactions, err := get()
+		parentBatchHeader, err := types.DecodeBatchHeader(parentBatchHeaderBytes)
 		if err != nil {
 			return 0, err
 		}
@@ -80,6 +87,9 @@ func (e *Executor) CalculateBatchSizeWithCurrentBlock(parentBatchHeaderBytes []b
 
 			totalL1MessagePoppedBefore := totalL1MessagePopped
 			txsPayload, txHashes, totalL1MessagePopped, skippedBitmap, err = ParsingTxs(transactions[i], parentBatchHeader.TotalL1MessagePopped, totalL1MessagePoppedBefore, skippedBitmap)
+			if err != nil {
+				return 0, err
+			}
 			blockContext := wBlock.BlockContextBytes(len(transactions), int(totalL1MessagePopped-totalL1MessagePoppedBefore))
 			e.batchingCache.chunks.Append(blockContext, txsPayload, txHashes)
 			e.batchingCache.totalL1MessagePopped = totalL1MessagePopped
@@ -105,6 +115,7 @@ func (e *Executor) CalculateBatchSizeWithCurrentBlock(parentBatchHeaderBytes []b
 	currentBlockContext := curBlock.BlockContextBytes(currentTxs.Len(), int(totalL1MessagePopped-e.batchingCache.totalL1MessagePopped))
 	e.batchingCache.currentBlockContext = currentBlockContext
 	e.batchingCache.currentTxsPayload = currentTxsPayload
+	e.batchingCache.currentTxs = currentTxs
 	e.batchingCache.currentTxsHashes = currentTxsHashes
 	e.batchingCache.totalL1MessagePoppedAfterCurBlock = totalL1MessagePopped
 	e.batchingCache.skippedBitmapAfterCurBlock = skippedBitmap
@@ -126,7 +137,7 @@ func (e *Executor) CalculateBatchSizeWithCurrentBlock(parentBatchHeaderBytes []b
 	if e.batchingCache.chunks.IsChunksFull() {
 		chunksSizeWithCurBlock += 1
 	}
-	batchSize := 97 + len(e.batchingCache.skippedBitmapAfterCurBlock)*32 + len(parentBatchHeaderBytes) + chunksSizeWithCurBlock
+	batchSize := 97 + len(e.batchingCache.skippedBitmapAfterCurBlock)*32 + len(e.batchingCache.parentBatchHeader.Encode()) + chunksSizeWithCurBlock
 	return batchSize, nil
 }
 
@@ -182,6 +193,21 @@ func (e *Executor) SealBatch() ([]byte, []byte, error) {
 		SkippedL1MessageBitmap: skippedL1MessageBitmapBytes,
 	}
 	batchHash := batchHeader.Hash()
+
+	// batch advanced; move current block into the next batch
+	e.batchingCache.parentBatchHeader = batchHeader
+	e.batchingCache.prevStateRoot = e.batchingCache.postStateRoot
+	_, _, totalL1MessagePopped, skippedBitmap, err := ParsingTxs(e.batchingCache.currentTxs, e.batchingCache.totalL1MessagePopped, e.batchingCache.totalL1MessagePopped, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+	e.batchingCache.totalL1MessagePopped = totalL1MessagePopped
+	e.batchingCache.skippedBitmap = skippedBitmap
+	e.batchingCache.postStateRoot = e.batchingCache.currentStateRoot
+	e.batchingCache.withdrawRoot = e.batchingCache.currentWithdrawRoot
+	e.batchingCache.chunks = types.NewChunks()
+	e.batchingCache.chunks.Append(e.batchingCache.currentBlockContext, e.batchingCache.currentTxsPayload, e.batchingCache.currentTxsHashes)
+	e.batchingCache.ClearCurrent()
 
 	return batchHeader.Encode(), batchHash[:], err
 }

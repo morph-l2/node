@@ -3,6 +3,7 @@ package types
 import (
 	"encoding/binary"
 	"fmt"
+
 	"github.com/scroll-tech/go-ethereum/common"
 	"github.com/scroll-tech/go-ethereum/crypto"
 )
@@ -19,7 +20,6 @@ type BatchHeader struct {
 
 	//cache
 	bytes []byte
-	hash  common.Hash
 }
 
 // Encode encodes the BatchHeader into RollupV2 BatchHeaderV0Codec Encoding.
@@ -61,6 +61,8 @@ func DecodeBatchHeader(data []byte) (*BatchHeader, error) {
 		DataHash:               common.BytesToHash(data[25:57]),
 		ParentBatchHash:        common.BytesToHash(data[57:89]),
 		SkippedL1MessageBitmap: data[89:],
+
+		bytes: data,
 	}
 	return b, nil
 }
