@@ -48,11 +48,11 @@ func (b *BatchHeader) Hash() common.Hash {
 }
 
 // DecodeBatchHeader attempts to decode the given byte slice into a BatchHeader.
-func DecodeBatchHeader(data []byte) (*BatchHeader, error) {
+func DecodeBatchHeader(data []byte) (BatchHeader, error) {
 	if len(data) < 89 {
-		return nil, fmt.Errorf("insufficient data for BatchHeader")
+		return BatchHeader{}, fmt.Errorf("insufficient data for BatchHeader")
 	}
-	b := &BatchHeader{
+	b := BatchHeader{
 		Version: data[0],
 
 		BatchIndex:             binary.BigEndian.Uint64(data[1:9]),

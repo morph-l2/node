@@ -12,10 +12,10 @@ import (
 	"github.com/morphism-labs/node/sync"
 	"github.com/morphism-labs/node/types"
 	"github.com/scroll-tech/go-ethereum/accounts/abi"
-	"github.com/scroll-tech/go-ethereum/common"
 	"github.com/scroll-tech/go-ethereum/common/hexutil"
 	eth "github.com/scroll-tech/go-ethereum/core/types"
 	"github.com/scroll-tech/go-ethereum/crypto/bls12381"
+	"github.com/scroll-tech/go-ethereum/eth/catalyst"
 	"github.com/scroll-tech/go-ethereum/ethclient"
 	"github.com/scroll-tech/go-ethereum/ethclient/authclient"
 	"github.com/scroll-tech/go-ethereum/rlp"
@@ -141,7 +141,7 @@ func NewExecutor(ctx *cli.Context, home string, config *Config, tmPubKey crypto.
 
 var _ l2node.L2Node = (*Executor)(nil)
 
-func (e *Executor) RequestBlockData(height int64) (txs [][]byte, configs l2node.Configs, collectedL1Msgs bool, err error) {
+func (e *Executor) RequestBlockData(height int64) (txs [][]byte, blockMeta []byte, collectedL1Msgs bool, err error) {
 	if e.l1MsgReader == nil {
 		err = fmt.Errorf("RequestBlockData is not alllowed to be called")
 		return
@@ -174,14 +174,23 @@ func (e *Executor) RequestBlockData(height int64) (txs [][]byte, configs l2node.
 	}
 	e.logger.Info("AssembleL2Block returns l2Block", "tx length", len(l2Block.Transactions))
 
-	zkConfig, l2Config, err := e.bc.Separate(l2Block, l1Messages)
-	if err != nil {
-		e.logger.Info("failed to convert l2Block to separated bytes", "error", err)
-		return
+	wb := types.WrappedBlock{
+		ParentHash:          l2Block.ParentHash,
+		Miner:               l2Block.Miner,
+		Number:              l2Block.Number,
+		GasLimit:            l2Block.GasLimit,
+		BaseFee:             l2Block.BaseFee,
+		Timestamp:           l2Block.Timestamp,
+		StateRoot:           l2Block.StateRoot,
+		GasUsed:             l2Block.GasUsed,
+		ReceiptRoot:         l2Block.ReceiptRoot,
+		LogsBloom:           l2Block.LogsBloom,
+		WithdrawTrieRoot:    l2Block.WithdrawTrieRoot,
+		NextL1MessageIndex:  l2Block.NextL1MessageIndex,
+		Hash:                l2Block.Hash,
+		CollectedL1Messages: l1Messages,
 	}
-	configs.ZKConfig = zkConfig
-	configs.L2Config = l2Config
-	configs.Root = l2Block.WithdrawTrieRoot.Bytes()
+	blockMeta, err = wb.MarshalBinary()
 	txs = l2Block.Transactions
 	e.logger.Info("RequestBlockData response",
 		"txs.length", len(txs),
@@ -189,76 +198,90 @@ func (e *Executor) RequestBlockData(height int64) (txs [][]byte, configs l2node.
 	return
 }
 
-func (e *Executor) CheckBlockData(txs [][]byte, l2Data l2node.Configs) (valid bool, err error) {
+func (e *Executor) CheckBlockData(txs [][]byte, metaData []byte) (valid bool, err error) {
 	if e.l1MsgReader == nil {
 		return false, fmt.Errorf("RequestBlockData is not alllowed to be called")
 	}
-	if l2Data.L2Config == nil || l2Data.ZKConfig == nil {
-		e.logger.Error("l2Config and zkConfig cannot be nil")
+	if len(metaData) == 0 {
+		e.logger.Error("metaData cannot be nil")
 		return false, nil
 	}
-	l2Block, collectedL1Messages, err := e.bc.Recover(l2Data.ZKConfig, l2Data.L2Config, txs)
-	if err != nil {
-		e.logger.Error("failed to recover block from separated bytes", "err", err)
+
+	wrappedBlock := new(types.WrappedBlock)
+	if err = wrappedBlock.UnmarshalBinary(metaData); err != nil {
+		e.logger.Error("failed to UnmarshalBinary meta data bytes", "err", err)
 		return false, nil
 	}
+
 	e.logger.Info("CheckBlockData requests",
 		"txs.length", len(txs),
-		"l2Config length", len(l2Data.L2Config),
-		"zkConfig length", len(l2Data.ZKConfig),
-		"eth block number", l2Block.Number)
+		"metaData length", len(metaData),
+		"eth block number", wrappedBlock.Number)
 
-	if err := e.validateL1Messages(l2Block, collectedL1Messages); err != nil {
+	l2Block := &catalyst.ExecutableL2Data{
+		ParentHash:         wrappedBlock.ParentHash,
+		Miner:              wrappedBlock.Miner,
+		Number:             wrappedBlock.Number,
+		GasLimit:           wrappedBlock.GasLimit,
+		BaseFee:            wrappedBlock.BaseFee,
+		Timestamp:          wrappedBlock.Timestamp,
+		StateRoot:          wrappedBlock.StateRoot,
+		GasUsed:            wrappedBlock.GasUsed,
+		ReceiptRoot:        wrappedBlock.ReceiptRoot,
+		LogsBloom:          wrappedBlock.LogsBloom,
+		WithdrawTrieRoot:   wrappedBlock.WithdrawTrieRoot,
+		NextL1MessageIndex: wrappedBlock.NextL1MessageIndex,
+		Hash:               wrappedBlock.Hash,
+
+		Transactions: txs,
+	}
+	if err := e.validateL1Messages(l2Block, wrappedBlock.CollectedL1Messages); err != nil {
 		if err != types.ErrQueryL1Message { // only do not return error if it is not ErrQueryL1Message error
 			err = nil
 		}
 		return false, err
 	}
+	l2Block.WithdrawTrieRoot = wrappedBlock.WithdrawTrieRoot
 
-	if l2Data.Root != nil {
-		l2Block.WithdrawTrieRoot = common.BytesToHash(l2Data.Root)
-	}
-
-	validated, err := e.l2Client.ValidateL2Block(context.Background(), l2Block, L1MessagesToTxs(collectedL1Messages))
+	validated, err := e.l2Client.ValidateL2Block(context.Background(), l2Block, L1MessagesToTxs(wrappedBlock.CollectedL1Messages))
 	e.logger.Info("CheckBlockData response", "validated", validated, "error", err)
 	return validated, err
 }
 
-func (e *Executor) DeliverBlock(txs [][]byte, l2Data l2node.Configs, consensusData l2node.ConsensusData) (nextBatchParams *tmproto.BatchParams, nextValidatorSet [][]byte, err error) {
+func (e *Executor) DeliverBlock(txs [][]byte, metaData []byte, consensusData l2node.ConsensusData) (nextBatchParams *tmproto.BatchParams, nextValidatorSet [][]byte, err error) {
 	e.logger.Info("DeliverBlock request", "txs length", len(txs),
-		"l2Config length", len(l2Data.L2Config),
-		"zkConfig length ", len(l2Data.ZKConfig),
-		"validator length", len(consensusData.Validators),
+		"blockMeta length", len(metaData),
+		"blsSigners length", len(consensusData.BlsSigners),
 		"blsSignatures length", len(consensusData.BlsSignatures))
 	height, err := e.l2Client.BlockNumber(context.Background())
 	if err != nil {
 		return nil, nil, err
 	}
-	if l2Data.L2Config == nil || l2Data.ZKConfig == nil {
-		e.logger.Error("l2Config and zkConfig cannot be nil")
-		return nil, nil, errors.New("l2Config and zkConfig cannot be nil")
+	if metaData == nil {
+		e.logger.Error("blockMeta cannot be nil")
+		return nil, nil, errors.New("blockMeta cannot be nil")
 	}
 
-	l2Block, collectedL1Messages, err := e.bc.Recover(l2Data.ZKConfig, l2Data.L2Config, txs)
-	if err != nil {
-		e.logger.Error("failed to recover block from separated bytes", "err", err)
+	wrappedBlock := new(types.WrappedBlock)
+	if err = wrappedBlock.UnmarshalBinary(metaData); err != nil {
+		e.logger.Error("failed to UnmarshalBinary meta data bytes", "err", err)
 		return nil, nil, err
 	}
 
-	if l2Block.Number <= height {
-		e.logger.Info("ignore it, the block was delivered", "block number", l2Block.Number)
+	if wrappedBlock.Number <= height {
+		e.logger.Info("ignore it, the block was delivered", "block number", wrappedBlock.Number)
 		return nil, nil, nil
 	}
 
 	// We only accept the continuous blocks for now.
 	// It acts like full sync. Snap sync is not enabled until the Geth enables snapshot with zkTrie
-	if l2Block.Number > height+1 {
+	if wrappedBlock.Number > height+1 {
 		return nil, nil, types.ErrWrongBlockNumber
 	}
 
 	signers := make([]uint64, 0)
 	if !e.devSequencer {
-		for _, v := range consensusData.Validators {
+		for _, v := range consensusData.BlsSigners {
 			if len(v) > 0 {
 				var pk [tmKeySize]byte
 				copy(pk[:], v)
@@ -296,11 +319,28 @@ func (e *Executor) DeliverBlock(txs [][]byte, l2Data l2node.Configs, consensusDa
 				BLSSigners:   signers,
 				BLSSignature: bls12381.NewG1().EncodePoint(aggregatedSig),
 			}
-			e.metrics.BatchPointHeight.Set(float64(l2Block.Number))
+			e.metrics.BatchPointHeight.Set(float64(wrappedBlock.Number))
 		}
 	}
 
-	err = e.l2Client.NewL2Block(context.Background(), l2Block, &blsData, L1MessagesToTxs(collectedL1Messages))
+	l2Block := &catalyst.ExecutableL2Data{
+		ParentHash:         wrappedBlock.ParentHash,
+		Miner:              wrappedBlock.Miner,
+		Number:             wrappedBlock.Number,
+		GasLimit:           wrappedBlock.GasLimit,
+		BaseFee:            wrappedBlock.BaseFee,
+		Timestamp:          wrappedBlock.Timestamp,
+		StateRoot:          wrappedBlock.StateRoot,
+		GasUsed:            wrappedBlock.GasUsed,
+		ReceiptRoot:        wrappedBlock.ReceiptRoot,
+		LogsBloom:          wrappedBlock.LogsBloom,
+		WithdrawTrieRoot:   wrappedBlock.WithdrawTrieRoot,
+		NextL1MessageIndex: wrappedBlock.NextL1MessageIndex,
+		Hash:               wrappedBlock.Hash,
+
+		Transactions: txs,
+	}
+	err = e.l2Client.NewL2Block(context.Background(), l2Block, &blsData, L1MessagesToTxs(wrappedBlock.CollectedL1Messages))
 	if err != nil {
 		e.logger.Error("failed to NewL2Block", "error", err)
 		return nil, nil, err

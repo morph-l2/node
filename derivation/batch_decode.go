@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"math/big"
 
-	"github.com/morphism-labs/morphism-bindings/bindings"
 	"github.com/scroll-tech/go-ethereum/common"
 	"github.com/scroll-tech/go-ethereum/core/types"
 	"github.com/scroll-tech/go-ethereum/rlp"
@@ -14,7 +13,7 @@ import (
 type BatchData struct {
 	Txs           []*types.Transaction
 	BlockContexts []*BlockInfo
-	Signature     *bindings.RollupBatchSignature
+	//Signature     *bindings.RollupBatchSignature
 }
 
 // number || timestamp || base_fee || gas_limit || num_txs || tx_hashs

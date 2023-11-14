@@ -73,6 +73,7 @@ type Chunks struct {
 	blockNum int
 
 	size int
+	hash *common.Hash
 }
 
 func NewChunks() *Chunks {
@@ -104,6 +105,9 @@ func (cks *Chunks) Append(blockContext, txsPayload []byte, txHashes []common.Has
 	lastChunk.Append(blockContext, txsPayload, txHashes)
 	cks.blockNum++
 	cks.size += len(blockContext) + len(txsPayload)
+
+	// empty hash when data is updated
+	cks.hash = nil
 	return
 }
 
@@ -120,12 +124,17 @@ func (cks *Chunks) Encode() ([][]byte, error) {
 }
 
 func (cks *Chunks) DataHash() common.Hash {
+	if cks.hash != nil {
+		return *cks.hash
+	}
 	var chunkHashes []byte
 	for _, ck := range cks.data {
 		hash := ck.Hash()
 		chunkHashes = append(chunkHashes, hash[:]...)
 	}
-	return crypto.Keccak256Hash(chunkHashes)
+	hash := crypto.Keccak256Hash(chunkHashes)
+	cks.hash = &hash
+	return hash
 }
 
 func (cks *Chunks) BlockNum() int { return cks.blockNum }

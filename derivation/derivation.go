@@ -188,11 +188,12 @@ func (d *Derivation) derivationBlock(ctx context.Context) {
 		d.logger.Error("eth_getLogs failed", "err", err)
 		return
 	}
-	latestL2BlockNumber, err := d.rollup.LastL2BlockNumber(nil)
-	if err != nil {
-		d.logger.Error("query rollup LastL2BlockNumber failed", "err", err)
-		return
-	}
+	//latestL2BlockNumber, err := d.rollup.LastL2BlockNumber(nil)
+	//if err != nil {
+	//	d.logger.Error("query rollup LastL2BlockNumber failed", "err", err)
+	//	return
+	//}
+	latestL2BlockNumber := uint64(0)
 	d.logger.Info(fmt.Sprintf("rollup latest l2Blocknumber:%v", latestL2BlockNumber))
 	d.logger.Info("fetched rollup tx", "txNum", len(logs))
 	d.metrics.SetRollupL2Height(latestL2BlockNumber)
@@ -394,15 +395,15 @@ func (d *Derivation) findBatchIndex(txHash common.Hash, blockNumber uint64) (uin
 	if receipt.Status == eth.ReceiptStatusFailed {
 		return 0, err
 	}
-	for _, lg := range receipt.Logs {
-		batchStorage, err := d.rollup.ParseBatchStorage(*lg)
-		if err != nil {
-			continue
-		}
-		if batchStorage.BlockNumber == blockNumber {
-			return batchStorage.BatchIndex, nil
-		}
-	}
+	//for _, lg := range receipt.Logs {
+	//	batchStorage, err := d.rollup.ParseBatchStorage(*lg)
+	//	if err != nil {
+	//		continue
+	//	}
+	//	if batchStorage.BlockNumber == blockNumber {
+	//		return batchStorage.BatchIndex, nil
+	//	}
+	//}
 	return 0, fmt.Errorf("event not found")
 }
 
