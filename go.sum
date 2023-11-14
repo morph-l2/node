@@ -337,8 +337,8 @@ github.com/morphism-labs/go-ethereum v1.10.14-0.20230921061857-d18d9621608e h1:U
 github.com/morphism-labs/go-ethereum v1.10.14-0.20230921061857-d18d9621608e/go.mod h1:IBp0LyxzLYfIvJaahCVjOvp0dLojIS2LSUXctcCERAg=
 github.com/morphism-labs/morphism-bindings v0.0.0-20231108070820-d60aea70e403 h1:AqeMgSMKe8az3a+VicgcXt/ANVAx5AWKn0RPmEZHD88=
 github.com/morphism-labs/morphism-bindings v0.0.0-20231108070820-d60aea70e403/go.mod h1:xI6/pzFFIB0G6N4eIMI8FRFqmqIxcN6caXgSUiZV/qw=
-github.com/morphism-labs/tendermint v0.0.0-20231114042349-cdfafb5b2c84 h1:XasdNBD2q9C0W9MA76JoT8Dpzp5MvFfea2mAFrxkhT0=
-github.com/morphism-labs/tendermint v0.0.0-20231114042349-cdfafb5b2c84/go.mod h1:zJcxhzs3kbX6xs90IBX1vIQy1KmSfm4MgNbv3Lt+Rns=
+github.com/morphism-labs/tendermint v0.0.0-20231114063536-f408411a45ea h1:DiPUMXkp5QZdx38Xf3QiGBWzKNojb3ai/S7qKNO3qo4=
+github.com/morphism-labs/tendermint v0.0.0-20231114063536-f408411a45ea/go.mod h1:zJcxhzs3kbX6xs90IBX1vIQy1KmSfm4MgNbv3Lt+Rns=
 github.com/nxadm/tail v1.4.4/go.mod h1:kenIhsEOeOJmVchQTgglprH7qJGnHDVpk1VPCcaMI8A=
 github.com/nxadm/tail v1.4.8 h1:nPr65rt6Y5JFSKQO7qToXr7pePgD6Gwiw05lkbyAQTE=
 github.com/nxadm/tail v1.4.8/go.mod h1:+ncqLTQzXmGhMZNUePPaPqPvBxHAIsmXswZKocGu+AU=

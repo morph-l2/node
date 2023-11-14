@@ -91,7 +91,7 @@ func (e *Executor) CalculateBatchSizeWithProposalBlock(currentBlockBytes []byte,
 
 		for i, blockBz := range blocks {
 			wBlock := new(types.WrappedBlock)
-			if err = new(types.WrappedBlock).UnmarshalBinary(blockBz); err != nil {
+			if err = wBlock.UnmarshalBinary(blockBz); err != nil {
 				return 0, err
 			}
 
