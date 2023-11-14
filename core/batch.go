@@ -1,6 +1,7 @@
 package node
 
 import (
+	"bytes"
 	"context"
 	"encoding/binary"
 	"errors"
@@ -20,11 +21,12 @@ type BatchingCache struct {
 	prevStateRoot     common.Hash
 
 	// accumulated batch data
-	chunks               *types.Chunks
-	totalL1MessagePopped uint64
-	skippedBitmap        []*big.Int
-	postStateRoot        common.Hash
-	withdrawRoot         common.Hash
+	chunks                *types.Chunks
+	totalL1MessagePopped  uint64
+	skippedBitmap         []*big.Int
+	postStateRoot         common.Hash
+	withdrawRoot          common.Hash
+	lastPackedBlockHeight uint64
 	// caches sealedBatchHeader according to the above accumulated batch data
 	sealedBatchHeader *types.BatchHeader
 
@@ -36,6 +38,8 @@ type BatchingCache struct {
 	skippedBitmapAfterCurBlock        []*big.Int
 	currentStateRoot                  common.Hash
 	currentWithdrawRoot               common.Hash
+	currentBlockBytes                 []byte
+	currentTxsHash                    []byte
 }
 
 func NewBatchingCache() *BatchingCache {
@@ -61,8 +65,14 @@ func (bc *BatchingCache) ClearCurrent() {
 	bc.totalL1MessagePoppedAfterCurBlock = 0
 	bc.currentStateRoot = common.Hash{}
 	bc.currentWithdrawRoot = common.Hash{}
+	bc.currentBlockBytes = nil
+	bc.currentTxsHash = nil
 }
 
+// CalculateBatchSizeWithProposalBlock calculate the batch size with the proposed block.
+// It helps query the blocks from the last batch point, which are used to seal a new batch by SealBatch.
+// It stores the proposed block as the currentBlockContext, which is used by PackCurrentBlock to pack it to batch.
+// It can be called by multiple times during the same height consensus process.
 func (e *Executor) CalculateBatchSizeWithProposalBlock(currentBlockBytes []byte, currentTxs tmtypes.Txs, get l2node.GetFromBatchStartFunc) (int64, error) {
 	e.logger.Info("CalculateBatchSizeWithProposalBlock request", "block size", len(currentBlockBytes), "txs size", len(currentTxs))
 	if e.batchingCache.IsEmpty() {
@@ -107,10 +117,20 @@ func (e *Executor) CalculateBatchSizeWithProposalBlock(currentBlockBytes []byte,
 			blockContext := wBlock.BlockContextBytes(len(transactions), int(totalL1MessagePopped-totalL1MessagePoppedBefore))
 			e.batchingCache.chunks.Append(blockContext, txsPayload, txHashes)
 			e.batchingCache.totalL1MessagePopped = totalL1MessagePopped
+			e.batchingCache.lastPackedBlockHeight = wBlock.Number
 		}
+
+		// make sure passed block is the next block of the last packed block
+		curHeight, err := heightFromBCBytes(currentBlockBytes)
+		if err != nil {
+			return 0, err
+		}
+		if curHeight != e.batchingCache.lastPackedBlockHeight+1 {
+			return 0, fmt.Errorf("wrong propose height passed. lastPackedBlockHeight: %d, passed height: %d", e.batchingCache.lastPackedBlockHeight, curHeight)
+		}
+
 		e.batchingCache.parentBatchHeader = parentBatchHeader
 		e.batchingCache.skippedBitmap = skippedBitmap
-
 		header, err := e.l2Client.HeaderByNumber(context.Background(), big.NewInt(int64(lastHeightBeforeCurrentBatch)))
 		if err != nil {
 			return 0, err
@@ -118,23 +138,23 @@ func (e *Executor) CalculateBatchSizeWithProposalBlock(currentBlockBytes []byte,
 		e.batchingCache.prevStateRoot = header.Root
 	}
 
-	currentTxsPayload, currentTxsHashes, totalL1MessagePopped, skippedBitmap, err := ParsingTxs(currentTxs, e.batchingCache.parentBatchHeader.TotalL1MessagePopped, e.batchingCache.totalL1MessagePopped, e.batchingCache.skippedBitmap)
+	height, err := heightFromBCBytes(currentBlockBytes)
 	if err != nil {
 		return 0, err
 	}
-	var curBlock = new(types.WrappedBlock)
-	if err = curBlock.UnmarshalBinary(currentBlockBytes); err != nil {
+	if height <= e.batchingCache.lastPackedBlockHeight {
+		return 0, fmt.Errorf("wrong propose height passed. lastPackedBlockHeight: %d, passed height: %d", e.batchingCache.lastPackedBlockHeight, height)
+	} else if height > e.batchingCache.lastPackedBlockHeight+1 { // skipped some blocks, cache is dirty. need rebuild the cache
+		e.batchingCache = NewBatchingCache() // clean the cache, recall the function
+		e.logger.Info("the proposed block height is discontinuous from the block height in the cache, start to clean the cache and recall the function",
+			"proposed block height", height,
+			"batchingCache.lastPackedBlockHeight", e.batchingCache.lastPackedBlockHeight)
+		return e.CalculateBatchSizeWithProposalBlock(currentBlockBytes, currentTxs, get)
+	}
+
+	if err = e.setCurrentBlockContext(currentBlockBytes, currentTxs); err != nil {
 		return 0, err
 	}
-	currentBlockContext := curBlock.BlockContextBytes(currentTxs.Len(), int(totalL1MessagePopped-e.batchingCache.totalL1MessagePopped))
-	e.batchingCache.currentBlockContext = currentBlockContext
-	e.batchingCache.currentTxsPayload = currentTxsPayload
-	e.batchingCache.currentTxs = currentTxs
-	e.batchingCache.currentTxsHashes = currentTxsHashes
-	e.batchingCache.totalL1MessagePoppedAfterCurBlock = totalL1MessagePopped
-	e.batchingCache.skippedBitmapAfterCurBlock = skippedBitmap
-	e.batchingCache.currentStateRoot = curBlock.StateRoot
-	e.batchingCache.currentWithdrawRoot = curBlock.WithdrawTrieRoot
 
 	/**
 	 * commit batch which includes the fields:
@@ -146,7 +166,7 @@ func (e *Executor) CalculateBatchSizeWithProposalBlock(currentBlockBytes []byte,
 	 *  postStateRoot: 32 byte
 	 *  withdrawRoot:  32 byte
 	 */
-	chunksSizeWithCurBlock := e.batchingCache.chunks.Size() + len(currentTxsPayload) + len(currentBlockContext)
+	chunksSizeWithCurBlock := e.batchingCache.chunks.Size() + len(e.batchingCache.currentTxsPayload) + len(e.batchingCache.currentBlockContext)
 	// current block will be filled in a new chunk
 	if e.batchingCache.chunks.IsChunksFull() {
 		chunksSizeWithCurBlock += 1
@@ -156,6 +176,8 @@ func (e *Executor) CalculateBatchSizeWithProposalBlock(currentBlockBytes []byte,
 	return int64(batchSize), nil
 }
 
+// SealBatch seals the accumulated blocks into a batch
+// It should be called after CalculateBatchSizeWithProposalBlock which ensure the accumulated blocks is correct.
 func (e *Executor) SealBatch() ([]byte, []byte, error) {
 	if e.batchingCache.IsEmpty() {
 		return nil, nil, errors.New("failed to seal batch. No data found in batch cache")
@@ -177,13 +199,38 @@ func (e *Executor) SealBatch() ([]byte, []byte, error) {
 	e.batchingCache.sealedBatchHeader = &batchHeader
 	batchHash := batchHeader.Hash()
 	e.logger.Info("Sealed batch header", "batchHash", batchHash.Hex())
+	e.logger.Info(fmt.Sprintf("===BatchIndex: %d \n===L1MessagePopped: %d \n===TotalL1MessagePopped: %d \n===DataHash: %x \n===ChunksSize: %d \n===ParentBatchHash: %x \n===SkippedL1MessageBitmap: %x \n",
+		batchHeader.BatchIndex,
+		batchHeader.L1MessagePopped,
+		batchHeader.TotalL1MessagePopped,
+		batchHeader.DataHash,
+		e.batchingCache.chunks.BlockNum(),
+		batchHeader.ParentBatchHash,
+		batchHeader.SkippedL1MessageBitmap))
+	chunksBytes, _ := e.batchingCache.chunks.Encode()
+	for i, chunk := range chunksBytes {
+		e.logger.Info(fmt.Sprintf("===chunk%d: %x \n", i, chunk))
+	}
 	return batchHash[:], batchHeader.Encode(), nil
 }
 
-func (e *Executor) CommitBatch() error {
+// CommitBatch commit the sealed batch. It does nothing if no batch header is sealed.
+// It is supposed to be called when the current block is confirmed.
+func (e *Executor) CommitBatch(currentBlockBytes []byte, currentTxs tmtypes.Txs) error {
 	if e.batchingCache.IsEmpty() || e.batchingCache.sealedBatchHeader == nil { // nothing to commit
 		return nil
 	}
+
+	// reconstruct current block context
+	// it is possible that the confirmed current block is different from the existing cached current block context
+	if !bytes.Equal(currentBlockBytes, e.batchingCache.currentBlockBytes) ||
+		!bytes.Equal(currentTxs.Hash(), e.batchingCache.currentTxsHash) {
+		e.logger.Info("current block is changed, reconstructing current context...")
+		if err := e.setCurrentBlockContext(currentBlockBytes, currentTxs); err != nil {
+			return err
+		}
+	}
+
 	chunksBytes, err := e.batchingCache.chunks.Encode()
 	if err != nil {
 		return err
@@ -209,6 +256,7 @@ func (e *Executor) CommitBatch() error {
 	e.batchingCache.prevStateRoot = e.batchingCache.postStateRoot
 	e.batchingCache.sealedBatchHeader = nil
 
+	curHeight, _ := heightFromBCBytes(e.batchingCache.currentBlockBytes)
 	_, _, totalL1MessagePopped, skippedBitmap, err := ParsingTxs(e.batchingCache.currentTxs, e.batchingCache.totalL1MessagePopped, e.batchingCache.totalL1MessagePopped, nil)
 	if err != nil {
 		return err
@@ -217,6 +265,7 @@ func (e *Executor) CommitBatch() error {
 	e.batchingCache.skippedBitmap = skippedBitmap
 	e.batchingCache.postStateRoot = e.batchingCache.currentStateRoot
 	e.batchingCache.withdrawRoot = e.batchingCache.currentWithdrawRoot
+	e.batchingCache.lastPackedBlockHeight = curHeight
 	e.batchingCache.chunks = types.NewChunks()
 	e.batchingCache.chunks.Append(e.batchingCache.currentBlockContext, e.batchingCache.currentTxsPayload, e.batchingCache.currentTxsHashes)
 	e.batchingCache.ClearCurrent()
@@ -225,10 +274,25 @@ func (e *Executor) CommitBatch() error {
 	return nil
 }
 
-func (e *Executor) PackCurrentBlock() error {
+// PackCurrentBlock pack the current block data in batchingCache into the batch
+// It is supposed to be called when the current block is confirmed.
+func (e *Executor) PackCurrentBlock(currentBlockBytes []byte, currentTxs tmtypes.Txs) error {
+	// It is ok here to return nil, as `CalculateBatchSizeWithProposalBlock` will search historic blocks belongs to the batch being sealed.
 	if e.batchingCache.IsCurrentEmpty() {
-		return nil
+		return nil // nothing to pack
 	}
+
+	// reconstruct current block context
+	// it is possible that the confirmed current block is different from the existing cached current block context
+	if !bytes.Equal(currentBlockBytes, e.batchingCache.currentBlockBytes) ||
+		!bytes.Equal(currentTxs.Hash(), e.batchingCache.currentTxsHash) {
+		e.logger.Info("current block is changed, reconstructing current context...")
+		if err := e.setCurrentBlockContext(currentBlockBytes, currentTxs); err != nil {
+			return err
+		}
+	}
+
+	curHeight, _ := heightFromBCBytes(currentBlockBytes)
 	if e.batchingCache.chunks == nil {
 		e.batchingCache.chunks = types.NewChunks()
 	}
@@ -237,9 +301,33 @@ func (e *Executor) PackCurrentBlock() error {
 	e.batchingCache.totalL1MessagePopped = e.batchingCache.totalL1MessagePoppedAfterCurBlock
 	e.batchingCache.withdrawRoot = e.batchingCache.currentWithdrawRoot
 	e.batchingCache.postStateRoot = e.batchingCache.currentStateRoot
+	e.batchingCache.lastPackedBlockHeight = curHeight
 	e.batchingCache.ClearCurrent()
 
 	e.logger.Info("Packed current block into the batch")
+	return nil
+}
+
+func (e *Executor) setCurrentBlockContext(currentBlockBytes []byte, currentTxs tmtypes.Txs) error {
+	currentTxsPayload, currentTxsHashes, totalL1MessagePopped, skippedBitmap, err := ParsingTxs(currentTxs, e.batchingCache.parentBatchHeader.TotalL1MessagePopped, e.batchingCache.totalL1MessagePopped, e.batchingCache.skippedBitmap)
+	if err != nil {
+		return err
+	}
+	var curBlock = new(types.WrappedBlock)
+	if err = curBlock.UnmarshalBinary(currentBlockBytes); err != nil {
+		return err
+	}
+	currentBlockContext := curBlock.BlockContextBytes(currentTxs.Len(), int(totalL1MessagePopped-e.batchingCache.totalL1MessagePopped))
+	e.batchingCache.currentBlockContext = currentBlockContext
+	e.batchingCache.currentTxsPayload = currentTxsPayload
+	e.batchingCache.currentTxs = currentTxs
+	e.batchingCache.currentTxsHashes = currentTxsHashes
+	e.batchingCache.totalL1MessagePoppedAfterCurBlock = totalL1MessagePopped
+	e.batchingCache.skippedBitmapAfterCurBlock = skippedBitmap
+	e.batchingCache.currentStateRoot = curBlock.StateRoot
+	e.batchingCache.currentWithdrawRoot = curBlock.WithdrawTrieRoot
+	e.batchingCache.currentBlockBytes = currentBlockBytes
+	e.batchingCache.currentTxsHash = currentTxs.Hash()
 	return nil
 }
 
@@ -338,4 +426,12 @@ func GenesisBatchHeader(l2Client *types.RetryableClient) (types.BatchHeader, err
 		DataHash:             chunks.DataHash(),
 		ParentBatchHash:      common.Hash{},
 	}, nil
+}
+
+func heightFromBCBytes(blockBytes []byte) (uint64, error) {
+	var curBlock = new(types.WrappedBlock)
+	if err := curBlock.UnmarshalBinary(blockBytes); err != nil {
+		return 0, err
+	}
+	return curBlock.Number, nil
 }
