@@ -129,6 +129,23 @@ func (rc *RetryableClient) CommitBatch(ctx context.Context, batch *eth.RollupBat
 	return
 }
 
+func (rc *RetryableClient) AppendBlsSignature(ctx context.Context, batchHash common.Hash, signature eth.BatchSignature) (err error) {
+	if retryErr := backoff.Retry(func() error {
+		respErr := rc.authClient.AppendBlsSignature(ctx, batchHash, signature)
+		if respErr != nil {
+			rc.logger.Info("failed to call AppendBlsSignature", "error", respErr)
+			if retryableError(respErr) {
+				return respErr
+			}
+			err = respErr
+		}
+		return nil
+	}, rc.b); retryErr != nil {
+		return retryErr
+	}
+	return
+}
+
 func (rc *RetryableClient) BlockNumber(ctx context.Context) (ret uint64, err error) {
 	if retryErr := backoff.Retry(func() error {
 		resp, respErr := rc.ethClient.BlockNumber(ctx)
