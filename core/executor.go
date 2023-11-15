@@ -12,14 +12,13 @@ import (
 	"github.com/morphism-labs/node/sync"
 	"github.com/morphism-labs/node/types"
 	"github.com/scroll-tech/go-ethereum/accounts/abi"
+	"github.com/scroll-tech/go-ethereum/common"
 	"github.com/scroll-tech/go-ethereum/common/hexutil"
 	eth "github.com/scroll-tech/go-ethereum/core/types"
-	"github.com/scroll-tech/go-ethereum/crypto/bls12381"
 	"github.com/scroll-tech/go-ethereum/eth/catalyst"
 	"github.com/scroll-tech/go-ethereum/ethclient"
 	"github.com/scroll-tech/go-ethereum/ethclient/authclient"
 	"github.com/scroll-tech/go-ethereum/rlp"
-	"github.com/tendermint/tendermint/blssignatures"
 	"github.com/tendermint/tendermint/crypto"
 	"github.com/tendermint/tendermint/l2node"
 	tmlog "github.com/tendermint/tendermint/libs/log"
@@ -251,8 +250,7 @@ func (e *Executor) CheckBlockData(txs [][]byte, metaData []byte) (valid bool, er
 func (e *Executor) DeliverBlock(txs [][]byte, metaData []byte, consensusData l2node.ConsensusData) (nextBatchParams *tmproto.BatchParams, nextValidatorSet [][]byte, err error) {
 	e.logger.Info("DeliverBlock request", "txs length", len(txs),
 		"blockMeta length", len(metaData),
-		"blsSigners length", len(consensusData.BlsSigners),
-		"blsSignatures length", len(consensusData.BlsSignatures))
+		"batchHash", hexutil.Encode(consensusData.BatchHash))
 	height, err := e.l2Client.BlockNumber(context.Background())
 	if err != nil {
 		return nil, nil, err
@@ -279,48 +277,8 @@ func (e *Executor) DeliverBlock(txs [][]byte, metaData []byte, consensusData l2n
 		return nil, nil, types.ErrWrongBlockNumber
 	}
 
-	signers := make([]uint64, 0)
-	if !e.devSequencer {
-		for _, v := range consensusData.BlsSigners {
-			if len(v) > 0 {
-				var pk [tmKeySize]byte
-				copy(pk[:], v)
-
-				seqKey, ok := e.sequencerSet[pk]
-				if !ok {
-					return nil, nil, fmt.Errorf("found invalid validator: %s", hexutil.Encode(v))
-				}
-				signers = append(signers, seqKey.index)
-			}
-		}
-	}
-
-	var blsData eth.BLSData
-	if len(consensusData.BlsSignatures) > 0 {
-		sigs := make([]blssignatures.Signature, 0)
-		for _, bz := range consensusData.BlsSignatures {
-			if len(bz) > 0 {
-				sig, err := blssignatures.SignatureFromBytes(bz)
-				if err != nil {
-					e.logger.Error("failed to recover bytes to signature", "error", err)
-					return nil, nil, err
-				}
-				sigs = append(sigs, sig)
-			}
-		}
-		if len(sigs) > 0 {
-			var curVersion uint64
-			if e.currentVersion != nil {
-				curVersion = *e.currentVersion
-			}
-			aggregatedSig := blssignatures.AggregateSignatures(sigs)
-			blsData = eth.BLSData{
-				Version:      curVersion,
-				BLSSigners:   signers,
-				BLSSignature: bls12381.NewG1().EncodePoint(aggregatedSig),
-			}
-			e.metrics.BatchPointHeight.Set(float64(wrappedBlock.Number))
-		}
+	if len(consensusData.BatchHash) > 0 {
+		e.metrics.BatchPointHeight.Set(float64(wrappedBlock.Number))
 	}
 
 	l2Block := &catalyst.ExecutableL2Data{
@@ -340,7 +298,12 @@ func (e *Executor) DeliverBlock(txs [][]byte, metaData []byte, consensusData l2n
 
 		Transactions: txs,
 	}
-	err = e.l2Client.NewL2Block(context.Background(), l2Block, &blsData, L1MessagesToTxs(wrappedBlock.CollectedL1Messages))
+	var batchHash *common.Hash
+	if consensusData.BatchHash != nil {
+		batchHash = new(common.Hash)
+		copy(batchHash[:], consensusData.BatchHash)
+	}
+	err = e.l2Client.NewL2Block(context.Background(), l2Block, batchHash, L1MessagesToTxs(wrappedBlock.CollectedL1Messages))
 	if err != nil {
 		e.logger.Error("failed to NewL2Block", "error", err)
 		return nil, nil, err

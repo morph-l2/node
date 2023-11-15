@@ -2,15 +2,16 @@ package types
 
 import (
 	"context"
-	tmlog "github.com/tendermint/tendermint/libs/log"
 	"math/big"
 	"strings"
 
 	"github.com/cenkalti/backoff/v4"
+	"github.com/scroll-tech/go-ethereum/common"
 	eth "github.com/scroll-tech/go-ethereum/core/types"
 	"github.com/scroll-tech/go-ethereum/eth/catalyst"
 	"github.com/scroll-tech/go-ethereum/ethclient"
 	"github.com/scroll-tech/go-ethereum/ethclient/authclient"
+	tmlog "github.com/tendermint/tendermint/libs/log"
 )
 
 const (
@@ -18,6 +19,7 @@ const (
 	EOFError          = "EOF"
 	JWTStaleToken     = "stale token"
 	JWTExpiredToken   = "token is expired"
+	MinerClosed       = "miner closed"
 )
 
 type RetryableClient struct {
@@ -75,9 +77,9 @@ func (rc *RetryableClient) ValidateL2Block(ctx context.Context, executableL2Data
 	return
 }
 
-func (rc *RetryableClient) NewL2Block(ctx context.Context, executableL2Data *catalyst.ExecutableL2Data, blsData *eth.BLSData, l1Txs []eth.L1MessageTx) (err error) {
+func (rc *RetryableClient) NewL2Block(ctx context.Context, executableL2Data *catalyst.ExecutableL2Data, batchHash *common.Hash, l1Txs []eth.L1MessageTx) (err error) {
 	if retryErr := backoff.Retry(func() error {
-		respErr := rc.authClient.NewL2Block(ctx, executableL2Data, blsData, l1Txs)
+		respErr := rc.authClient.NewL2Block(ctx, executableL2Data, l1Txs, batchHash)
 		if respErr != nil {
 			rc.logger.Info("failed to NewL2Block", "error", respErr)
 			if retryableError(respErr) {
@@ -92,9 +94,9 @@ func (rc *RetryableClient) NewL2Block(ctx context.Context, executableL2Data *cat
 	return
 }
 
-func (rc *RetryableClient) NewSafeL2Block(ctx context.Context, safeL2Data *catalyst.SafeL2Data, blsData *eth.BLSData) (ret *eth.Header, err error) {
+func (rc *RetryableClient) NewSafeL2Block(ctx context.Context, safeL2Data *catalyst.SafeL2Data) (ret *eth.Header, err error) {
 	if retryErr := backoff.Retry(func() error {
-		resp, respErr := rc.authClient.NewSafeL2Block(ctx, safeL2Data, blsData)
+		resp, respErr := rc.authClient.NewSafeL2Block(ctx, safeL2Data)
 		if respErr != nil {
 			rc.logger.Info("failed to NewSafeL2Block", "error", respErr)
 			if retryableError(respErr) {
@@ -106,6 +108,23 @@ func (rc *RetryableClient) NewSafeL2Block(ctx context.Context, safeL2Data *catal
 		return nil
 	}, rc.b); retryErr != nil {
 		return nil, retryErr
+	}
+	return
+}
+
+func (rc *RetryableClient) CommitBatch(ctx context.Context, batch *eth.RollupBatch, signatures []eth.BatchSignature) (err error) {
+	if retryErr := backoff.Retry(func() error {
+		respErr := rc.authClient.CommitBatch(ctx, batch, signatures)
+		if respErr != nil {
+			rc.logger.Info("failed to CommitBatch", "error", respErr)
+			if retryableError(respErr) {
+				return respErr
+			}
+			err = respErr
+		}
+		return nil
+	}, rc.b); retryErr != nil {
+		return retryErr
 	}
 	return
 }
@@ -150,5 +169,7 @@ func retryableError(err error) bool {
 	return strings.Contains(err.Error(), ConnectionRefused) ||
 		strings.Contains(err.Error(), EOFError) ||
 		strings.Contains(err.Error(), JWTStaleToken) ||
-		strings.Contains(err.Error(), JWTExpiredToken)
+		strings.Contains(err.Error(), JWTExpiredToken) ||
+		strings.Contains(err.Error(), MinerClosed)
+
 }

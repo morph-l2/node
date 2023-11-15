@@ -6,9 +6,9 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"github.com/scroll-tech/go-ethereum/crypto/bls12381"
 	"math/big"
 
-	"github.com/morphism-labs/morphism-bindings/bindings"
 	"github.com/morphism-labs/node/types"
 	"github.com/scroll-tech/go-ethereum/common"
 	eth "github.com/scroll-tech/go-ethereum/core/types"
@@ -216,7 +216,7 @@ func (e *Executor) SealBatch() ([]byte, []byte, error) {
 
 // CommitBatch commit the sealed batch. It does nothing if no batch header is sealed.
 // It is supposed to be called when the current block is confirmed.
-func (e *Executor) CommitBatch(currentBlockBytes []byte, currentTxs tmtypes.Txs) error {
+func (e *Executor) CommitBatch(currentBlockBytes []byte, currentTxs tmtypes.Txs, blsDatas []l2node.BlsData) error {
 	if e.batchingCache.IsEmpty() || e.batchingCache.sealedBatchHeader == nil { // nothing to commit
 		return nil
 	}
@@ -235,21 +235,27 @@ func (e *Executor) CommitBatch(currentBlockBytes []byte, currentTxs tmtypes.Txs)
 	if err != nil {
 		return err
 	}
-	batchData := bindings.IRollupBatchData{
+
+	var batchSigs []eth.BatchSignature
+	if !e.devSequencer {
+		batchSigs, err = e.ConvertBlsData(blsDatas)
+		if err != nil {
+			return err
+		}
+	}
+
+	if err = e.l2Client.CommitBatch(context.Background(), &eth.RollupBatch{
 		Version:                0,
+		Index:                  e.batchingCache.parentBatchHeader.BatchIndex + 1,
 		ParentBatchHeader:      e.batchingCache.parentBatchHeader.Encode(),
 		Chunks:                 chunksBytes,
 		SkippedL1MessageBitmap: e.batchingCache.sealedBatchHeader.SkippedL1MessageBitmap,
 		PrevStateRoot:          e.batchingCache.prevStateRoot,
 		PostStateRoot:          e.batchingCache.postStateRoot,
 		WithdrawRoot:           e.batchingCache.withdrawRoot,
-	}
-	batchDataBytes, err := e.rollupABI.Pack("commitBatch", batchData)
-	if err != nil {
+	}, batchSigs); err != nil {
 		return err
 	}
-	// todo store the data
-	e.logger.Info("packed batch data", "batch data", batchDataBytes)
 
 	// commit sealed batch header; move current block into the next batch
 	e.batchingCache.parentBatchHeader = *e.batchingCache.sealedBatchHeader
@@ -426,6 +432,30 @@ func GenesisBatchHeader(l2Client *types.RetryableClient) (types.BatchHeader, err
 		DataHash:             chunks.DataHash(),
 		ParentBatchHash:      common.Hash{},
 	}, nil
+}
+
+func (e *Executor) ConvertBlsData(blsDatas []l2node.BlsData) (ret []eth.BatchSignature, err error) {
+	var curVersion uint64
+	if e.currentVersion != nil {
+		curVersion = *e.currentVersion
+	}
+	for _, blsData := range blsDatas {
+		var pk [tmKeySize]byte
+		copy(pk[:], blsData.Signer)
+
+		seqKey, ok := e.sequencerSet[pk]
+		if !ok {
+			return nil, fmt.Errorf("found invalid validator: %x", blsData.Signer)
+		}
+
+		ret = append(ret, eth.BatchSignature{
+			Version:      curVersion,
+			Signer:       seqKey.index,
+			SignerPubKey: new(bls12381.G2).EncodePoint(seqKey.blsPubKey.Key),
+			Signature:    blsData.Signature,
+		})
+	}
+	return
 }
 
 func heightFromBCBytes(blockBytes []byte) (uint64, error) {
