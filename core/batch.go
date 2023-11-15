@@ -114,6 +114,7 @@ func (e *Executor) CalculateBatchSizeWithProposalBlock(currentBlockBytes []byte,
 			if err != nil {
 				return 0, err
 			}
+			e.logger.Info("fetched block", "block height", wBlock.Number, "transaction count", len(transactions))
 			blockContext := wBlock.BlockContextBytes(len(transactions), int(totalL1MessagePopped-totalL1MessagePoppedBefore))
 			e.batchingCache.chunks.Append(blockContext, txsPayload, txHashes)
 			e.batchingCache.totalL1MessagePopped = totalL1MessagePopped
