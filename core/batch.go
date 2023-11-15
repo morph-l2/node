@@ -184,10 +184,14 @@ func (e *Executor) SealBatch() ([]byte, []byte, error) {
 		return nil, nil, errors.New("failed to seal batch. No data found in batch cache")
 	}
 
-	var skippedL1MessageBitmapBytes []byte
-	for _, each := range e.batchingCache.skippedBitmap {
-		skippedL1MessageBitmapBytes = append(skippedL1MessageBitmapBytes, each.Bytes()...)
+	// compute skipped bitmap
+	skippedL1MessageBitmapBytes := make([]byte, len(e.batchingCache.skippedBitmap)*32)
+	for ii, num := range e.batchingCache.skippedBitmap {
+		bz := num.Bytes()
+		padding := 32 - len(bz)
+		copy(skippedL1MessageBitmapBytes[32*ii+padding:], bz)
 	}
+
 	batchHeader := types.BatchHeader{
 		Version:                0,
 		BatchIndex:             e.batchingCache.parentBatchHeader.BatchIndex + 1,
