@@ -19,13 +19,13 @@ type BatchHeader struct {
 	SkippedL1MessageBitmap []byte
 
 	//cache
-	bytes []byte
+	Bytes []byte
 }
 
 // Encode encodes the BatchHeader into RollupV2 BatchHeaderV0Codec Encoding.
 func (b *BatchHeader) Encode() []byte {
-	if len(b.bytes) > 0 {
-		return b.bytes
+	if len(b.Bytes) > 0 {
+		return b.Bytes
 	}
 	batchBytes := make([]byte, 89+len(b.SkippedL1MessageBitmap))
 	batchBytes[0] = b.Version
@@ -35,16 +35,16 @@ func (b *BatchHeader) Encode() []byte {
 	copy(batchBytes[25:], b.DataHash[:])
 	copy(batchBytes[57:], b.ParentBatchHash[:])
 	copy(batchBytes[89:], b.SkippedL1MessageBitmap[:])
-	b.bytes = batchBytes
+	b.Bytes = batchBytes
 	return batchBytes
 }
 
 // Hash calculates the hash of the batch header.
 func (b *BatchHeader) Hash() common.Hash {
-	if len(b.bytes) == 0 {
+	if len(b.Bytes) == 0 {
 		b.Encode()
 	}
-	return crypto.Keccak256Hash(b.bytes)
+	return crypto.Keccak256Hash(b.Bytes)
 }
 
 // DecodeBatchHeader attempts to decode the given byte slice into a BatchHeader.
@@ -62,7 +62,7 @@ func DecodeBatchHeader(data []byte) (BatchHeader, error) {
 		ParentBatchHash:        common.BytesToHash(data[57:89]),
 		SkippedL1MessageBitmap: data[89:],
 
-		bytes: data,
+		Bytes: data,
 	}
 	return b, nil
 }

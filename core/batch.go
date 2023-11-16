@@ -83,7 +83,12 @@ func (e *Executor) CalculateBatchSizeWithProposalBlock(currentBlockBytes []byte,
 
 		var parentBatchHeader types.BatchHeader
 		if len(parentBatchHeaderBytes) == 0 {
-			if parentBatchHeader, err = GenesisBatchHeader(e.l2Client); err != nil {
+			genesisHeader, err := e.l2Client.HeaderByNumber(context.Background(), big.NewInt(0))
+			if err != nil {
+				return 0, err
+			}
+			parentBatchHeader, err = GenesisBatchHeader(genesisHeader)
+			if err != nil {
 				return 0, err
 			}
 		} else {
@@ -153,7 +158,7 @@ func (e *Executor) CalculateBatchSizeWithProposalBlock(currentBlockBytes []byte,
 		return e.CalculateBatchSizeWithProposalBlock(currentBlockBytes, currentTxs, get)
 	}
 
-	if err = e.setCurrentBlockContext(currentBlockBytes, currentTxs); err != nil {
+	if err = e.setCurrentBlock(currentBlockBytes, currentTxs); err != nil {
 		return 0, err
 	}
 
@@ -231,7 +236,7 @@ func (e *Executor) CommitBatch(currentBlockBytes []byte, currentTxs tmtypes.Txs,
 	if !bytes.Equal(currentBlockBytes, e.batchingCache.currentBlockBytes) ||
 		!bytes.Equal(currentTxs.Hash(), e.batchingCache.currentTxsHash) {
 		e.logger.Info("current block is changed, reconstructing current context...")
-		if err := e.setCurrentBlockContext(currentBlockBytes, currentTxs); err != nil {
+		if err := e.setCurrentBlock(currentBlockBytes, currentTxs); err != nil {
 			return err
 		}
 	}
@@ -312,7 +317,7 @@ func (e *Executor) PackCurrentBlock(currentBlockBytes []byte, currentTxs tmtypes
 	if !bytes.Equal(currentBlockBytes, e.batchingCache.currentBlockBytes) ||
 		!bytes.Equal(currentTxs.Hash(), e.batchingCache.currentTxsHash) {
 		e.logger.Info("current block is changed, reconstructing current context...")
-		if err := e.setCurrentBlockContext(currentBlockBytes, currentTxs); err != nil {
+		if err := e.setCurrentBlock(currentBlockBytes, currentTxs); err != nil {
 			return err
 		}
 	}
@@ -333,7 +338,7 @@ func (e *Executor) PackCurrentBlock(currentBlockBytes []byte, currentTxs tmtypes
 	return nil
 }
 
-func (e *Executor) setCurrentBlockContext(currentBlockBytes []byte, currentTxs tmtypes.Txs) error {
+func (e *Executor) setCurrentBlock(currentBlockBytes []byte, currentTxs tmtypes.Txs) error {
 	currentTxsPayload, currentTxsHashes, totalL1MessagePopped, skippedBitmap, err := ParsingTxs(currentTxs, e.batchingCache.parentBatchHeader.TotalL1MessagePopped, e.batchingCache.totalL1MessagePopped, e.batchingCache.skippedBitmap)
 	if err != nil {
 		return err
@@ -422,12 +427,7 @@ func ParsingTxs(transactions tmtypes.Txs, totalL1MessagePoppedBeforeTheBatch, to
 	return
 }
 
-func GenesisBatchHeader(l2Client *types.RetryableClient) (types.BatchHeader, error) {
-	genesisHeader, err := l2Client.HeaderByNumber(context.Background(), big.NewInt(0))
-	if err != nil {
-		return types.BatchHeader{}, err
-	}
-
+func GenesisBatchHeader(genesisHeader *eth.Header) (types.BatchHeader, error) {
 	wb := types.WrappedBlock{
 		ParentHash:  genesisHeader.ParentHash,
 		Miner:       genesisHeader.Coinbase,
