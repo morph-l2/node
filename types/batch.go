@@ -3,6 +3,7 @@ package types
 import (
 	"encoding/binary"
 	"fmt"
+	"github.com/scroll-tech/go-ethereum/common/hexutil"
 
 	"github.com/scroll-tech/go-ethereum/common"
 	"github.com/scroll-tech/go-ethereum/crypto"
@@ -16,10 +17,10 @@ type BatchHeader struct {
 	TotalL1MessagePopped   uint64
 	DataHash               common.Hash
 	ParentBatchHash        common.Hash
-	SkippedL1MessageBitmap []byte
+	SkippedL1MessageBitmap hexutil.Bytes
 
 	//cache
-	Bytes []byte
+	Bytes hexutil.Bytes
 }
 
 // Encode encodes the BatchHeader into RollupV2 BatchHeaderV0Codec Encoding.
