@@ -79,6 +79,7 @@ func (e *Executor) sequencerSetUpdates(curHeight *uint64) ([][]byte, error) {
 	e.logger.Info("sequencers updates, version changed", "before", beforeVersion, "now", currentVersion.Uint64())
 	sequencersInfo, err := e.sequencerContract.GetSequencerInfos(nil, false)
 	if err != nil {
+		e.logger.Error("failed to call GetSequencerInfos", "previous", false, "err", err)
 		return nil, err
 	}
 	newValidators, newSequencerSet, err := e.convertSequencerSet(sequencersInfo)
@@ -95,6 +96,7 @@ func (e *Executor) sequencerSetUpdates(curHeight *uint64) ([][]byte, error) {
 	} else if currentVersion.Uint64() != 0 { // first time to fetch sequencer set, and it is not the first version
 		preSequencerInfo, err := e.sequencerContract.GetSequencerInfos(nil, true)
 		if err != nil {
+			e.logger.Error("failed to call GetSequencerInfos", "previous", true, "err", err)
 			return nil, err
 		}
 		_, preSequencerSet, err := e.convertSequencerSet(preSequencerInfo)
@@ -103,6 +105,7 @@ func (e *Executor) sequencerSetUpdates(curHeight *uint64) ([][]byte, error) {
 		}
 		preVersionHeight, err := e.sequencerContract.PreVersionHeight(nil)
 		if err != nil {
+			e.logger.Error("failed to call PreVersionHeight", "err", err)
 			return nil, err
 		}
 		e.previousSequencerSet = []SequencerSetInfo{{
@@ -115,6 +118,7 @@ func (e *Executor) sequencerSetUpdates(curHeight *uint64) ([][]byte, error) {
 	var currentStartHeight uint64
 	curVersionHeight, err := e.sequencerContract.CurrentVersionHeight(nil)
 	if err != nil {
+		e.logger.Error("failed to call CurrentVersionHeight", "err", err)
 		return nil, err
 	}
 	if curVersionHeight.Uint64() != 0 {
