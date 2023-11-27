@@ -38,13 +38,15 @@ type Executor struct {
 
 	govContract       *bindings.Gov
 	sequencerContract *bindings.L2Sequencer
-	currentVersion    *uint64
-	sequencerSet      map[[tmKeySize]byte]sequencerKey // tendermint pk -> bls pk
-	validators        [][]byte
-	batchParams       tmproto.BatchParams
-	tmPubKey          []byte
-	isSequencer       bool
-	devSequencer      bool
+
+	currentSequencerSet  *SequencerSetInfo
+	previousSequencerSet []SequencerSetInfo
+
+	nextValidators [][]byte
+	batchParams    tmproto.BatchParams
+	tmPubKey       []byte
+	isSequencer    bool
+	devSequencer   bool
 
 	logger  tmlog.Logger
 	metrics *Metrics
@@ -122,7 +124,7 @@ func NewExecutor(ctx *cli.Context, home string, config *Config, tmPubKey crypto.
 		return executor, nil
 	}
 
-	if _, err = executor.updateSequencerSet(); err != nil {
+	if _, err = executor.updateSequencerSet(nil); err != nil {
 		return nil, err
 	}
 
@@ -253,7 +255,7 @@ func (e *Executor) DeliverBlock(txs [][]byte, l2Data l2node.Configs, consensusDa
 				var pk [tmKeySize]byte
 				copy(pk[:], v)
 
-				seqKey, ok := e.sequencerSet[pk]
+				seqKey, ok := e.currentSequencerSet.sequencerSet[pk]
 				if !ok {
 					return nil, nil, fmt.Errorf("found invalid validator: %s", hexutil.Encode(v))
 				}
@@ -277,8 +279,8 @@ func (e *Executor) DeliverBlock(txs [][]byte, l2Data l2node.Configs, consensusDa
 		}
 		if len(sigs) > 0 {
 			var curVersion uint64
-			if e.currentVersion != nil {
-				curVersion = *e.currentVersion
+			if e.currentSequencerSet != nil {
+				curVersion = e.currentSequencerSet.version
 			}
 			aggregatedSig := blssignatures.AggregateSignatures(sigs)
 			blsData = eth.BLSData{
@@ -302,7 +304,7 @@ func (e *Executor) DeliverBlock(txs [][]byte, l2Data l2node.Configs, consensusDa
 	var newValidatorSet = consensusData.ValidatorSet
 	var newBatchParams *tmproto.BatchParams
 	if !e.devSequencer {
-		if newValidatorSet, err = e.updateSequencerSet(); err != nil {
+		if newValidatorSet, err = e.updateSequencerSet(&l2Block.Number); err != nil {
 			return nil, nil, err
 		}
 		if newBatchParams, err = e.batchParamsUpdates(l2Block.Number); err != nil {
