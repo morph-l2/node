@@ -193,7 +193,7 @@ func (e *Executor) batchParamsUpdates(height uint64) (*tmproto.BatchParams, erro
 func (e *Executor) updateSequencerSet(curHeight *uint64) ([][]byte, error) {
 	validatorUpdates, err := e.sequencerSetUpdates(curHeight)
 	if err != nil {
-		e.logger.Error("failed to get sequencer set from geth")
+		e.logger.Error("failed to get sequencer set from geth", "err", err)
 		return nil, err
 	}
 	var tmPKBz [tmKeySize]byte
