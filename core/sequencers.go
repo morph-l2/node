@@ -3,10 +3,10 @@ package node
 import (
 	"errors"
 	"fmt"
-	"github.com/morphism-labs/morphism-bindings/bindings"
 	"math/big"
 	"time"
 
+	"github.com/morphism-labs/morphism-bindings/bindings"
 	"github.com/scroll-tech/go-ethereum/common/hexutil"
 	"github.com/scroll-tech/go-ethereum/crypto/bls12381"
 	"github.com/tendermint/tendermint/blssignatures"
@@ -21,20 +21,29 @@ type sequencerKey struct {
 	blsPubKey blssignatures.PublicKey
 }
 
-func (e *Executor) getBlsPubKeyByTmKey(tmPubKey []byte) *sequencerKey {
+func (e *Executor) getBlsPubKeyByTmKey(tmPubKey []byte, height *uint64) *sequencerKey {
 	var pk [tmKeySize]byte
 	copy(pk[:], tmPubKey)
-	if e.currentSequencerSet != nil {
+
+	if e.currentSequencerSet != nil && (height == nil || *height >= e.currentSequencerSet.startHeight) {
 		seqKey, ok := e.currentSequencerSet.sequencerSet[pk]
 		if ok {
 			return &seqKey
 		}
 	}
+	if e.currentSequencerSet.startHeight <= 1 { // means no previous sequencer set
+		return nil
+	}
+
+	nextEndHeight := e.currentSequencerSet.startHeight - 1
 	if len(e.previousSequencerSet) > 0 {
 		for i := len(e.previousSequencerSet) - 1; i >= 0; i-- {
-			seqKey, ok := e.previousSequencerSet[i].sequencerSet[pk]
-			if ok {
-				return &seqKey
+			if height == nil || (*height >= e.previousSequencerSet[i].startHeight && *height <= nextEndHeight) {
+				seqKey, ok := e.previousSequencerSet[i].sequencerSet[pk]
+				if ok {
+					return &seqKey
+				}
+				nextEndHeight = e.previousSequencerSet[i].startHeight - 1
 			}
 		}
 	}
@@ -50,7 +59,7 @@ func (e *Executor) VerifySignature(tmPubKey []byte, messageHash []byte, blsSig [
 		return false, errors.New("no available sequencers found in layer2")
 	}
 
-	seqKey := e.getBlsPubKeyByTmKey(tmPubKey)
+	seqKey := e.getBlsPubKeyByTmKey(tmPubKey, nil)
 	if seqKey == nil {
 		return false, errors.New("it is not a valid sequencer")
 	}

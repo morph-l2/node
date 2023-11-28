@@ -246,9 +246,14 @@ func (e *Executor) CommitBatch(currentBlockBytes []byte, currentTxs tmtypes.Txs,
 		return err
 	}
 
+	curHeight, err := heightFromBCBytes(e.batchingCache.currentBlockBytes)
+	if err != nil {
+		return err
+	}
+
 	var batchSigs []eth.BatchSignature
 	if !e.devSequencer {
-		batchSigs, err = e.ConvertBlsDatas(blsDatas)
+		batchSigs, err = e.ConvertBlsDatas(blsDatas, curHeight)
 		if err != nil {
 			return err
 		}
@@ -273,7 +278,6 @@ func (e *Executor) CommitBatch(currentBlockBytes []byte, currentTxs tmtypes.Txs,
 	e.batchingCache.prevStateRoot = e.batchingCache.postStateRoot
 	e.batchingCache.sealedBatchHeader = nil
 
-	curHeight, _ := heightFromBCBytes(e.batchingCache.currentBlockBytes)
 	_, _, totalL1MessagePopped, skippedBitmap, err := ParsingTxs(e.batchingCache.currentTxs, e.batchingCache.totalL1MessagePopped, e.batchingCache.totalL1MessagePopped, nil)
 	if err != nil {
 		return err
@@ -291,11 +295,11 @@ func (e *Executor) CommitBatch(currentBlockBytes []byte, currentTxs tmtypes.Txs,
 	return nil
 }
 
-func (e *Executor) AppendBlsData(batchHash []byte, data l2node.BlsData) error {
+func (e *Executor) AppendBlsData(height int64, batchHash []byte, data l2node.BlsData) error {
 	if len(batchHash) != 32 {
 		return fmt.Errorf("wrong batchHash length. expected: 32, actual: %d", len(batchHash))
 	}
-	blsSig, err := e.ConvertBlsData(data)
+	blsSig, err := e.ConvertBlsData(data, uint64(height))
 	if err != nil {
 		return err
 	}
@@ -453,9 +457,9 @@ func GenesisBatchHeader(genesisHeader *eth.Header) (types.BatchHeader, error) {
 	}, nil
 }
 
-func (e *Executor) ConvertBlsDatas(blsDatas []l2node.BlsData) (ret []eth.BatchSignature, err error) {
+func (e *Executor) ConvertBlsDatas(blsDatas []l2node.BlsData, height uint64) (ret []eth.BatchSignature, err error) {
 	for _, blsData := range blsDatas {
-		bs, err := e.ConvertBlsData(blsData)
+		bs, err := e.ConvertBlsData(blsData, height)
 		if err != nil {
 			return nil, err
 		}
@@ -464,17 +468,15 @@ func (e *Executor) ConvertBlsDatas(blsDatas []l2node.BlsData) (ret []eth.BatchSi
 	return
 }
 
-func (e *Executor) ConvertBlsData(blsData l2node.BlsData) (*eth.BatchSignature, error) {
-	var curVersion uint64
-	if e.currentVersion != nil {
-		curVersion = *e.currentVersion
-	}
-	var pk [tmKeySize]byte
-	copy(pk[:], blsData.Signer)
-
-	seqKey, ok := e.sequencerSet[pk]
-	if !ok {
+func (e *Executor) ConvertBlsData(blsData l2node.BlsData, height uint64) (*eth.BatchSignature, error) {
+	seqKey := e.getBlsPubKeyByTmKey(blsData.Signer, &height)
+	if seqKey == nil {
 		return nil, fmt.Errorf("found invalid validator: %x", blsData.Signer)
+	}
+
+	var curVersion uint64
+	if e.currentSequencerSet != nil {
+		curVersion = e.currentSequencerSet.version
 	}
 
 	bs := eth.BatchSignature{
