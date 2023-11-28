@@ -252,11 +252,8 @@ func (e *Executor) DeliverBlock(txs [][]byte, l2Data l2node.Configs, consensusDa
 	if !e.devSequencer {
 		for _, v := range consensusData.Validators {
 			if len(v) > 0 {
-				var pk [tmKeySize]byte
-				copy(pk[:], v)
-
-				seqKey, ok := e.currentSequencerSet.sequencerSet[pk]
-				if !ok {
+				seqKey := e.getBlsPubKeyByTmKey(v)
+				if seqKey == nil {
 					return nil, nil, fmt.Errorf("found invalid validator: %s", hexutil.Encode(v))
 				}
 				signers = append(signers, seqKey.index)
