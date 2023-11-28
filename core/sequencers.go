@@ -38,6 +38,12 @@ func (e *Executor) getBlsPubKeyByTmKey(tmPubKey []byte) *sequencerKey {
 			}
 		}
 	}
+
+	var before []string
+	for _, ss := range e.previousSequencerSet {
+		before = append(before, ss.String())
+	}
+	e.logger.Error("can not find sequencerKey", "tmPubKey", hexutil.Encode(tmPubKey), "current", e.currentSequencerSet.String(), "previous", before)
 	return nil
 }
 
