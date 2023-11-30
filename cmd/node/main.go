@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
-
+	"github.com/morphism-labs/node/cmd/keyconverter"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -21,14 +21,26 @@ import (
 	"github.com/morphism-labs/node/validator"
 	"github.com/scroll-tech/go-ethereum/ethclient"
 	tmnode "github.com/tendermint/tendermint/node"
+	"github.com/tendermint/tendermint/privval"
 	"github.com/urfave/cli"
 )
+
+var keyConverterCmd = cli.Command{
+	Name:    "key-converter",
+	Aliases: []string{"kc"},
+	Usage:   "tools to convert base64-encoded keys(tendermint key/bls key) to the format used by contracts",
+	Action:  keyconverter.ConvertKey,
+	Flags:   keyconverter.Flags,
+}
 
 func main() {
 	app := cli.NewApp()
 	app.Flags = flags.Flags
 	app.Name = "morphnode"
 	app.Action = L2NodeMain
+	app.Commands = []cli.Command{
+		keyConverterCmd,
+	}
 	err := app.Run(os.Args)
 	if err != nil {
 		fmt.Println("Application failed, message: ", err)
@@ -47,16 +59,9 @@ func L2NodeMain(ctx *cli.Context) error {
 
 		nodeConfig = node.DefaultConfig()
 	)
-	isSequencer := ctx.GlobalBool(flags.SequencerEnabled.Name)
 	isMockSequencer := ctx.GlobalBool(flags.MockEnabled.Name)
-	if isSequencer && isMockSequencer {
-		return fmt.Errorf("the sequencer and mockSequencer can not be enabled both")
-	}
-
 	isValidator := ctx.GlobalBool(flags.ValidatorEnable.Name)
-	if isValidator && isSequencer {
-		return fmt.Errorf("the validator and sequencer can not be enabled both")
-	}
+
 	if err = nodeConfig.SetCliContext(ctx); err != nil {
 		return err
 	}
@@ -101,33 +106,16 @@ func L2NodeMain(ctx *cli.Context) error {
 		dvNode.Start()
 		nodeConfig.Logger.Info("derivation node starting")
 	} else {
-
-		if isSequencer {
-			// configure store
-			dbConfig := db.DefaultConfig()
-			dbConfig.SetCliContext(ctx)
-			store, err := db.NewStore(dbConfig, home)
-			if err != nil {
-				return err
-			}
-			// launch syncer
-			syncConfig := sync.DefaultConfig()
-			if err = syncConfig.SetCliContext(ctx); err != nil {
-				return err
-			}
-			syncer, err = sync.NewSyncer(context.Background(), store, syncConfig, nodeConfig.Logger)
-			if err != nil {
-				return fmt.Errorf("failed to create syncer, error: %v", err)
-			}
-			syncer.Start()
-
-			// create executor
-			executor, err = node.NewSequencerExecutor(nodeConfig, syncer)
-			if err != nil {
-				return fmt.Errorf("failed to create executor, error: %v", err)
-			}
-		} else {
-			executor, err = node.NewExecutor(nodeConfig)
+		// launch tendermint node
+		tmCfg, err := sequencer.LoadTmConfig(ctx, home)
+		if err != nil {
+			return err
+		}
+		tmVal := privval.LoadOrGenFilePV(tmCfg.PrivValidatorKeyFile(), tmCfg.PrivValidatorStateFile())
+		pubKey, _ := tmVal.GetPubKey()
+		executor, err = node.NewExecutor(ctx, home, nodeConfig, pubKey)
+		if err != nil {
+			return err
 		}
 		if isMockSequencer {
 			ms, err = mock.NewSequencer(executor)
@@ -136,8 +124,7 @@ func L2NodeMain(ctx *cli.Context) error {
 			}
 			go ms.Start()
 		} else {
-			// launch tendermint node
-			if tmNode, err = sequencer.SetupNode(ctx, home, executor, nodeConfig.Logger); err != nil {
+			if tmNode, err = sequencer.SetupNode(tmCfg, tmVal, executor, nodeConfig.Logger); err != nil {
 				return fmt.Errorf("failed to setup consensus node, error: %v", err)
 			}
 			if err = tmNode.Start(); err != nil {

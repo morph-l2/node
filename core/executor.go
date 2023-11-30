@@ -9,17 +9,21 @@ import (
 	"time"
 
 	"github.com/morphism-labs/morphism-bindings/bindings"
+	"github.com/morphism-labs/node/sync"
 	"github.com/morphism-labs/node/types"
+	"github.com/scroll-tech/go-ethereum/accounts/abi"
 	"github.com/scroll-tech/go-ethereum/common"
+	"github.com/scroll-tech/go-ethereum/common/hexutil"
 	eth "github.com/scroll-tech/go-ethereum/core/types"
-	"github.com/scroll-tech/go-ethereum/crypto/bls12381"
+	"github.com/scroll-tech/go-ethereum/eth/catalyst"
 	"github.com/scroll-tech/go-ethereum/ethclient"
 	"github.com/scroll-tech/go-ethereum/ethclient/authclient"
 	"github.com/scroll-tech/go-ethereum/rlp"
-	"github.com/tendermint/tendermint/blssignatures"
+	"github.com/tendermint/tendermint/crypto"
 	"github.com/tendermint/tendermint/l2node"
 	tmlog "github.com/tendermint/tendermint/libs/log"
-	tdm "github.com/tendermint/tendermint/types"
+	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
+	"github.com/urfave/cli"
 )
 
 type Executor struct {
@@ -27,110 +31,118 @@ type Executor struct {
 	bc                  BlockConverter
 	nextL1MsgIndex      uint64
 	maxL1MsgNumPerBlock uint64
-	l1MsgReader         types.L1MessageReader // needed when it is configured as a sequencer
-	logger              tmlog.Logger
-	metrics             *Metrics
+	l1MsgReader         types.L1MessageReader
+
+	newSyncerFunc func() (*sync.Syncer, error)
+	syncer        *sync.Syncer
+
+	govContract       *bindings.Gov
+	sequencerContract *bindings.L2Sequencer
+
+	currentSequencerSet  *SequencerSetInfo
+	previousSequencerSet []SequencerSetInfo
+
+	nextValidators [][]byte
+	batchParams    tmproto.BatchParams
+	tmPubKey       []byte
+	isSequencer    bool
+	devSequencer   bool
+
+	rollupABI     *abi.ABI
+	batchingCache *BatchingCache
+
+	logger  tmlog.Logger
+	metrics *Metrics
 }
 
-func getNextL1MsgIndex(client *ethclient.Client) (uint64, error) {
+func getNextL1MsgIndex(client *ethclient.Client, logger tmlog.Logger) (uint64, error) {
 	currentHeader, err := client.HeaderByNumber(context.Background(), nil)
 	if err != nil {
 		return 0, err
 	}
-	return currentHeader.NextL1MsgIndex, nil
-}
-
-func getLatestProcessedL1Index(cdmAddress common.Address, client *ethclient.Client, logger tmlog.Logger) (*uint64, error) {
-	cdmCaller, err := bindings.NewL2CrossDomainMessengerCaller(cdmAddress, client)
-	if err != nil {
-		return nil, err
-	}
-	receivedNonce, err := cdmCaller.ReceiveNonce(nil)
 	if err != nil {
 		var count = 0
 		for err != nil && strings.Contains(err.Error(), "connection refused") {
 			time.Sleep(5 * time.Second)
 			count++
 			logger.Error("connection refused, try again", "retryCount", count)
-			receivedNonce, err = cdmCaller.ReceiveNonce(nil)
+			currentHeader, err = client.HeaderByNumber(context.Background(), nil)
 		}
-		// if no contracts found, we set it as nil
 		if err != nil {
-			logger.Error("failed to get ReceiveNonce", "error", err)
-			return nil, nil
+			logger.Error("failed to get currentHeader", "error", err)
+			return 0, fmt.Errorf("failed to get currentHeader, err: %v", err)
 		}
 	}
 
-	var latestProcessedL1Index *uint64
-	if receivedNonce.Cmp(big.NewInt(0)) != 0 {
-		decodedNonce, err := types.DecodeNonce(receivedNonce)
+	return currentHeader.NextL1MsgIndex, nil
+}
+
+func NewExecutor(ctx *cli.Context, home string, config *Config, tmPubKey crypto.PubKey) (*Executor, error) {
+	logger := config.Logger
+	logger = logger.With("module", "executor")
+	aClient, err := authclient.DialContext(context.Background(), config.L2.EngineAddr, config.L2.JwtSecret)
+	if err != nil {
+		return nil, err
+	}
+	eClient, err := ethclient.Dial(config.L2.EthAddr)
+	if err != nil {
+		return nil, err
+	}
+
+	index, err := getNextL1MsgIndex(eClient, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	sequencer, err := bindings.NewL2Sequencer(config.L2SequencerAddress, eClient)
+	if err != nil {
+		return nil, err
+	}
+	gov, err := bindings.NewGov(config.L2GovAddress, eClient)
+	if err != nil {
+		return nil, err
+	}
+
+	rollupAbi, err := bindings.RollupMetaData.GetAbi()
+	if err != nil {
+		return nil, err
+	}
+	executor := &Executor{
+		l2Client:            types.NewRetryableClient(aClient, eClient, config.Logger),
+		bc:                  &Version1Converter{},
+		sequencerContract:   sequencer,
+		govContract:         gov,
+		tmPubKey:            tmPubKey.Bytes(),
+		nextL1MsgIndex:      index,
+		maxL1MsgNumPerBlock: config.MaxL1MessageNumPerBlock,
+		newSyncerFunc:       func() (*sync.Syncer, error) { return newSyncer(ctx, home, config) },
+		devSequencer:        config.DevSequencer,
+		rollupABI:           rollupAbi,
+		batchingCache:       NewBatchingCache(),
+		logger:              logger,
+		metrics:             PrometheusMetrics("morphnode"),
+	}
+
+	if config.DevSequencer {
+		executor.syncer, err = executor.newSyncerFunc()
 		if err != nil {
 			return nil, err
 		}
-		latestProcessedL1Index = &decodedNonce
+		executor.syncer.Start()
+		executor.l1MsgReader = executor.syncer
+		return executor, nil
 	}
-	return latestProcessedL1Index, nil
-}
 
-func NewSequencerExecutor(config *Config, l1MsgReader types.L1MessageReader) (*Executor, error) {
-	if l1MsgReader == nil {
-		return nil, errors.New("l1MsgReader has to be provided for sequencer")
-	}
-	logger := config.Logger
-	logger = logger.With("module", "executor")
-	aClient, err := authclient.DialContext(context.Background(), config.L2.EngineAddr, config.L2.JwtSecret)
-	if err != nil {
-		return nil, err
-	}
-	eClient, err := ethclient.Dial(config.L2.EthAddr)
-	if err != nil {
+	if _, err = executor.updateSequencerSet(nil); err != nil {
 		return nil, err
 	}
 
-	index, err := getNextL1MsgIndex(eClient)
-	if err != nil {
-		return nil, err
-	}
-
-	return &Executor{
-		l2Client:            types.NewRetryableClient(aClient, eClient, config.Logger),
-		bc:                  &Version1Converter{},
-		nextL1MsgIndex:      index,
-		maxL1MsgNumPerBlock: config.MaxL1MessageNumPerBlock,
-		l1MsgReader:         l1MsgReader,
-		logger:              logger,
-		metrics:             PrometheusMetrics("morphnode"),
-	}, err
-}
-
-func NewExecutor(config *Config) (*Executor, error) {
-	aClient, err := authclient.DialContext(context.Background(), config.L2.EngineAddr, config.L2.JwtSecret)
-	if err != nil {
-		return nil, err
-	}
-	logger := config.Logger
-	logger = logger.With("module", "executor")
-	eClient, err := ethclient.Dial(config.L2.EthAddr)
-	if err != nil {
-		return nil, err
-	}
-
-	index, err := getNextL1MsgIndex(eClient)
-	if err != nil {
-		return nil, err
-	}
-	return &Executor{
-		l2Client:       types.NewRetryableClient(aClient, eClient, config.Logger),
-		bc:             &Version1Converter{},
-		nextL1MsgIndex: index,
-		logger:         logger,
-		metrics:        PrometheusMetrics("morphnode"),
-	}, err
+	return executor, nil
 }
 
 var _ l2node.L2Node = (*Executor)(nil)
 
-func (e *Executor) RequestBlockData(height int64) (txs [][]byte, l2Config, zkConfig []byte, root []byte, err error) {
+func (e *Executor) RequestBlockData(height int64) (txs [][]byte, blockMeta []byte, collectedL1Msgs bool, err error) {
 	if e.l1MsgReader == nil {
 		err = fmt.Errorf("RequestBlockData is not alllowed to be called")
 		return
@@ -153,6 +165,7 @@ func (e *Executor) RequestBlockData(height int64) (txs [][]byte, l2Config, zkCon
 			}
 			queueIndex++
 		}
+		collectedL1Msgs = true
 	}
 
 	l2Block, err := e.l2Client.AssembleL2Block(context.Background(), big.NewInt(height), transactions)
@@ -162,121 +175,160 @@ func (e *Executor) RequestBlockData(height int64) (txs [][]byte, l2Config, zkCon
 	}
 	e.logger.Info("AssembleL2Block returns l2Block", "tx length", len(l2Block.Transactions))
 
-	if zkConfig, l2Config, err = e.bc.Separate(l2Block, l1Messages); err != nil {
-		e.logger.Info("failed to convert l2Block to separated bytes", "error", err)
-		return
+	wb := types.WrappedBlock{
+		ParentHash:          l2Block.ParentHash,
+		Miner:               l2Block.Miner,
+		Number:              l2Block.Number,
+		GasLimit:            l2Block.GasLimit,
+		BaseFee:             l2Block.BaseFee,
+		Timestamp:           l2Block.Timestamp,
+		StateRoot:           l2Block.StateRoot,
+		GasUsed:             l2Block.GasUsed,
+		ReceiptRoot:         l2Block.ReceiptRoot,
+		LogsBloom:           l2Block.LogsBloom,
+		WithdrawTrieRoot:    l2Block.WithdrawTrieRoot,
+		NextL1MessageIndex:  l2Block.NextL1MessageIndex,
+		Hash:                l2Block.Hash,
+		CollectedL1Messages: l1Messages,
 	}
+	blockMeta, err = wb.MarshalBinary()
 	txs = l2Block.Transactions
-	root = l2Block.WithdrawTrieRoot.Bytes()
 	e.logger.Info("RequestBlockData response",
-		"txs.length", len(txs))
+		"txs.length", len(txs),
+		"collectedL1Msgs", collectedL1Msgs)
 	return
 }
 
-func (e *Executor) CheckBlockData(txs [][]byte, l2Config, zkConfig, root []byte) (valid bool, err error) {
-	if l2Config == nil || zkConfig == nil {
-		e.logger.Error("l2Config and zkConfig cannot be nil")
+func (e *Executor) CheckBlockData(txs [][]byte, metaData []byte) (valid bool, err error) {
+	if e.l1MsgReader == nil {
+		return false, fmt.Errorf("RequestBlockData is not alllowed to be called")
+	}
+	if len(metaData) == 0 {
+		e.logger.Error("metaData cannot be nil")
 		return false, nil
 	}
-	l2Block, collectedL1Messages, err := e.bc.Recover(zkConfig, l2Config, txs)
-	if err != nil {
-		e.logger.Error("failed to recover block from separated bytes", "err", err)
+
+	wrappedBlock := new(types.WrappedBlock)
+	if err = wrappedBlock.UnmarshalBinary(metaData); err != nil {
+		e.logger.Error("failed to UnmarshalBinary meta data bytes", "err", err)
 		return false, nil
 	}
+
 	e.logger.Info("CheckBlockData requests",
 		"txs.length", len(txs),
-		"l2Config length", len(l2Config),
-		"zkConfig length", len(zkConfig),
-		"eth block number", l2Block.Number)
+		"metaData length", len(metaData),
+		"eth block number", wrappedBlock.Number)
 
-	if err := e.validateL1Messages(l2Block, collectedL1Messages); err != nil {
+	l2Block := &catalyst.ExecutableL2Data{
+		ParentHash:         wrappedBlock.ParentHash,
+		Miner:              wrappedBlock.Miner,
+		Number:             wrappedBlock.Number,
+		GasLimit:           wrappedBlock.GasLimit,
+		BaseFee:            wrappedBlock.BaseFee,
+		Timestamp:          wrappedBlock.Timestamp,
+		StateRoot:          wrappedBlock.StateRoot,
+		GasUsed:            wrappedBlock.GasUsed,
+		ReceiptRoot:        wrappedBlock.ReceiptRoot,
+		LogsBloom:          wrappedBlock.LogsBloom,
+		WithdrawTrieRoot:   wrappedBlock.WithdrawTrieRoot,
+		NextL1MessageIndex: wrappedBlock.NextL1MessageIndex,
+		Hash:               wrappedBlock.Hash,
+
+		Transactions: txs,
+	}
+	if err := e.validateL1Messages(l2Block, wrappedBlock.CollectedL1Messages); err != nil {
 		if err != types.ErrQueryL1Message { // only do not return error if it is not ErrQueryL1Message error
 			err = nil
 		}
 		return false, err
 	}
+	l2Block.WithdrawTrieRoot = wrappedBlock.WithdrawTrieRoot
 
-	if root != nil {
-		l2Block.WithdrawTrieRoot = common.BytesToHash(root)
-	}
-
-	validated, err := e.l2Client.ValidateL2Block(context.Background(), l2Block, L1MessagesToTxs(collectedL1Messages))
+	validated, err := e.l2Client.ValidateL2Block(context.Background(), l2Block, L1MessagesToTxs(wrappedBlock.CollectedL1Messages))
 	e.logger.Info("CheckBlockData response", "validated", validated, "error", err)
 	return validated, err
 }
 
-func (e *Executor) DeliverBlock(txs [][]byte, l2Config, zkConfig []byte, validators []tdm.Address, blsSignatures [][]byte) error {
+func (e *Executor) DeliverBlock(txs [][]byte, metaData []byte, consensusData l2node.ConsensusData) (nextBatchParams *tmproto.BatchParams, nextValidatorSet [][]byte, err error) {
 	e.logger.Info("DeliverBlock request", "txs length", len(txs),
-		"l2Config length", len(l2Config),
-		"zkConfig length ", len(zkConfig),
-		"validator length", len(validators),
-		"blsSignatures length", len(blsSignatures))
+		"blockMeta length", len(metaData),
+		"batchHash", hexutil.Encode(consensusData.BatchHash))
 	height, err := e.l2Client.BlockNumber(context.Background())
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
-	if l2Config == nil || zkConfig == nil {
-		e.logger.Error("l2Config and zkConfig cannot be nil")
-		return nil
-	}
-
-	l2Block, collectedL1Messages, err := e.bc.Recover(zkConfig, l2Config, txs)
-	if err != nil {
-		e.logger.Error("failed to recover block from separated bytes", "err", err)
-		return err
+	if metaData == nil {
+		e.logger.Error("blockMeta cannot be nil")
+		return nil, nil, errors.New("blockMeta cannot be nil")
 	}
 
-	if l2Block.Number <= height {
-		e.logger.Info("ignore it, the block was delivered", "block number", l2Block.Number)
-		return nil
+	wrappedBlock := new(types.WrappedBlock)
+	if err = wrappedBlock.UnmarshalBinary(metaData); err != nil {
+		e.logger.Error("failed to UnmarshalBinary meta data bytes", "err", err)
+		return nil, nil, err
+	}
+
+	if wrappedBlock.Number <= height {
+		e.logger.Info("ignore it, the block was delivered", "block number", wrappedBlock.Number)
+		return nil, nil, nil
 	}
 
 	// We only accept the continuous blocks for now.
 	// It acts like full sync. Snap sync is not enabled until the Geth enables snapshot with zkTrie
-	if l2Block.Number > height+1 {
-		return types.ErrWrongBlockNumber
+	if wrappedBlock.Number > height+1 {
+		return nil, nil, types.ErrWrongBlockNumber
 	}
 
-	signers := make([][]byte, 0)
-	for _, v := range validators {
-		if len(v) > 0 {
-			signers = append(signers, v.Bytes())
-		}
+	if len(consensusData.BatchHash) > 0 {
+		e.metrics.BatchPointHeight.Set(float64(wrappedBlock.Number))
 	}
 
-	var blsData eth.BLSData
-	if len(blsSignatures) > 0 {
-		sigs := make([]blssignatures.Signature, 0)
-		for _, bz := range blsSignatures {
-			if len(bz) > 0 {
-				sig, err := blssignatures.SignatureFromBytes(bz)
-				if err != nil {
-					e.logger.Error("failed to recover bytes to signature", "error", err)
-					return err
-				}
-				sigs = append(sigs, sig)
-			}
-		}
-		if len(sigs) > 0 {
-			aggregatedSig := blssignatures.AggregateSignatures(sigs)
-			blsData = eth.BLSData{
-				BLSSigners:   signers,
-				BLSSignature: bls12381.NewG1().EncodePoint(aggregatedSig),
-			}
-			e.metrics.BatchPointHeight.Set(float64(l2Block.Number))
-		}
-	}
+	l2Block := &catalyst.ExecutableL2Data{
+		ParentHash:         wrappedBlock.ParentHash,
+		Miner:              wrappedBlock.Miner,
+		Number:             wrappedBlock.Number,
+		GasLimit:           wrappedBlock.GasLimit,
+		BaseFee:            wrappedBlock.BaseFee,
+		Timestamp:          wrappedBlock.Timestamp,
+		StateRoot:          wrappedBlock.StateRoot,
+		GasUsed:            wrappedBlock.GasUsed,
+		ReceiptRoot:        wrappedBlock.ReceiptRoot,
+		LogsBloom:          wrappedBlock.LogsBloom,
+		WithdrawTrieRoot:   wrappedBlock.WithdrawTrieRoot,
+		NextL1MessageIndex: wrappedBlock.NextL1MessageIndex,
+		Hash:               wrappedBlock.Hash,
 
-	err = e.l2Client.NewL2Block(context.Background(), l2Block, &blsData, L1MessagesToTxs(collectedL1Messages))
+		Transactions: txs,
+	}
+	var batchHash *common.Hash
+	if consensusData.BatchHash != nil {
+		batchHash = new(common.Hash)
+		copy(batchHash[:], consensusData.BatchHash)
+	}
+	err = e.l2Client.NewL2Block(context.Background(), l2Block, batchHash, L1MessagesToTxs(wrappedBlock.CollectedL1Messages))
 	if err != nil {
 		e.logger.Error("failed to NewL2Block", "error", err)
-		return err
+		return nil, nil, err
 	}
 
+	// end block
 	e.updateNextL1MessageIndex(l2Block)
 
+	var newValidatorSet = consensusData.ValidatorSet
+	var newBatchParams *tmproto.BatchParams
+	if !e.devSequencer {
+		if newValidatorSet, err = e.updateSequencerSet(&l2Block.Number); err != nil {
+			return nil, nil, err
+		}
+		if newBatchParams, err = e.batchParamsUpdates(l2Block.Number); err != nil {
+			return nil, nil, err
+		}
+	}
+
 	e.metrics.Height.Set(float64(l2Block.Number))
-	return nil
+
+	return newBatchParams, newValidatorSet,
+		nil
 }
 
 // EncodeTxs
@@ -300,9 +352,6 @@ func (e *Executor) EncodeTxs(batchTxs [][]byte) ([]byte, error) {
 }
 
 func (e *Executor) RequestHeight(tmHeight int64) (int64, error) {
-	//if tmHeight > 10 {
-	//	return tmHeight - 2, nil
-	//}
 	curHeight, err := e.l2Client.BlockNumber(context.Background())
 	if err != nil {
 		return 0, err

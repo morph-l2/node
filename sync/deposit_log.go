@@ -22,6 +22,17 @@ var (
 	L2CrossDomainMessengerABI, _ = bindings.L2CrossDomainMessengerMetaData.GetAbi()
 )
 
+func L1MessageTxFromEvent(event *bindings.MorphismPortalQueueTransaction) eth.L1MessageTx {
+	return eth.L1MessageTx{
+		QueueIndex: event.QueueIndex,
+		Gas:        event.GasLimit.Uint64(),
+		To:         &event.Target,
+		Value:      event.Value,
+		Data:       event.Data,
+		Sender:     event.Sender,
+	}
+}
+
 func (c *BridgeClient) deriveFromReceipt(receipts []*eth.Receipt) ([]types.L1Message, error) {
 	var out []types.L1Message
 	var result error
@@ -39,15 +50,8 @@ func (c *BridgeClient) deriveFromReceipt(receipts []*eth.Receipt) ([]types.L1Mes
 						continue
 					}
 					out = append(out, types.L1Message{
-						L1MessageTx: eth.L1MessageTx{
-							QueueIndex: event.QueueIndex,
-							Gas:        event.GasLimit.Uint64(),
-							To:         &event.Target,
-							Value:      event.Value,
-							Data:       event.Data,
-							Sender:     event.Sender,
-						},
-						L1TxHash: lg.TxHash,
+						L1MessageTx: L1MessageTxFromEvent(event),
+						L1TxHash:    lg.TxHash,
 					})
 				}
 			}

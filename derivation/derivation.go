@@ -42,8 +42,8 @@ type RollupData struct {
 
 type BlockData struct {
 	SafeL2Data *catalyst.SafeL2Data
-	blsData    *eth.BLSData
-	Root       common.Hash
+	//blsData    *eth.BLSData
+	Root common.Hash
 }
 
 func newRollupData(blockNumber uint64, txHash common.Hash, nonce uint64) *RollupData {
@@ -188,11 +188,12 @@ func (d *Derivation) derivationBlock(ctx context.Context) {
 		d.logger.Error("eth_getLogs failed", "err", err)
 		return
 	}
-	latestL2BlockNumber, err := d.rollup.LastL2BlockNumber(nil)
-	if err != nil {
-		d.logger.Error("query rollup LastL2BlockNumber failed", "err", err)
-		return
-	}
+	//latestL2BlockNumber, err := d.rollup.LastL2BlockNumber(nil)
+	//if err != nil {
+	//	d.logger.Error("query rollup LastL2BlockNumber failed", "err", err)
+	//	return
+	//}
+	latestL2BlockNumber := uint64(0)
 	d.logger.Info(fmt.Sprintf("rollup latest l2Blocknumber:%v", latestL2BlockNumber))
 	d.logger.Info("fetched rollup tx", "txNum", len(logs))
 	d.metrics.SetRollupL2Height(latestL2BlockNumber)
@@ -292,8 +293,8 @@ func (d *Derivation) parseArgs(args []interface{}, rollupData *RollupData, batch
 		PostStateRoot  [32]uint8 "json:\"postStateRoot\""
 		WithdrawalRoot [32]uint8 "json:\"withdrawalRoot\""
 		Signature      struct {
-			Signers   [][]uint8 "json:\"signers\""
-			Signature []uint8   "json:\"signature\""
+			Signers   []uint64 "json:\"signers\""
+			Signature []uint8  "json:\"signature\""
 		} "json:\"signature\""
 	})
 	for batchDataIndex, rollupBatchData := range rollupBatchDatas {
@@ -333,32 +334,32 @@ func (d *Derivation) parseArgs(args []interface{}, rollupData *RollupData, batch
 				safeL2Data.Transactions = [][]byte{}
 			}
 			blockData.SafeL2Data = &safeL2Data
-			if index == 0 && batchBls != nil {
-				if batchBls.BlockNumber != blockData.SafeL2Data.Number-1 {
-					return fmt.Errorf("miss last batch bls data,expect:%v but got %v", blockData.SafeL2Data.Number-1, batchBls.BlockNumber)
-				}
-				// Puts the Bls signature of the previous Batch in the first
-				// block of the current batch
-				blockData.blsData = batchBls.BlsData
-			}
-			if index == len(bd.BlockContexts)-1 {
-				// only last block of batch
-				if rollupBatchData.Signature.Signature == nil || rollupBatchData.Signature.Signers == nil {
-					d.logger.Error("invalid batch", "l1BlockNumber", rollupData.L1BlockNumber)
-				}
-				var blsData eth.BLSData
-				blsData.BLSSignature = rollupBatchData.Signature.Signature
-				blsData.BLSSigners = rollupBatchData.Signature.Signers
-				// The Bls signature of the current Batch is temporarily
-				// stored and later placed in the first Block of the next Batch
-				if batchBls != nil {
-					batchBls.BlsData = &blsData
-					batchBls.BlockNumber = block.Number.Uint64()
-				}
-				// StateRoot of the last Block of the Batch, used to verify the
-				// validity of the Layer1 BlockData
-				blockData.Root = rollupBatchData.PostStateRoot
-			}
+			//if index == 0 && batchBls != nil {
+			//	if batchBls.BlockNumber != blockData.SafeL2Data.Number-1 {
+			//		return fmt.Errorf("miss last batch bls data,expect:%v but got %v", blockData.SafeL2Data.Number-1, batchBls.BlockNumber)
+			//	}
+			//	// Puts the Bls signature of the previous Batch in the first
+			//	// block of the current batch
+			//	blockData.blsData = batchBls.BlsData
+			//}
+			//if index == len(bd.BlockContexts)-1 {
+			//	// only last block of batch
+			//	if rollupBatchData.Signature.Signature == nil || rollupBatchData.Signature.Signers == nil {
+			//		d.logger.Error("invalid batch", "l1BlockNumber", rollupData.L1BlockNumber)
+			//	}
+			//	var blsData eth.BLSData
+			//	blsData.BLSSignature = rollupBatchData.Signature.Signature
+			//	blsData.BLSSigners = rollupBatchData.Signature.Signers
+			//	// The Bls signature of the current Batch is temporarily
+			//	// stored and later placed in the first Block of the next Batch
+			//	if batchBls != nil {
+			//		batchBls.BlsData = &blsData
+			//		batchBls.BlockNumber = block.Number.Uint64()
+			//	}
+			//	// StateRoot of the last Block of the Batch, used to verify the
+			//	// validity of the Layer1 BlockData
+			//	blockData.Root = rollupBatchData.PostStateRoot
+			//}
 			batchBlocks = append(batchBlocks, &blockData)
 		}
 		rollupData.Batches = append(rollupData.Batches, batchBlocks)
@@ -377,7 +378,7 @@ func (d *Derivation) derive(batchBlocks []*BlockData) (*eth.Header, error) {
 			d.logger.Info("SafeL2Data block number less than latestBlockNumber", "safeL2DataNumber", blockData.SafeL2Data.Number, "latestBlockNumber", latestBlockNumber)
 			continue
 		}
-		lastHeader, err = d.l2Client.NewSafeL2Block(context.Background(), blockData.SafeL2Data, blockData.blsData)
+		lastHeader, err = d.l2Client.NewSafeL2Block(context.Background(), blockData.SafeL2Data)
 		if err != nil {
 			d.logger.Error("NewL2Block failed", "latestBlockNumber", latestBlockNumber, "error", err)
 			return nil, err
@@ -394,15 +395,15 @@ func (d *Derivation) findBatchIndex(txHash common.Hash, blockNumber uint64) (uin
 	if receipt.Status == eth.ReceiptStatusFailed {
 		return 0, err
 	}
-	for _, lg := range receipt.Logs {
-		batchStorage, err := d.rollup.ParseBatchStorage(*lg)
-		if err != nil {
-			continue
-		}
-		if batchStorage.BlockNumber == blockNumber {
-			return batchStorage.BatchIndex, nil
-		}
-	}
+	//for _, lg := range receipt.Logs {
+	//	batchStorage, err := d.rollup.ParseBatchStorage(*lg)
+	//	if err != nil {
+	//		continue
+	//	}
+	//	if batchStorage.BlockNumber == blockNumber {
+	//		return batchStorage.BatchIndex, nil
+	//	}
+	//}
 	return 0, fmt.Errorf("event not found")
 }
 

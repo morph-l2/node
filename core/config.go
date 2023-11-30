@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/morphism-labs/morphism-bindings/predeploys"
 	"github.com/morphism-labs/node/flags"
 	"github.com/morphism-labs/node/types"
 	"github.com/scroll-tech/go-ethereum/common"
@@ -20,7 +21,10 @@ import (
 type Config struct {
 	L2                            *types.L2Config `json:"l2"`
 	L2CrossDomainMessengerAddress common.Address  `json:"cross_domain_messenger_address"`
+	L2SequencerAddress            common.Address  `json:"l2_sequencer_address"`
+	L2GovAddress                  common.Address  `json:"l2_gov_address"`
 	MaxL1MessageNumPerBlock       uint64          `json:"max_l1_message_num_per_block"`
+	DevSequencer                  bool            `json:"dev_sequencer"`
 	Logger                        tmlog.Logger    `json:"logger"`
 }
 
@@ -29,7 +33,9 @@ func DefaultConfig() *Config {
 		L2:                            new(types.L2Config),
 		Logger:                        tmlog.NewTMLogger(tmlog.NewSyncWriter(os.Stdout)),
 		MaxL1MessageNumPerBlock:       100,
-		L2CrossDomainMessengerAddress: common.HexToAddress("0x4200000000000000000000000000000000000007"),
+		L2CrossDomainMessengerAddress: predeploys.L2CrossDomainMessengerAddr,
+		L2SequencerAddress:            predeploys.L2SequencerAddr,
+		L2GovAddress:                  predeploys.GovAddr,
 	}
 }
 
@@ -88,8 +94,28 @@ func (c *Config) SetCliContext(ctx *cli.Context) error {
 		addr := common.HexToAddress(ctx.GlobalString(flags.L2CrossDomainMessengerContractAddr.Name))
 		c.L2CrossDomainMessengerAddress = addr
 		if len(c.L2CrossDomainMessengerAddress.Bytes()) == 0 {
-			return errors.New("invalid SyncDepositContractAddr")
+			return errors.New("invalid L2CrossDomainMessengerContractAddr")
 		}
+	}
+
+	if ctx.GlobalIsSet(flags.L2SequencerAddr.Name) {
+		addr := common.HexToAddress(ctx.GlobalString(flags.L2SequencerAddr.Name))
+		c.L2SequencerAddress = addr
+		if len(c.L2SequencerAddress.Bytes()) == 0 {
+			return errors.New("invalid L2SequencerAddr")
+		}
+	}
+
+	if ctx.GlobalIsSet(flags.GovAddr.Name) {
+		addr := common.HexToAddress(ctx.GlobalString(flags.GovAddr.Name))
+		c.L2GovAddress = addr
+		if len(c.L2GovAddress.Bytes()) == 0 {
+			return errors.New("invalid GovAddr")
+		}
+	}
+
+	if ctx.GlobalIsSet(flags.DevSequencer.Name) {
+		c.DevSequencer = ctx.GlobalBool(flags.DevSequencer.Name)
 	}
 
 	return nil

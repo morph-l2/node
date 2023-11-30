@@ -8,7 +8,7 @@ require (
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/hashicorp/golang-lru v0.5.5-0.20210104140557-80c98217689d
 	github.com/holiman/uint256 v1.2.2
-	github.com/morphism-labs/morphism-bindings v0.0.0-20231016062003-9c91575dca80
+	github.com/morphism-labs/morphism-bindings v0.0.0-20231128071211-3081acb0c87f
 	github.com/prometheus/client_golang v1.16.0
 	github.com/scroll-tech/go-ethereum v1.11.4
 	github.com/spf13/viper v1.13.0
@@ -127,6 +127,6 @@ require (
 
 replace (
 	github.com/btcsuite/btcd => github.com/btcsuite/btcd v0.20.1-beta
-	github.com/scroll-tech/go-ethereum => github.com/morphism-labs/go-ethereum v1.10.14-0.20230830034843-cd7885537130
-	github.com/tendermint/tendermint => github.com/morphism-labs/tendermint v0.0.0-20230901035329-a2d45481b2f5
+	github.com/scroll-tech/go-ethereum => github.com/morphism-labs/go-ethereum v1.10.14-0.20231115115314-d7ef6c6a2804
+	github.com/tendermint/tendermint => github.com/morphism-labs/tendermint v0.0.0-20231129021153-3d75380ffe43
 )

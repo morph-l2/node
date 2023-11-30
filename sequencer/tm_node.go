@@ -2,6 +2,7 @@ package sequencer
 
 import (
 	"fmt"
+	"github.com/tendermint/tendermint/types"
 	"os"
 	"path/filepath"
 
@@ -16,12 +17,11 @@ import (
 	tmos "github.com/tendermint/tendermint/libs/os"
 	tmnode "github.com/tendermint/tendermint/node"
 	"github.com/tendermint/tendermint/p2p"
-	"github.com/tendermint/tendermint/privval"
 	"github.com/tendermint/tendermint/proxy"
 	"github.com/urfave/cli"
 )
 
-func SetupNode(ctx *cli.Context, home string, executor *node.Executor, logger tmlog.Logger) (*tmnode.Node, error) {
+func LoadTmConfig(ctx *cli.Context, home string) (*config.Config, error) {
 	var (
 		tmCfg      *config.Config
 		configPath = ctx.GlobalString(flags.TendermintConfigPath.Name)
@@ -47,7 +47,10 @@ func SetupNode(ctx *cli.Context, home string, executor *node.Executor, logger tm
 	if err := tmCfg.ValidateBasic(); err != nil {
 		return nil, fmt.Errorf("error in config file: %w", err)
 	}
+	return tmCfg, nil
+}
 
+func SetupNode(tmCfg *config.Config, privValidator types.PrivValidator, executor *node.Executor, logger tmlog.Logger) (*tmnode.Node, error) {
 	if tmCfg.LogFormat == config.LogFormatJSON {
 		logger = tmlog.NewTMJSONLogger(tmlog.NewSyncWriter(os.Stdout))
 	}
@@ -62,7 +65,7 @@ func SetupNode(ctx *cli.Context, home string, executor *node.Executor, logger tm
 		return nil, err
 	}
 
-	if !tmos.FileExists(tmCfg.BLSKey) {
+	if !tmos.FileExists(tmCfg.BLSKeyFile()) {
 		blssignatures.GenFileBLSKey().Save(tmCfg.BLSKeyFile())
 	}
 	blsPrivKey, err := blssignatures.PrivateKeyFromBytes(blssignatures.LoadBLSKey(tmCfg.BLSKeyFile()).PrivKey)
@@ -74,7 +77,7 @@ func SetupNode(ctx *cli.Context, home string, executor *node.Executor, logger tm
 	n, err := tmnode.NewNode(
 		tmCfg,
 		executor,
-		privval.LoadOrGenFilePV(tmCfg.PrivValidatorKeyFile(), tmCfg.PrivValidatorStateFile()),
+		privValidator,
 		&blsPrivKey,
 		nodeKey,
 		proxy.NewLocalClientCreator(tmtypes.NewBaseApplication()),

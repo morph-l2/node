@@ -33,7 +33,7 @@ volumes:
 
 services:
   morph-geth-0:
-    image: morphism-geth:latest
+    image: morphism/l2geth:latest
     ports:
       - "8545:8545"
       - "8546:8546"
@@ -45,13 +45,13 @@ services:
       - "${PWD}/../genesis_geth.json:/genesis.json"
       - "${PWD}/nodekey:/db/geth/nodekey"
     entrypoint: # always use this nodekey, in order to keep the encoded node ID the same
-      - "/bin/sh"
+      - "/bin/bash"
       - "/entrypoint.sh"
 
   morph-geth-1:
     depends_on:
       - morph-geth-0
-    image: morphism-geth:latest
+    image: morphism/l2geth:latest
     ports:
       - "8645:8545"
       - "8646:8546"
@@ -65,13 +65,13 @@ services:
     environment:
       - BOOT_NODES=enode://58e698ea2dd8a76e0cb185d13c1faabf223b60c89fef988c8b89496571056d6c2922109537bb291cd87f2ec09a23ac37d59bde2c7a4885d07b7b641cadff2921@morph-geth-0:30303
     entrypoint: # pass the L2 specific flags by overriding the entry-point and adding extra arguments
-      - "/bin/sh"
+      - "/bin/bash"
       - "/entrypoint.sh"
 
   morph-geth-2:
     depends_on:
       - morph-geth-0
-    image: morphism-geth:latest
+    image: morphism/l2geth:latest
     ports:
       - "8745:8545"
       - "8746:8546"
@@ -85,13 +85,13 @@ services:
     environment:
       - BOOT_NODES=enode://58e698ea2dd8a76e0cb185d13c1faabf223b60c89fef988c8b89496571056d6c2922109537bb291cd87f2ec09a23ac37d59bde2c7a4885d07b7b641cadff2921@morph-geth-0:30303
     entrypoint: # pass the L2 specific flags by overriding the entry-point and adding extra arguments
-      - "/bin/sh"
+      - "/bin/bash"
       - "/entrypoint.sh"
 
   morph-geth-3:
     depends_on:
       - morph-geth-0
-    image: morphism-geth:latest
+    image: morphism/l2geth:latest
     ports:
       - "8845:8545"
       - "8846:8546"
@@ -105,7 +105,7 @@ services:
     environment:
       - BOOT_NODES=enode://58e698ea2dd8a76e0cb185d13c1faabf223b60c89fef988c8b89496571056d6c2922109537bb291cd87f2ec09a23ac37d59bde2c7a4885d07b7b641cadff2921@morph-geth-0:30303
     entrypoint: # pass the L2 specific flags by overriding the entry-point and adding extra arguments
-      - "/bin/sh"
+      - "/bin/bash"
       - "/entrypoint.sh"
 
   node-0:
@@ -129,7 +129,7 @@ services:
       - "${PWD}/../jwt-secret.txt:${JWT_SECRET_PATH}"
     command: >
       morphnode
-      --sequencer
+      --dev-sequencer
       --home $NODE_DATA_DIR
 
   node-1:
@@ -153,7 +153,7 @@ services:
       - "${PWD}/../jwt-secret.txt:${JWT_SECRET_PATH}"
     command: >
       morphnode
-      --sequencer
+      --dev-sequencer
       --home $NODE_DATA_DIR
 
   node-2:
@@ -177,7 +177,7 @@ services:
       - "${PWD}/../jwt-secret.txt:${JWT_SECRET_PATH}"
     command: >
       morphnode
-      --sequencer
+      --dev-sequencer
       --home $NODE_DATA_DIR
 
   node-3:
@@ -201,5 +201,5 @@ services:
       - "${PWD}/../jwt-secret.txt:${JWT_SECRET_PATH}"
     command: >
       morphnode
-      --sequencer
+      --dev-sequencer
       --home $NODE_DATA_DIR

@@ -17,17 +17,15 @@ var (
 	}
 
 	L2EthAddr = cli.StringFlag{
-		Name:     "l2.eth",
-		Usage:    "Address of L2 Engine JSON-RPC endpoints to use (eth namespace required)",
-		EnvVar:   prefixEnvVar("L2_ETH_RPC"),
-		Required: true,
+		Name:   "l2.eth",
+		Usage:  "Address of L2 Engine JSON-RPC endpoints to use (eth namespace required)",
+		EnvVar: prefixEnvVar("L2_ETH_RPC"),
 	}
 
 	L2EngineAddr = cli.StringFlag{
-		Name:     "l2.engine",
-		Usage:    "Address of L2 Engine JSON-RPC endpoints to use (engine namespace required)",
-		EnvVar:   prefixEnvVar("L2_ENGINE_RPC"),
-		Required: true,
+		Name:   "l2.engine",
+		Usage:  "Address of L2 Engine JSON-RPC endpoints to use (engine namespace required)",
+		EnvVar: prefixEnvVar("L2_ENGINE_RPC"),
 	}
 
 	L2EngineJWTSecret = cli.StringFlag{
@@ -48,6 +46,18 @@ var (
 		Name:   "l2CDMContractAddr",
 		Usage:  "L2CrossDomainMessenger contract address",
 		EnvVar: prefixEnvVar("L2_CDM_CONTRACT_ADDRESS"),
+	}
+
+	L2SequencerAddr = cli.StringFlag{
+		Name:   "l2SequencerContractAddr",
+		Usage:  "l2sequencer contract address",
+		EnvVar: prefixEnvVar("L2_SEQUENCER_CONTRACT_ADDRESS"),
+	}
+
+	GovAddr = cli.StringFlag{
+		Name:   "govContractAddr",
+		Usage:  "gov contract address",
+		EnvVar: prefixEnvVar("GOV_CONTRACT_ADDRESS"),
 	}
 
 	L1NodeAddr = cli.StringFlag{
@@ -130,16 +140,16 @@ var (
 		EnvVar: prefixEnvVar("DB_FREEZER"),
 	}
 
-	SequencerEnabled = &cli.BoolFlag{
-		Name:   "sequencer",
-		Usage:  "Enable the sequencer mode",
-		EnvVar: prefixEnvVar("SEQUENCER"),
-	}
-
 	TendermintConfigPath = &cli.StringFlag{
 		Name:   "tdm.config",
 		Usage:  "Directory of tendermint config file",
 		EnvVar: prefixEnvVar("TDM_CONFIG"),
+	}
+
+	DevSequencer = &cli.BoolFlag{
+		Name:   "dev-sequencer",
+		Usage:  "explicitly specify that running as a sequencer. If it enables, the tendermint validator/batch params won't be changed no matter what happens to staking/gov contacts. Only use in dev/test mode",
+		EnvVar: prefixEnvVar("DEV_SEQUENCER"),
 	}
 
 	MockEnabled = &cli.BoolFlag{
@@ -235,6 +245,8 @@ var Flags = []cli.Flag{
 	L2EngineJWTSecret,
 	MaxL1MessageNumPerBlock,
 	L2CrossDomainMessengerContractAddr,
+	L2SequencerAddr,
+	GovAddr,
 
 	// sync optioins
 	SyncDepositContractAddr,
@@ -250,7 +262,7 @@ var Flags = []cli.Flag{
 	DBCache,
 	DBFreezer,
 
-	SequencerEnabled,
+	DevSequencer,
 	TendermintConfigPath,
 	MockEnabled,
 	ValidatorEnable,
