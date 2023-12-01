@@ -196,7 +196,8 @@ func (e *Executor) RequestBlockData(height int64) (txs [][]byte, blockMeta []byt
 	txs = l2Block.Transactions
 	e.logger.Info("RequestBlockData response",
 		"txs.length", len(txs),
-		"collectedL1Msgs", collectedL1Msgs)
+		"collectedL1Msgs", collectedL1Msgs,
+		"row consumption", fmt.Sprintf("%v", l2Block.RowUsages))
 	return
 }
 

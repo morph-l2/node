@@ -212,7 +212,7 @@ func (e *Executor) SealBatch() ([]byte, []byte, error) {
 	e.batchingCache.sealedBatchHeader = &batchHeader
 	batchHash := batchHeader.Hash()
 	e.logger.Info("Sealed batch header", "batchHash", batchHash.Hex())
-	e.logger.Info(fmt.Sprintf("===BatchIndex: %d \n===L1MessagePopped: %d \n===TotalL1MessagePopped: %d \n===DataHash: %x \n===ChunksSize: %d \n===ParentBatchHash: %x \n===SkippedL1MessageBitmap: %x \n",
+	e.logger.Info(fmt.Sprintf("===BatchIndex: %d \n===L1MessagePopped: %d \n===TotalL1MessagePopped: %d \n===DataHash: %x \n===BlockNum: %d \n===ParentBatchHash: %x \n===SkippedL1MessageBitmap: %x \n",
 		batchHeader.BatchIndex,
 		batchHeader.L1MessagePopped,
 		batchHeader.TotalL1MessagePopped,
