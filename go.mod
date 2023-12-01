@@ -109,11 +109,11 @@ require (
 	github.com/tklauser/numcpus v0.4.0 // indirect
 	github.com/tyler-smith/go-bip39 v1.1.0 // indirect
 	go.etcd.io/bbolt v1.3.6 // indirect
-	golang.org/x/crypto v0.9.0 // indirect
-	golang.org/x/net v0.10.0 // indirect
-	golang.org/x/sync v0.2.0 // indirect
-	golang.org/x/sys v0.8.0 // indirect
-	golang.org/x/text v0.9.0 // indirect
+	golang.org/x/crypto v0.14.0 // indirect
+	golang.org/x/net v0.16.0 // indirect
+	golang.org/x/sync v0.4.0 // indirect
+	golang.org/x/sys v0.13.0 // indirect
+	golang.org/x/text v0.13.0 // indirect
 	golang.org/x/time v0.1.0 // indirect
 	google.golang.org/genproto v0.0.0-20221118155620-16455021b5e6 // indirect
 	google.golang.org/grpc v1.52.0 // indirect
@@ -127,6 +127,6 @@ require (
 
 replace (
 	github.com/btcsuite/btcd => github.com/btcsuite/btcd v0.20.1-beta
-	github.com/scroll-tech/go-ethereum => github.com/morphism-labs/go-ethereum v1.10.14-0.20231115115314-d7ef6c6a2804
-	github.com/tendermint/tendermint => github.com/morphism-labs/tendermint v0.0.0-20231129021153-3d75380ffe43
+	github.com/scroll-tech/go-ethereum => github.com/morphism-labs/go-ethereum v1.10.14-0.20231201030520-fa65a3ffb9c0
+	github.com/tendermint/tendermint => github.com/morphism-labs/tendermint v0.0.0-20231201030343-65cde31bfd97
 )

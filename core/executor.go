@@ -187,6 +187,7 @@ func (e *Executor) RequestBlockData(height int64) (txs [][]byte, blockMeta []byt
 		ReceiptRoot:         l2Block.ReceiptRoot,
 		LogsBloom:           l2Block.LogsBloom,
 		WithdrawTrieRoot:    l2Block.WithdrawTrieRoot,
+		RowConsumption:      l2Block.RowUsages,
 		NextL1MessageIndex:  l2Block.NextL1MessageIndex,
 		Hash:                l2Block.Hash,
 		CollectedL1Messages: l1Messages,
@@ -231,6 +232,7 @@ func (e *Executor) CheckBlockData(txs [][]byte, metaData []byte) (valid bool, er
 		ReceiptRoot:        wrappedBlock.ReceiptRoot,
 		LogsBloom:          wrappedBlock.LogsBloom,
 		WithdrawTrieRoot:   wrappedBlock.WithdrawTrieRoot,
+		RowUsages:          wrappedBlock.RowConsumption,
 		NextL1MessageIndex: wrappedBlock.NextL1MessageIndex,
 		Hash:               wrappedBlock.Hash,
 
@@ -295,6 +297,7 @@ func (e *Executor) DeliverBlock(txs [][]byte, metaData []byte, consensusData l2n
 		ReceiptRoot:        wrappedBlock.ReceiptRoot,
 		LogsBloom:          wrappedBlock.LogsBloom,
 		WithdrawTrieRoot:   wrappedBlock.WithdrawTrieRoot,
+		RowUsages:          wrappedBlock.RowConsumption,
 		NextL1MessageIndex: wrappedBlock.NextL1MessageIndex,
 		Hash:               wrappedBlock.Hash,
 
