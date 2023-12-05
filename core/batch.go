@@ -6,12 +6,13 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/scroll-tech/go-ethereum/crypto/bls12381"
 	"math/big"
+	"math/bits"
 
 	"github.com/morphism-labs/node/types"
 	"github.com/scroll-tech/go-ethereum/common"
 	eth "github.com/scroll-tech/go-ethereum/core/types"
+	"github.com/scroll-tech/go-ethereum/crypto/bls12381"
 	"github.com/tendermint/tendermint/l2node"
 	tmtypes "github.com/tendermint/tendermint/types"
 )
@@ -120,8 +121,9 @@ func (e *Executor) CalculateCapWithProposalBlock(currentBlockBytes []byte, curre
 			if err != nil {
 				return 0, 0, err
 			}
-			e.logger.Info("fetched block", "block height", wBlock.Number, "transaction count", len(transactions[i]))
-			blockContext := wBlock.BlockContextBytes(len(transactions[i]), int(totalL1MessagePopped-totalL1MessagePoppedBefore))
+			skippedL1MsgNum := skippedNums(skippedBitmap)
+			e.logger.Info("fetched block", "block height", wBlock.Number, "transaction count", len(transactions[i]), "skipped L1Message num", skippedL1MsgNum)
+			blockContext := wBlock.BlockContextBytes(len(transactions[i])+skippedL1MsgNum, int(totalL1MessagePopped-totalL1MessagePoppedBefore))
 			e.batchingCache.chunks.Append(blockContext, txsPayload, txHashes, wBlock.RowConsumption)
 			e.batchingCache.totalL1MessagePopped = totalL1MessagePopped
 			e.batchingCache.lastPackedBlockHeight = wBlock.Number
@@ -357,7 +359,7 @@ func (e *Executor) setCurrentBlock(currentBlockBytes []byte, currentTxs tmtypes.
 	if err = curBlock.UnmarshalBinary(currentBlockBytes); err != nil {
 		return err
 	}
-	currentBlockContext := curBlock.BlockContextBytes(currentTxs.Len(), int(totalL1MessagePopped-e.batchingCache.totalL1MessagePopped))
+	currentBlockContext := curBlock.BlockContextBytes(currentTxs.Len()+skippedNums(skippedBitmap), int(totalL1MessagePopped-e.batchingCache.totalL1MessagePopped))
 	e.batchingCache.currentBlockContext = currentBlockContext
 	e.batchingCache.currentTxsPayload = currentTxsPayload
 	e.batchingCache.currentTxs = currentTxs
@@ -501,4 +503,11 @@ func heightFromBCBytes(blockBytes []byte) (uint64, error) {
 		return 0, err
 	}
 	return curBlock.Number, nil
+}
+
+func skippedNums(skippedBitMap []*big.Int) (count int) {
+	for _, s := range skippedBitMap {
+		count += bits.OnesCount64(s.Uint64())
+	}
+	return
 }
