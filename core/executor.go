@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/morphism-labs/morphism-bindings/bindings"
-	"github.com/morphism-labs/node/sync"
-	"github.com/morphism-labs/node/types"
+	"github.com/morph-l2/bindings/bindings"
+	"github.com/morph-l2/node/sync"
+	"github.com/morph-l2/node/types"
 	"github.com/scroll-tech/go-ethereum/accounts/abi"
 	"github.com/scroll-tech/go-ethereum/common"
 	"github.com/scroll-tech/go-ethereum/common/hexutil"

@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/morphism-labs/morphism-bindings/bindings"
-	nodecommon "github.com/morphism-labs/node/common"
-	"github.com/morphism-labs/node/types"
+	"github.com/morph-l2/bindings/bindings"
+	nodecommon "github.com/morph-l2/node/common"
+	"github.com/morph-l2/node/types"
 	"github.com/scroll-tech/go-ethereum/accounts/abi/bind"
 	"github.com/scroll-tech/go-ethereum/common"
 	eth "github.com/scroll-tech/go-ethereum/core/types"
@@ -16,25 +16,25 @@ import (
 )
 
 type BridgeClient struct {
-	l1Client              *ethclient.Client
-	filter                *bindings.MorphismPortalFilterer
-	morphismPortalAddress common.Address
-	confirmations         rpc.BlockNumber
-	logger                tmlog.Logger
+	l1Client           *ethclient.Client
+	filter             *bindings.MorphPortalFilterer
+	morphPortalAddress common.Address
+	confirmations      rpc.BlockNumber
+	logger             tmlog.Logger
 }
 
-func NewBridgeClient(l1Client *ethclient.Client, morphismPortalAddress common.Address, confirmations rpc.BlockNumber, logger tmlog.Logger) (*BridgeClient, error) {
+func NewBridgeClient(l1Client *ethclient.Client, morphPortalAddress common.Address, confirmations rpc.BlockNumber, logger tmlog.Logger) (*BridgeClient, error) {
 	logger = logger.With("module", "bridge")
-	filter, err := bindings.NewMorphismPortalFilterer(morphismPortalAddress, l1Client)
+	filter, err := bindings.NewMorphPortalFilterer(morphPortalAddress, l1Client)
 	if err != nil {
-		return nil, fmt.Errorf("failed to initialize MorphismPortalFilterer, err = %w", err)
+		return nil, fmt.Errorf("failed to initialize NewMorphPortalFilterer, err = %w", err)
 	}
 	return &BridgeClient{
-		l1Client:              l1Client,
-		filter:                filter,
-		morphismPortalAddress: morphismPortalAddress,
-		confirmations:         confirmations,
-		logger:                logger,
+		l1Client:           l1Client,
+		filter:             filter,
+		morphPortalAddress: morphPortalAddress,
+		confirmations:      confirmations,
+		logger:             logger,
 	}, nil
 }
 

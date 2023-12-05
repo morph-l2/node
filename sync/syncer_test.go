@@ -8,8 +8,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/morphism-labs/node/db"
-	"github.com/morphism-labs/node/types"
+	"github.com/morph-l2/node/db"
+	"github.com/morph-l2/node/types"
 	"github.com/scroll-tech/go-ethereum/common"
 	gethTypes "github.com/scroll-tech/go-ethereum/core/types"
 	"github.com/stretchr/testify/require"

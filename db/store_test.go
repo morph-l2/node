@@ -4,7 +4,7 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/morphism-labs/node/types"
+	"github.com/morph-l2/node/types"
 	"github.com/scroll-tech/go-ethereum/common"
 	eth "github.com/scroll-tech/go-ethereum/core/types"
 	"github.com/stretchr/testify/require"

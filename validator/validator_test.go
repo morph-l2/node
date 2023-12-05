@@ -5,7 +5,7 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/morphism-labs/morphism-bindings/bindings"
+	"github.com/morph-l2/bindings/bindings"
 	"github.com/scroll-tech/go-ethereum/accounts/abi/bind"
 	"github.com/scroll-tech/go-ethereum/accounts/abi/bind/backends"
 	"github.com/scroll-tech/go-ethereum/core"

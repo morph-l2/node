@@ -8,7 +8,7 @@ const (
 	MetricsSubsystem = "executor"
 )
 
-//go:generate go run ../ops-morphism/metricsgen -struct=Metrics
+//go:generate go run ../ops-morph/metricsgen -struct=Metrics
 
 type Metrics struct {
 	Height                  metrics.Gauge

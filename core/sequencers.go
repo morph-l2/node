@@ -6,7 +6,7 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/morphism-labs/morphism-bindings/bindings"
+	"github.com/morph-l2/bindings/bindings"
 	"github.com/scroll-tech/go-ethereum/common/hexutil"
 	"github.com/scroll-tech/go-ethereum/crypto/bls12381"
 	"github.com/tendermint/tendermint/blssignatures"
