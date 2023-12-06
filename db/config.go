@@ -1,7 +1,7 @@
 package db
 
 import (
-	"github.com/morphism-labs/node/flags"
+	"github.com/morph-l2/node/flags"
 	"github.com/urfave/cli"
 )
 

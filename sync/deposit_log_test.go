@@ -4,7 +4,7 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/morphism-labs/morphism-bindings/bindings"
+	"github.com/morph-l2/bindings/bindings"
 	"github.com/scroll-tech/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 )

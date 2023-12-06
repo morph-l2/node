@@ -7,8 +7,8 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/holiman/uint256"
-	"github.com/morphism-labs/morphism-bindings/bindings"
-	"github.com/morphism-labs/node/types"
+	"github.com/morph-l2/bindings/bindings"
+	"github.com/morph-l2/node/types"
 	"github.com/scroll-tech/go-ethereum/common"
 	eth "github.com/scroll-tech/go-ethereum/core/types"
 	"github.com/scroll-tech/go-ethereum/crypto"
@@ -22,7 +22,7 @@ var (
 	L2CrossDomainMessengerABI, _ = bindings.L2CrossDomainMessengerMetaData.GetAbi()
 )
 
-func L1MessageTxFromEvent(event *bindings.MorphismPortalQueueTransaction) eth.L1MessageTx {
+func L1MessageTxFromEvent(event *bindings.MorphPortalQueueTransaction) eth.L1MessageTx {
 	return eth.L1MessageTx{
 		QueueIndex: event.QueueIndex,
 		Gas:        event.GasLimit.Uint64(),
@@ -41,7 +41,7 @@ func (c *BridgeClient) deriveFromReceipt(receipts []*eth.Receipt) ([]types.L1Mes
 			continue
 		}
 		for j, lg := range rec.Logs {
-			if lg.Address == c.morphismPortalAddress && len(lg.Topics) > 0 && lg.Topics[0] == DepositEventABIHash {
+			if lg.Address == c.morphPortalAddress && len(lg.Topics) > 0 && lg.Topics[0] == DepositEventABIHash {
 				event, err := c.filter.ParseQueueTransaction(*lg)
 				if err != nil {
 					result = multierror.Append(result, fmt.Errorf("malformatted L1 deposit log in receipt %d, log %d: %w", i, j, err))

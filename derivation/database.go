@@ -1,6 +1,6 @@
 package derivation
 
-import "github.com/morphism-labs/node/types"
+import "github.com/morph-l2/node/types"
 
 type Database interface {
 	Reader

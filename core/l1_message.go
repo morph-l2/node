@@ -5,7 +5,7 @@ import (
 
 	"github.com/scroll-tech/go-ethereum/eth/catalyst"
 
-	"github.com/morphism-labs/node/types"
+	"github.com/morph-l2/node/types"
 	"github.com/scroll-tech/go-ethereum/common"
 	eth "github.com/scroll-tech/go-ethereum/core/types"
 )

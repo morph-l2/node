@@ -3,8 +3,8 @@ package node
 import (
 	"context"
 	"fmt"
-	"github.com/morphism-labs/node/db"
-	"github.com/morphism-labs/node/sync"
+	"github.com/morph-l2/node/db"
+	"github.com/morph-l2/node/sync"
 	"github.com/urfave/cli"
 )
 

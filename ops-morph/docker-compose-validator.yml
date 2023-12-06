@@ -6,7 +6,7 @@ volumes:
 
 services:
   validator_geth:
-    image: morphism-geth:latest
+    image: morph-geth:latest
     ports:
       - "7545:8545"
       - "7546:8546"
@@ -29,8 +29,8 @@ services:
       - validator_geth
     build:
       context: ..
-      dockerfile: ./ops-morphism/Dockerfile
-    image: morphism-node:latest
+      dockerfile: ./ops-morph/Dockerfile
+    image: morph-node:latest
     ports:
       - "26660:26660"
     environment:
