@@ -6,8 +6,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/morphism-labs/node/core"
-	"github.com/morphism-labs/node/flags"
+	"github.com/morph-l2/node/core"
+	"github.com/morph-l2/node/flags"
 	"github.com/spf13/viper"
 	tmtypes "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/blssignatures"

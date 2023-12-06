@@ -8,9 +8,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/morphism-labs/morphism-bindings/predeploys"
-	"github.com/morphism-labs/node/flags"
-	"github.com/morphism-labs/node/types"
+	"github.com/morph-l2/bindings/predeploys"
+	"github.com/morph-l2/node/flags"
+	"github.com/morph-l2/node/types"
 	"github.com/scroll-tech/go-ethereum/common"
 	"github.com/scroll-tech/go-ethereum/common/hexutil"
 	tmconfig "github.com/tendermint/tendermint/config"

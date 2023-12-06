@@ -8,7 +8,7 @@ const (
 	MetricsSubsystem = "syncer"
 )
 
-//go:generate go run ../ops-morphism/metricsgen -struct=Metrics
+//go:generate go run ../ops-morph/metricsgen -struct=Metrics
 
 type Metrics struct {
 	SyncedL1Height       metrics.Gauge   `metrics_name:"l1height"`

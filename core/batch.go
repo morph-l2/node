@@ -9,7 +9,7 @@ import (
 	"math/big"
 	"math/bits"
 
-	"github.com/morphism-labs/node/types"
+	"github.com/morph-l2/node/types"
 	"github.com/scroll-tech/go-ethereum/common"
 	eth "github.com/scroll-tech/go-ethereum/core/types"
 	"github.com/scroll-tech/go-ethereum/crypto/bls12381"

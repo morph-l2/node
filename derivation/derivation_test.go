@@ -9,8 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/morphism-labs/morphism-bindings/bindings"
-	"github.com/morphism-labs/node/types"
+	"github.com/morph-l2/node/types"
 	"github.com/scroll-tech/go-ethereum"
 	"github.com/scroll-tech/go-ethereum/accounts/abi/bind"
 	"github.com/scroll-tech/go-ethereum/accounts/abi/bind/backends"

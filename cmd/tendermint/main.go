@@ -4,7 +4,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/morphism-labs/node/types"
+	"github.com/morph-l2/node/types"
 	cmd "github.com/tendermint/tendermint/cmd/tendermint/commands"
 	"github.com/tendermint/tendermint/cmd/tendermint/commands/debug"
 	"github.com/tendermint/tendermint/libs/cli"
