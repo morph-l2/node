@@ -272,6 +272,7 @@ func (d *Derivation) fetchRollupDataByTxHash(txHash common.Hash, blockNumber uin
 	if err != nil {
 		return nil, err
 	}
+	fmt.Printf("Inputs.Unpack tx:%v", hexutil.Encode(tx.Data()))
 	args, err := abi.Methods["commitBatch"].Inputs.Unpack(tx.Data()[4:])
 	if err != nil {
 		return nil, fmt.Errorf("submitBatches Unpack error:%v", err)
