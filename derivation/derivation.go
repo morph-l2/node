@@ -90,7 +90,7 @@ type DeployContractBackend interface {
 	ethereum.TransactionReader
 }
 
-func NewDerivationClient(ctx context.Context, cfg *Config, syncCfg *sync.Config, db Database, validator *validator.Validator, rollup *bindings.Rollup, logger tmlog.Logger) (*Derivation, error) {
+func NewDerivationClient(ctx context.Context, cfg *Config, syncer *sync.Syncer, db Database, validator *validator.Validator, rollup *bindings.Rollup, logger tmlog.Logger) (*Derivation, error) {
 	l1Client, err := ethclient.Dial(cfg.L1.Addr)
 	if err != nil {
 		return nil, err
@@ -103,7 +103,6 @@ func NewDerivationClient(ctx context.Context, cfg *Config, syncCfg *sync.Config,
 	if err != nil {
 		return nil, err
 	}
-	syncer, err := sync.NewSyncer(ctx, db, syncCfg, logger)
 	ctx, cancel := context.WithCancel(ctx)
 	logger = logger.With("module", "derivation")
 	metrics := PrometheusMetrics("morphnode")
