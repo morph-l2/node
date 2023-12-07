@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
@@ -290,6 +291,9 @@ func (d *Derivation) fetchRollupDataByTxHash(txHash common.Hash, blockNumber uin
 			Signature []byte     "json:\"signature\""
 		}
 	})
+	rollupBatchDataJson, err := json.Marshal(rollupBatchData)
+	fmt.Printf("rollupBatchData ======= %+v\n", rollupBatchData)
+	fmt.Printf("rollupBatchDataJson ======= %v\n", string(rollupBatchDataJson))
 	var chunks []hexutil.Bytes
 	for _, chunk := range rollupBatchData.Chunks {
 		chunks = append(chunks, chunk)
