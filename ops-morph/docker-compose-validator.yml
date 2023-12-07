@@ -38,6 +38,7 @@ services:
       - MORPH_NODE_L2_ETH_RPC=http://validator_geth:8545
       - MORPH_NODE_L2_ENGINE_RPC=http://validator_geth:8551
       - MORPH_NODE_L2_ENGINE_AUTH=jwt-secret.txt
+      - MORPH_NODE_SYNC_DEPOSIT_CONTRACT_ADDRESS=0x6900000000000000000000000000000000000001
       ## todo need to replace it to a public network
       - MORPH_NODE_L1_ETH_RPC=http://host.docker.internal:9545
       - MORPH_NODE_VALIDATOR_PRIVATE_KEY=ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80

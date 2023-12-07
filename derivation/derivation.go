@@ -197,7 +197,7 @@ func (d *Derivation) derivationBlock(ctx context.Context) {
 	}
 	latestBatchIndex, err := d.rollup.LastCommittedBatchIndex(nil)
 	if err != nil {
-		d.logger.Error("query rollup LastL2BlockNumber failed", "err", err)
+		d.logger.Error("query rollup latestCommitted batch Index failed", "err", err)
 		return
 	}
 	// parse latest batch
