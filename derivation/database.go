@@ -1,10 +1,14 @@
 package derivation
 
-import "github.com/morph-l2/node/types"
+import (
+	"github.com/morph-l2/node/sync"
+	"github.com/morph-l2/node/types"
+)
 
 type Database interface {
 	Reader
 	Writer
+	sync.Database
 }
 
 type Reader interface {

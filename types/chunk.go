@@ -30,6 +30,26 @@ func (ck *Chunk) Append(blockContext, txsPayload []byte, txHashes []common.Hash)
 	ck.blockNum++
 }
 
+func (ck *Chunk) ResetBlockNum(blockNum int) {
+	ck.blockNum = blockNum
+}
+
+func (ck *Chunk) BlockContext() []byte {
+	return ck.blockContext
+}
+
+func (ck *Chunk) TxsPayload() []byte {
+	return ck.txsPayload
+}
+
+func (ck *Chunk) TxHashes() []common.Hash {
+	return ck.txHashes
+}
+
+func (ck *Chunk) BlockNum() int {
+	return ck.blockNum
+}
+
 // Encode encodes the chunk into bytes
 // Below is the encoding for `Chunk`, total 60*n+1+m bytes.
 // Field           Bytes       Type            Index       Comments

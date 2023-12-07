@@ -1,6 +1,8 @@
 package types
 
 import (
+	"bytes"
+	"encoding/binary"
 	"math/big"
 
 	"github.com/scroll-tech/go-ethereum/common"
@@ -113,4 +115,32 @@ func (wb *WrappedBlock) BlockContextBytes(txsNum, l1MsgNum int) []byte {
 	copy(blsBytes[58:60], Uint16ToBigEndianBytes(uint16(l1MsgNum)))
 
 	return blsBytes
+}
+
+func (wb *WrappedBlock) DecodeBlockContextBytes(bls []byte) (uint64, uint64, error) {
+	// Number(8) || Timestamp(8) || BaseFee(32) || GasLimit(8) || numTxs(2) || numL1Messages(2)
+	reader := bytes.NewReader(bls)
+	bsBaseFee := make([]byte, 32)
+	var txsNum uint16
+	var l1MsgNum uint16
+	if err := binary.Read(reader, binary.BigEndian, &wb.Number); err != nil {
+		return 0, 0, err
+	}
+	if err := binary.Read(reader, binary.BigEndian, &wb.Timestamp); err != nil {
+		return 0, 0, err
+	}
+	if err := binary.Read(reader, binary.BigEndian, &bsBaseFee); err != nil {
+		return 0, 0, err
+	}
+	wb.BaseFee = new(big.Int).SetBytes(bsBaseFee)
+	if err := binary.Read(reader, binary.BigEndian, &wb.GasLimit); err != nil {
+		return 0, 0, err
+	}
+	if err := binary.Read(reader, binary.BigEndian, &txsNum); err != nil {
+		return 0, 0, err
+	}
+	if err := binary.Read(reader, binary.BigEndian, &txsNum); err != nil {
+		return 0, 0, err
+	}
+	return uint64(txsNum), uint64(l1MsgNum), nil
 }
