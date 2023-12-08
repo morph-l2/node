@@ -1,13 +1,14 @@
 package sequencer
 
 import (
+	"context"
 	"fmt"
-	"github.com/tendermint/tendermint/types"
 	"os"
 	"path/filepath"
 
 	"github.com/morph-l2/node/core"
 	"github.com/morph-l2/node/flags"
+	nodetypes "github.com/morph-l2/node/types"
 	"github.com/spf13/viper"
 	tmtypes "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/blssignatures"
@@ -18,6 +19,7 @@ import (
 	tmnode "github.com/tendermint/tendermint/node"
 	"github.com/tendermint/tendermint/p2p"
 	"github.com/tendermint/tendermint/proxy"
+	"github.com/tendermint/tendermint/types"
 	"github.com/urfave/cli"
 )
 
@@ -80,11 +82,33 @@ func SetupNode(tmCfg *config.Config, privValidator types.PrivValidator, executor
 		privValidator,
 		&blsPrivKey,
 		nodeKey,
-		proxy.NewLocalClientCreator(tmtypes.NewBaseApplication()),
+		proxy.NewLocalClientCreator(NewApplication(tmtypes.NewBaseApplication(), executor.L2Client())),
 		tmnode.DefaultGenesisDocProviderFunc(tmCfg),
 		tmnode.DefaultDBProvider,
 		tmnode.DefaultMetricsProvider(tmCfg.Instrumentation),
 		nodeLogger,
 	)
 	return n, err
+}
+
+type Application struct {
+	*tmtypes.BaseApplication
+	l2Client *nodetypes.RetryableClient
+}
+
+func NewApplication(baseApp *tmtypes.BaseApplication, l2Client *nodetypes.RetryableClient) Application {
+	return Application{
+		BaseApplication: baseApp,
+		l2Client:        l2Client,
+	}
+}
+
+func (a Application) Info(req tmtypes.RequestInfo) tmtypes.ResponseInfo {
+	blockNumber, err := a.l2Client.BlockNumber(context.Background())
+	if err != nil {
+		return tmtypes.ResponseInfo{}
+	}
+	return tmtypes.ResponseInfo{
+		LastBlockHeight: int64(blockNumber),
+	}
 }
