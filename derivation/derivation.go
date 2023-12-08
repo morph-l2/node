@@ -209,7 +209,7 @@ func (d *Derivation) derivationBlock(ctx context.Context) {
 	for _, lg := range logs {
 		rollupData, err := d.fetchRollupDataByTxHash(lg.TxHash, lg.BlockNumber)
 		if err != nil {
-			blockNumber, err := d.l2Client.BlockNumber(nil)
+			blockNumber, err := d.l2Client.BlockNumber(ctx)
 			if err != nil {
 				d.logger.Error("get l2 BlockNumber", "err", err)
 				return
