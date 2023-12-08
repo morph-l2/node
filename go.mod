@@ -123,6 +123,6 @@ require (
 
 replace (
 	github.com/btcsuite/btcd => github.com/btcsuite/btcd v0.20.1-beta
-	github.com/scroll-tech/go-ethereum => github.com/morph-l2/go-ethereum v1.10.14-0.20231206022953-f1502c639656
-	github.com/tendermint/tendermint => github.com/morph-l2/tendermint v0.0.0-20231201030343-65cde31bfd97
+	github.com/scroll-tech/go-ethereum => github.com/morph-l2/go-ethereum v1.10.14-0.20231208023105-08d7b4a0bde6
+	github.com/tendermint/tendermint => github.com/morph-l2/tendermint v0.0.0-20231208023211-7a21bcefe2a6
 )
