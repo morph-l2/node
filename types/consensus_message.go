@@ -1,6 +1,8 @@
 package types
 
 import (
+	"bytes"
+	"github.com/scroll-tech/go-ethereum/core/types"
 	"math/big"
 
 	"github.com/scroll-tech/go-ethereum/common"
@@ -70,21 +72,22 @@ func (rm *RestMessage) UnmarshalBinary(b []byte) error {
 }
 
 type WrappedBlock struct {
-	ParentHash         common.Hash    `json:"parentHash"     gencodec:"required"`
-	Miner              common.Address `json:"miner"          gencodec:"required"`
-	Number             uint64         `json:"number"         gencodec:"required"`
-	GasLimit           uint64         `json:"gasLimit"       gencodec:"required"`
-	BaseFee            *big.Int       `json:"baseFeePerGas"`
-	Timestamp          uint64         `json:"timestamp"      gencodec:"required"`
-	StateRoot          common.Hash    `json:"stateRoot"`
-	GasUsed            uint64         `json:"gasUsed"`
-	ReceiptRoot        common.Hash    `json:"receiptsRoot"`
-	LogsBloom          []byte         `json:"logsBloom"`
-	WithdrawTrieRoot   common.Hash    `json:"withdrawTrieRoot"`
-	NextL1MessageIndex uint64         `json:"nextL1MessageIndex"`
-	Hash               common.Hash    `json:"hash"`
+	ParentHash         common.Hash          `json:"parentHash"     gencodec:"required"`
+	Miner              common.Address       `json:"miner"          gencodec:"required"`
+	Number             uint64               `json:"number"         gencodec:"required"`
+	GasLimit           uint64               `json:"gasLimit"       gencodec:"required"`
+	Timestamp          uint64               `json:"timestamp"      gencodec:"required"`
+	StateRoot          common.Hash          `json:"stateRoot"`
+	GasUsed            uint64               `json:"gasUsed"`
+	ReceiptRoot        common.Hash          `json:"receiptsRoot"`
+	LogsBloom          []byte               `json:"logsBloom"`
+	WithdrawTrieRoot   common.Hash          `json:"withdrawTrieRoot"`
+	RowConsumption     types.RowConsumption `json:"rowConsumption"`
+	NextL1MessageIndex uint64               `json:"nextL1MessageIndex"`
+	Hash               common.Hash          `json:"hash"`
 
-	CollectedL1Messages []L1Message `json:"l1Messages"`
+	CollectedL1Messages []L1Message `json:"l1Messages" rlp:"optional"`
+	BaseFee             *big.Int    `json:"baseFeePerGas"  rlp:"optional"`
 }
 
 func (wb *WrappedBlock) MarshalBinary() ([]byte, error) {
@@ -95,7 +98,7 @@ func (wb *WrappedBlock) MarshalBinary() ([]byte, error) {
 }
 
 func (wb *WrappedBlock) UnmarshalBinary(b []byte) error {
-	return rlp.DecodeBytes(b, wb)
+	return rlp.Decode(bytes.NewReader(b), wb)
 }
 
 func (wb *WrappedBlock) BlockContextBytes(txsNum, l1MsgNum int) []byte {

@@ -23,8 +23,9 @@ import (
 	"github.com/tendermint/tendermint/l2node"
 	tmlog "github.com/tendermint/tendermint/libs/log"
 	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
-	"github.com/urfave/cli"
 )
+
+type NewSyncerFunc func() (*sync.Syncer, error)
 
 type Executor struct {
 	l2Client            *types.RetryableClient
@@ -33,7 +34,7 @@ type Executor struct {
 	maxL1MsgNumPerBlock uint64
 	l1MsgReader         types.L1MessageReader
 
-	newSyncerFunc func() (*sync.Syncer, error)
+	newSyncerFunc NewSyncerFunc
 	syncer        *sync.Syncer
 
 	govContract       *bindings.Gov
@@ -77,7 +78,7 @@ func getNextL1MsgIndex(client *ethclient.Client, logger tmlog.Logger) (uint64, e
 	return currentHeader.NextL1MsgIndex, nil
 }
 
-func NewExecutor(ctx *cli.Context, home string, config *Config, tmPubKey crypto.PubKey) (*Executor, error) {
+func NewExecutor(newSyncFunc NewSyncerFunc, config *Config, tmPubKey crypto.PubKey) (*Executor, error) {
 	logger := config.Logger
 	logger = logger.With("module", "executor")
 	aClient, err := authclient.DialContext(context.Background(), config.L2.EngineAddr, config.L2.JwtSecret)
@@ -107,15 +108,19 @@ func NewExecutor(ctx *cli.Context, home string, config *Config, tmPubKey crypto.
 	if err != nil {
 		return nil, err
 	}
+	var tmPubKeyBytes []byte
+	if tmPubKey != nil {
+		tmPubKeyBytes = tmPubKey.Bytes()
+	}
 	executor := &Executor{
 		l2Client:            types.NewRetryableClient(aClient, eClient, config.Logger),
 		bc:                  &Version1Converter{},
 		sequencerContract:   sequencer,
 		govContract:         gov,
-		tmPubKey:            tmPubKey.Bytes(),
+		tmPubKey:            tmPubKeyBytes,
 		nextL1MsgIndex:      index,
 		maxL1MsgNumPerBlock: config.MaxL1MessageNumPerBlock,
-		newSyncerFunc:       func() (*sync.Syncer, error) { return newSyncer(ctx, home, config) },
+		newSyncerFunc:       newSyncFunc,
 		devSequencer:        config.DevSequencer,
 		rollupABI:           rollupAbi,
 		batchingCache:       NewBatchingCache(),
@@ -128,7 +133,7 @@ func NewExecutor(ctx *cli.Context, home string, config *Config, tmPubKey crypto.
 		if err != nil {
 			return nil, err
 		}
-		executor.syncer.Start()
+		//executor.syncer.Start()
 		executor.l1MsgReader = executor.syncer
 		return executor, nil
 	}
@@ -187,6 +192,7 @@ func (e *Executor) RequestBlockData(height int64) (txs [][]byte, blockMeta []byt
 		ReceiptRoot:         l2Block.ReceiptRoot,
 		LogsBloom:           l2Block.LogsBloom,
 		WithdrawTrieRoot:    l2Block.WithdrawTrieRoot,
+		RowConsumption:      l2Block.RowUsages,
 		NextL1MessageIndex:  l2Block.NextL1MessageIndex,
 		Hash:                l2Block.Hash,
 		CollectedL1Messages: l1Messages,
@@ -195,7 +201,8 @@ func (e *Executor) RequestBlockData(height int64) (txs [][]byte, blockMeta []byt
 	txs = l2Block.Transactions
 	e.logger.Info("RequestBlockData response",
 		"txs.length", len(txs),
-		"collectedL1Msgs", collectedL1Msgs)
+		"collectedL1Msgs", collectedL1Msgs,
+		"row consumption", fmt.Sprintf("%v", l2Block.RowUsages))
 	return
 }
 
@@ -231,6 +238,7 @@ func (e *Executor) CheckBlockData(txs [][]byte, metaData []byte) (valid bool, er
 		ReceiptRoot:        wrappedBlock.ReceiptRoot,
 		LogsBloom:          wrappedBlock.LogsBloom,
 		WithdrawTrieRoot:   wrappedBlock.WithdrawTrieRoot,
+		RowUsages:          wrappedBlock.RowConsumption,
 		NextL1MessageIndex: wrappedBlock.NextL1MessageIndex,
 		Hash:               wrappedBlock.Hash,
 
@@ -295,6 +303,7 @@ func (e *Executor) DeliverBlock(txs [][]byte, metaData []byte, consensusData l2n
 		ReceiptRoot:        wrappedBlock.ReceiptRoot,
 		LogsBloom:          wrappedBlock.LogsBloom,
 		WithdrawTrieRoot:   wrappedBlock.WithdrawTrieRoot,
+		RowUsages:          wrappedBlock.RowConsumption,
 		NextL1MessageIndex: wrappedBlock.NextL1MessageIndex,
 		Hash:               wrappedBlock.Hash,
 
