@@ -331,8 +331,8 @@ github.com/mitchellh/mapstructure v1.5.0 h1:jeMsZIYE/09sWLaz43PL7Gy6RuMjD2eJVyua
 github.com/mitchellh/mapstructure v1.5.0/go.mod h1:bFUtVrKA4DC2yAKiSyO/QUcy7e+RRV2QTWOzhPopBRo=
 github.com/mitchellh/pointerstructure v1.2.0 h1:O+i9nHnXS3l/9Wu7r4NrEdwA2VFTicjUEN1uBnDo34A=
 github.com/mitchellh/pointerstructure v1.2.0/go.mod h1:BRAsLI5zgXmw97Lf6s25bs8ohIXc3tViBH44KcwB2g4=
-github.com/morph-l2/bindings v0.0.0-20231205092100-67974e7ab2df h1:x8TUXN5onuAQj24RvJ0uGfgiyp6ph9/yNXFSUBv0ubg=
-github.com/morph-l2/bindings v0.0.0-20231205092100-67974e7ab2df/go.mod h1:6ztIH65SfpiS0hIOToEDmzmRnlKarOLj2pdMD4oSYp4=
+github.com/morph-l2/bindings v0.0.0-20231208022223-d54807f047d2 h1:aV8JGMsHmBgjSOWql9P8Vuxf48zqmoTYGC1jDcIPPNk=
+github.com/morph-l2/bindings v0.0.0-20231208022223-d54807f047d2/go.mod h1:dRhm0mjX3tYsWL0ScqcyBueYDKnE27V7YJCNNoQOnv8=
 github.com/morph-l2/go-ethereum v1.10.14-0.20231206022953-f1502c639656 h1:Vo8DwYJaLW7yn66FvFUtGzFzw2OgSXLFVofwOs0+s9Y=
 github.com/morph-l2/go-ethereum v1.10.14-0.20231206022953-f1502c639656/go.mod h1:9BGKc4l0m6qXgfXBGzp1aFHPE3dXzm2fi+rDtXpr8HM=
 github.com/morph-l2/tendermint v0.0.0-20231201030343-65cde31bfd97 h1:RnLg222UnjpQU8Aa+nBwJMCtZBYYqpCqIC1SU6BE17Y=

@@ -8,7 +8,7 @@ require (
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/hashicorp/golang-lru v0.5.5-0.20210104140557-80c98217689d
 	github.com/holiman/uint256 v1.2.2
-	github.com/morph-l2/bindings v0.0.0-20231205092100-67974e7ab2df
+	github.com/morph-l2/bindings v0.0.0-20231208022223-d54807f047d2
 	github.com/prometheus/client_golang v1.16.0
 	github.com/scroll-tech/go-ethereum v1.11.4
 	github.com/spf13/viper v1.13.0
