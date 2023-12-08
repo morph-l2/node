@@ -401,7 +401,7 @@ func parseChunk(chunkBytes []byte) (*types.Chunk, error) {
 	}
 	chunk := types.NewChunk(blockCtx, txsPayload, nil)
 	chunk.ResetBlockNum(int(blockNum))
-	fmt.Println("chuck============", chunk)
+	fmt.Printf("chuck============%+v\n", chunk)
 	return chunk, nil
 }
 
@@ -441,7 +441,6 @@ func parseBatch(batch geth.RPCRollupBatch, rollupData *RollupData) error {
 			}
 			if cbIndex == len(batch.Chunks)-1 && i == chunk.BlockNum()-1 {
 				rollupData.LastBlockNumber = block.Number
-
 				// TODO
 			}
 			var safeL2Data catalyst.SafeL2Data
@@ -453,8 +452,9 @@ func parseBatch(batch geth.RPCRollupBatch, rollupData *RollupData) error {
 				safeL2Data.BaseFee = nil
 			}
 			// TODO
-			fmt.Printf("block.txsNum:%v", block.txsNum)
-			txs, err := node.DecodeTxsPayload(chunk.TxsPayload()[txsNum:block.txsNum])
+			fmt.Printf("block:%+v\n", block)
+			fmt.Printf("block.txsNum:%v\n", block.txsNum)
+			txs, err := node.DecodeTxsPayload(chunk.TxsPayload()[txsNum : txsNum+uint64(block.txsNum)-uint64(block.l1MsgNum)])
 			if err != nil {
 				fmt.Println("node.DecodeTxsPayload i==========", i)
 				return err
