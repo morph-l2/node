@@ -287,20 +287,36 @@ func (d *Derivation) fetchRollupDataByTxHash(txHash common.Hash, blockNumber uin
 		return nil, fmt.Errorf("submitBatches Unpack error:%v", err)
 	}
 	// parse input to rollup batch data
+	//rollupBatchData := args[0].(struct {
+	//	Version                uint8    "json:\"version\""
+	//	ParentBatchHeader      []byte   "json:\"parentBatchHeader\""
+	//	Chunks                 [][]byte "json:\"chunks\""
+	//	SkippedL1MessageBitmap []byte   "json:\"skippedL1MessageBitmap\""
+	//	PrevStateRoot          [32]byte "json:\"preStateRoot\""
+	//	PostStateRoot          [32]byte "json:\"postStateRoot\""
+	//	WithdrawalRoot         [32]byte "json:\"withdrawalRoot\""
+	//	Signature              struct {
+	//		Version   *big.Int   "json:\"version\""
+	//		Signers   []*big.Int "json:\"signers\""
+	//		Signature []byte     "json:\"signature\""
+	//	}
+	//})
+
 	rollupBatchData := args[0].(struct {
-		Version                uint8    "json:\"version\""
-		ParentBatchHeader      []byte   "json:\"parentBatchHeader\""
-		Chunks                 [][]byte "json:\"chunks\""
-		SkippedL1MessageBitmap []byte   "json:\"skippedL1MessageBitmap\""
-		PrevStateRoot          [32]byte "json:\"preStateRoot\""
-		PostStateRoot          [32]byte "json:\"postStateRoot\""
-		WithdrawalRoot         [32]byte "json:\"withdrawalRoot\""
+		Version                uint8     "json:\"version\""
+		ParentBatchHeader      []uint8   "json:\"parentBatchHeader\""
+		Chunks                 [][]uint8 "json:\"chunks\""
+		SkippedL1MessageBitmap []uint8   "json:\"skippedL1MessageBitmap\""
+		PrevStateRoot          [32]uint8 "json:\"prevStateRoot\""
+		PostStateRoot          [32]uint8 "json:\"postStateRoot\""
+		WithdrawalRoot         [32]uint8 "json:\"withdrawalRoot\""
 		Signature              struct {
 			Version   *big.Int   "json:\"version\""
 			Signers   []*big.Int "json:\"signers\""
-			Signature []byte     "json:\"signature\""
-		}
+			Signature []uint8    "json:\"signature\""
+		} "json:\"signature\""
 	})
+
 	rollupBatchDataJson, err := json.Marshal(rollupBatchData)
 	fmt.Printf("rollupBatchData ======= %+v\n", rollupBatchData)
 	fmt.Printf("rollupBatchDataJson ======= %v\n", string(rollupBatchDataJson))
