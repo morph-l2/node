@@ -180,7 +180,6 @@ func (d *Derivation) derivationBlock(ctx context.Context) {
 		d.logger.Error("GetLatestConfirmedBlockNumber failed", "error", err)
 		return
 	}
-	d.l2Client.BlockNumber(nil)
 	start := *latestDerivation + 1
 	end := latest
 	if latest < start {
@@ -209,12 +208,15 @@ func (d *Derivation) derivationBlock(ctx context.Context) {
 	for _, lg := range logs {
 		rollupData, err := d.fetchRollupDataByTxHash(lg.TxHash, lg.BlockNumber)
 		if err != nil {
-			blockNumber, err := d.l2Client.BlockNumber(ctx)
+			rollupCommitBatch, err := d.rollup.ParseCommitBatch(lg)
+			//blockNumber, err := d.l2Client.BlockNumber(ctx)
 			if err != nil {
 				d.logger.Error("get l2 BlockNumber", "err", err)
 				return
 			}
-			if blockNumber == 0 {
+			d.rollup.ParseCommitBatch(lg)
+
+			if rollupCommitBatch.BatchIndex.Uint64() == 0 {
 				continue
 			}
 			d.logger.Error("fetch rollup data failed", "txHash", lg.TxHash, "blockNumber", lg.BlockNumber, "error", err)
