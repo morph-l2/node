@@ -188,3 +188,7 @@ func (s *Syncer) GetL1Message(index uint64, txHash common.Hash) (*types.L1Messag
 func (s *Syncer) ReadL1MessagesInRange(start, end uint64) []types.L1Message {
 	return s.db.ReadL1MessagesInRange(start, end)
 }
+
+func (s *Syncer) ReadL1MessageByIndex(index uint64) *types.L1Message {
+	return s.db.ReadL1MessageByIndex(index)
+}
