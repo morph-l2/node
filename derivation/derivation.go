@@ -513,6 +513,7 @@ func (d *Derivation) derive(rollupData *RollupData) (*eth.Header, error) {
 			}
 			if blockData.SafeL2Data.Number <= latestBlockNumber {
 				d.logger.Info("SafeL2Data block number less than latestBlockNumber", "safeL2DataNumber", blockData.SafeL2Data.Number, "latestBlockNumber", latestBlockNumber)
+				lastHeader, err = d.l2Client.HeaderByNumber(d.ctx, big.NewInt(int64(latestBlockNumber)))
 				continue
 			}
 			blockData.SafeL2Data.BatchHash = &rollupData.BatchHash
