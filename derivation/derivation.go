@@ -207,9 +207,9 @@ func (d *Derivation) derivationBlock(ctx context.Context) {
 	for _, lg := range logs {
 		rollupData, err := d.fetchRollupDataByTxHash(lg.TxHash, lg.BlockNumber)
 		if err != nil {
-			rollupCommitBatch, err := d.rollup.ParseCommitBatch(lg)
+			rollupCommitBatch, parseErr := d.rollup.ParseCommitBatch(lg)
 			//blockNumber, err := d.l2Client.BlockNumber(ctx)
-			if err != nil {
+			if parseErr != nil {
 				d.logger.Error("get l2 BlockNumber", "err", err)
 				return
 			}
@@ -390,11 +390,11 @@ func parseChunk(chunkBytes []byte) (*types.Chunk, error) {
 func (d *Derivation) parseBatch(batch geth.RPCRollupBatch) (*RollupData, error) {
 	parentBatchHeader, err := types.DecodeBatchHeader(batch.ParentBatchHeader)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("DecodeBatchHeader error:%v", err)
 	}
 	rollupData, err := ParseBatch(batch)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("parse batch error:%v", err)
 	}
 	if err := d.handleL1Message(rollupData, &parentBatchHeader); err != nil {
 		return nil, fmt.Errorf("handleL1Message error:%v", err)
