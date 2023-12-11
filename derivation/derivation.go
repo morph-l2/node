@@ -315,8 +315,8 @@ func (d *Derivation) fetchRollupDataByTxHash(txHash common.Hash, blockNumber uin
 	//rollupData := newRollupData(blockNumber, txHash, tx.Nonce())
 	rollupData, err := d.parseBatch(batch)
 	if err != nil {
-		d.logger.Error("ParseBatch failed", "txNonce", rollupData.Nonce, "txHash", rollupData.TxHash,
-			"l1BlockNumber", rollupData.L1BlockNumber, "firstL2BlockNumber", rollupData.FirstBlockNumber, "lastL2BlockNumber", rollupData.LastBlockNumber)
+		d.logger.Error("ParseBatch failed", "txNonce", tx.Nonce(), "txHash", txHash,
+			"l1BlockNumber", blockNumber)
 		return rollupData, fmt.Errorf("ParseBatch error:%v\n", err)
 	}
 	rollupData.L1BlockNumber = blockNumber
