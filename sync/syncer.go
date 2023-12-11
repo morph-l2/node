@@ -188,8 +188,8 @@ func (s *Syncer) ReadL1MessagesInRange(start, end uint64) []types.L1Message {
 	return s.db.ReadL1MessagesInRange(start, end)
 }
 
-func (s *Syncer) ReadL1MessageByIndex(index uint64) *types.L1Message {
-	return s.db.ReadL1MessageByIndex(index)
+func (s *Syncer) LatestSynced() uint64 {
+	return s.latestSynced
 }
 
 func (s *Syncer) SyncL1MessageByRange(ctx context.Context, start, end uint64) {

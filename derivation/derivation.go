@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/morph-l2/bindings/bindings"
-	nodecommon "github.com/morph-l2/node/common"
 	node "github.com/morph-l2/node/core"
 	"github.com/morph-l2/node/sync"
 	"github.com/morph-l2/node/types"
@@ -174,11 +173,12 @@ func (d *Derivation) Stop() {
 
 func (d *Derivation) derivationBlock(ctx context.Context) {
 	latestDerivation := d.db.ReadLatestDerivationL1Height()
-	latest, err := nodecommon.GetLatestConfirmedBlockNumber(ctx, d.l1Client.(*ethclient.Client), d.confirmations)
-	if err != nil {
-		d.logger.Error("GetLatestConfirmedBlockNumber failed", "error", err)
-		return
-	}
+	//latest, err := nodecommon.GetLatestConfirmedBlockNumber(ctx, d.l1Client.(*ethclient.Client), d.confirmations)
+	//if err != nil {
+	//	d.logger.Error("GetLatestConfirmedBlockNumber failed", "error", err)
+	//	return
+	//}
+	latest := d.syncer.LatestSynced()
 	start := *latestDerivation + 1
 	end := latest
 	if latest < start {
@@ -497,10 +497,6 @@ func (d *Derivation) handleL1Message(rollupData *RollupData, parentBatchHeader *
 func (d *Derivation) getL1Message(l1MessagePopped, l1MsgNum uint64) ([]types.L1Message, error) {
 	start := l1MessagePopped + 1
 	end := l1MessagePopped + l1MsgNum
-	l1Message := d.syncer.ReadL1MessageByIndex(end)
-	if l1Message == nil {
-		return nil, fmt.Errorf("l1Message is not synchronized to local,queueIndex:%v", end)
-	}
 	return d.syncer.ReadL1MessagesInRange(start, end), nil
 }
 
