@@ -122,7 +122,7 @@ func (s *Syncer) fetchL1Messages() {
 	// ticker for logging progress
 	t := time.NewTicker(s.logProgressInterval)
 	numMessagesCollected := 0
-
+	s.logger.Info("fetch l1 message start", "start", s.latestSynced+1, "end", latestConfirmed)
 	// query in batches
 	for from := s.latestSynced + 1; from <= latestConfirmed; from += s.fetchBlockRange {
 		select {
