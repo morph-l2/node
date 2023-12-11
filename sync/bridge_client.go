@@ -57,6 +57,8 @@ func (c *BridgeClient) L1Messages(ctx context.Context, from, to uint64) ([]types
 		if !event.GasLimit.IsUint64() {
 			return nil, fmt.Errorf("invalid QueueTransaction event: QueueIndex = %v, GasLimit = %v", event.QueueIndex, event.GasLimit)
 		}
+		// TODO delete
+		fmt.Printf("invalid QueueTransaction event: QueueIndex = %v\n", event.QueueIndex)
 		txs = append(txs, types.L1Message{
 			L1MessageTx: L1MessageTxFromEvent(event),
 			L1TxHash:    event.Raw.TxHash,

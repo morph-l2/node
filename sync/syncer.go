@@ -122,7 +122,6 @@ func (s *Syncer) fetchL1Messages() {
 	// ticker for logging progress
 	t := time.NewTicker(s.logProgressInterval)
 	numMessagesCollected := 0
-	s.logger.Info("fetch l1 message start", "start", s.latestSynced+1, "end", latestConfirmed)
 	// query in batches
 	for from := s.latestSynced + 1; from <= latestConfirmed; from += s.fetchBlockRange {
 		select {
@@ -191,4 +190,38 @@ func (s *Syncer) ReadL1MessagesInRange(start, end uint64) []types.L1Message {
 
 func (s *Syncer) ReadL1MessageByIndex(index uint64) *types.L1Message {
 	return s.db.ReadL1MessageByIndex(index)
+}
+
+func (s *Syncer) SyncL1MessageByRange(ctx context.Context, start, end uint64) {
+	//latestConfirmed, err := s.bridgeClient.getLatestConfirmedBlockNumber(s.ctx)
+	//if err != nil {
+	//	s.logger.Error("failed to get latest confirmed block number", "err", err)
+	//	return
+	//}
+	s.logger.Info("fetch l1 message start", "start", s.latestSynced+1, "end", end)
+
+	// ticker for logging progress
+	t := time.NewTicker(s.logProgressInterval)
+	numMessagesCollected := 0
+	// query in batches
+	l1Messages, err := s.bridgeClient.L1Messages(s.ctx, start, end)
+	if err != nil {
+		s.logger.Error("failed to fetch L1 messages", "fromBlock", start, "toBlock", end, "err", err)
+		return
+	}
+
+	if len(l1Messages) > 0 {
+		s.logger.Debug("Received new L1 events", "fromBlock", start, "toBlock", end, "count", len(l1Messages))
+		if err = s.db.WriteSyncedL1Messages(l1Messages, end); err != nil {
+			// crash on database error
+			s.logger.Error("failed to write L1 messages to database", "err", err)
+			return
+		}
+		numMessagesCollected += len(l1Messages)
+
+		s.metrics.SyncedL1MessageCount.Add(float64(len(l1Messages)))
+		s.metrics.SyncedL1MessageNonce.Set(float64(l1Messages[len(l1Messages)-1].QueueIndex))
+	} else {
+		s.db.WriteLatestSyncedL1Height(end)
+	}
 }
