@@ -12,6 +12,7 @@ import (
 	"github.com/morph-l2/node/sync"
 	"github.com/morph-l2/node/types"
 	"github.com/scroll-tech/go-ethereum/accounts/abi"
+	"github.com/scroll-tech/go-ethereum/accounts/abi/bind"
 	"github.com/scroll-tech/go-ethereum/common"
 	"github.com/scroll-tech/go-ethereum/common/hexutil"
 	eth "github.com/scroll-tech/go-ethereum/core/types"
@@ -278,7 +279,10 @@ func (e *Executor) DeliverBlock(txs [][]byte, metaData []byte, consensusData l2n
 
 	if wrappedBlock.Number <= height {
 		e.logger.Info("ignore it, the block was delivered", "block number", wrappedBlock.Number)
-		return nil, nil, nil
+		if e.devSequencer {
+			return nil, consensusData.ValidatorSet, nil
+		}
+		return e.getParamsAndValsAtHeight(int64(wrappedBlock.Number))
 	}
 
 	// We only accept the continuous blocks for now.
@@ -366,6 +370,44 @@ func (e *Executor) RequestHeight(tmHeight int64) (int64, error) {
 		return 0, err
 	}
 	return int64(curHeight), nil
+}
+
+func (e *Executor) getParamsAndValsAtHeight(height int64) (*tmproto.BatchParams, [][]byte, error) {
+	callOpts := &bind.CallOpts{
+		BlockNumber: big.NewInt(height),
+	}
+	batchBlockInterval, err := e.govContract.BatchBlockInterval(callOpts)
+	if err != nil {
+		return nil, nil, err
+	}
+	batchMaxBytes, err := e.govContract.BatchMaxBytes(callOpts)
+	if err != nil {
+		return nil, nil, err
+	}
+	batchTimeout, err := e.govContract.BatchTimeout(callOpts)
+	if err != nil {
+		return nil, nil, err
+	}
+	batchMaxChunks, err := e.govContract.MaxChunks(callOpts)
+	if err != nil {
+		return nil, nil, err
+	}
+	// fetch current sequencerSet info at certain height
+	sequencersInfo, err := e.sequencerContract.GetSequencerInfos(callOpts, false)
+	if err != nil {
+		e.logger.Error("failed to call GetSequencerInfos", "previous", false, "height", height, "err", err)
+		return nil, nil, err
+	}
+	newValidators, _, err := e.convertSequencerSet(sequencersInfo)
+	if err != nil {
+		return nil, nil, err
+	}
+	return &tmproto.BatchParams{
+		BlocksInterval: batchBlockInterval.Int64(),
+		MaxBytes:       batchMaxBytes.Int64(),
+		Timeout:        time.Duration(batchTimeout.Int64() * int64(time.Second)),
+		MaxChunks:      batchMaxChunks.Int64(),
+	}, newValidators, nil
 }
 
 func (e *Executor) L2Client() *types.RetryableClient {
