@@ -335,8 +335,8 @@ github.com/morph-l2/bindings v0.0.0-20231208022223-d54807f047d2 h1:aV8JGMsHmBgjS
 github.com/morph-l2/bindings v0.0.0-20231208022223-d54807f047d2/go.mod h1:dRhm0mjX3tYsWL0ScqcyBueYDKnE27V7YJCNNoQOnv8=
 github.com/morph-l2/go-ethereum v1.10.14-0.20231208023105-08d7b4a0bde6 h1:9e8WMzj4n5v3i3htp5fCROYH2s1M5Vwd2XedUUzvKVs=
 github.com/morph-l2/go-ethereum v1.10.14-0.20231208023105-08d7b4a0bde6/go.mod h1:9BGKc4l0m6qXgfXBGzp1aFHPE3dXzm2fi+rDtXpr8HM=
-github.com/morph-l2/tendermint v0.0.0-20231209110223-9c6c45abbcf1 h1:VsIwplFliIw+ekDxCDMVfPnWlqlWdpmXSAA2JoyIcOI=
-github.com/morph-l2/tendermint v0.0.0-20231209110223-9c6c45abbcf1/go.mod h1:zJcxhzs3kbX6xs90IBX1vIQy1KmSfm4MgNbv3Lt+Rns=
+github.com/morph-l2/tendermint v0.0.0-20231211091525-05582da153a6 h1:DXRMY+eCKcppgMVIFIoMdmpmxch7s7eDJ42At0+i77I=
+github.com/morph-l2/tendermint v0.0.0-20231211091525-05582da153a6/go.mod h1:zJcxhzs3kbX6xs90IBX1vIQy1KmSfm4MgNbv3Lt+Rns=
 github.com/nxadm/tail v1.4.4/go.mod h1:kenIhsEOeOJmVchQTgglprH7qJGnHDVpk1VPCcaMI8A=
 github.com/nxadm/tail v1.4.8 h1:nPr65rt6Y5JFSKQO7qToXr7pePgD6Gwiw05lkbyAQTE=
 github.com/nxadm/tail v1.4.8/go.mod h1:+ncqLTQzXmGhMZNUePPaPqPvBxHAIsmXswZKocGu+AU=
