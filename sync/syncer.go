@@ -201,7 +201,6 @@ func (s *Syncer) SyncL1MessageByRange(ctx context.Context, start, end uint64) {
 	s.logger.Info("fetch l1 message start", "start", s.latestSynced+1, "end", end)
 
 	// ticker for logging progress
-	t := time.NewTicker(s.logProgressInterval)
 	numMessagesCollected := 0
 	// query in batches
 	l1Messages, err := s.bridgeClient.L1Messages(s.ctx, start, end)
