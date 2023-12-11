@@ -315,9 +315,9 @@ func (d *Derivation) fetchRollupDataByTxHash(txHash common.Hash, blockNumber uin
 	//rollupData := newRollupData(blockNumber, txHash, tx.Nonce())
 	rollupData, err := d.parseBatch(batch)
 	if err != nil {
-		d.logger.Error("parseBatch failed", "txNonce", rollupData.Nonce, "txHash", rollupData.TxHash,
+		d.logger.Error("ParseBatch failed", "txNonce", rollupData.Nonce, "txHash", rollupData.TxHash,
 			"l1BlockNumber", rollupData.L1BlockNumber, "firstL2BlockNumber", rollupData.FirstBlockNumber, "lastL2BlockNumber", rollupData.LastBlockNumber)
-		return rollupData, fmt.Errorf("parseBatch error:%v\n", err)
+		return rollupData, fmt.Errorf("ParseBatch error:%v\n", err)
 	}
 	rollupData.L1BlockNumber = blockNumber
 	rollupData.TxHash = txHash
@@ -392,7 +392,7 @@ func (d *Derivation) parseBatch(batch geth.RPCRollupBatch) (*RollupData, error) 
 	if err != nil {
 		return nil, err
 	}
-	rollupData, err := parseBatch(batch)
+	rollupData, err := ParseBatch(batch)
 	if err != nil {
 		return nil, err
 	}
@@ -402,7 +402,7 @@ func (d *Derivation) parseBatch(batch geth.RPCRollupBatch) (*RollupData, error) 
 	return rollupData, nil
 }
 
-func parseBatch(batch geth.RPCRollupBatch) (*RollupData, error) {
+func ParseBatch(batch geth.RPCRollupBatch) (*RollupData, error) {
 	var rollupData RollupData
 	rollupData.Root = batch.PostStateRoot
 	rollupData.skippedL1MessageBitmap = new(big.Int).SetBytes(batch.SkippedL1MessageBitmap[:])
