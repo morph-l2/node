@@ -436,6 +436,9 @@ func ParseBatch(batch geth.RPCRollupBatch) (*RollupData, error) {
 			if block.BaseFee != nil && block.BaseFee.Cmp(big.NewInt(0)) == 0 {
 				safeL2Data.BaseFee = nil
 			}
+			if block.txsNum < block.l1MsgNum {
+				return nil, fmt.Errorf("txsNum must be or equal to or greater than l1MsgNum,txsNum:%v,l1MsgNum:%v", block.txsNum, block.l1MsgNum)
+			}
 			txs, err := node.DecodeTxsPayload(chunk.TxsPayload()[txsNum : txsNum+uint64(block.txsNum)-uint64(block.l1MsgNum)])
 			if err != nil {
 				return nil, fmt.Errorf("DecodeTxsPayload error:%v", err)
