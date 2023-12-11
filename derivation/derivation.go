@@ -397,7 +397,7 @@ func (d *Derivation) parseBatch(batch geth.RPCRollupBatch) (*RollupData, error) 
 		return nil, err
 	}
 	if err := d.handleL1Message(rollupData, &parentBatchHeader); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("handleL1Message error:%v", err)
 	}
 	return rollupData, nil
 }
@@ -471,7 +471,7 @@ func (d *Derivation) handleL1Message(rollupData *RollupData, parentBatchHeader *
 			var l1Transactions []*eth.Transaction
 			l1Messages, err := d.getL1Message(totalL1MessagePopped, uint64(block.l1MsgNum))
 			if err != nil {
-				return err
+				return fmt.Errorf("getL1Message error:%v", err)
 			}
 			l1MessagePopped += uint64(block.l1MsgNum)
 			totalL1MessagePopped += uint64(block.l1MsgNum)
