@@ -36,6 +36,9 @@ var (
 
 // RollupData is all rollup data of one l1 block,maybe contain many rollup batch
 type RollupData struct {
+	BatchIndex       uint64
+	BlockNum         uint64
+	TxNum            uint64
 	Version          uint64
 	DataHash         common.Hash
 	BatchHash        common.Hash
@@ -399,6 +402,7 @@ func (d *Derivation) parseBatch(batch geth.RPCRollupBatch) (*RollupData, error) 
 	if err := d.handleL1Message(rollupData, &parentBatchHeader); err != nil {
 		return nil, fmt.Errorf("handleL1Message error:%v", err)
 	}
+	rollupData.BatchIndex = parentBatchHeader.BatchIndex + 1
 	return rollupData, nil
 }
 
@@ -413,6 +417,8 @@ func ParseBatch(batch geth.RPCRollupBatch) (*RollupData, error) {
 		if err != nil {
 			return nil, fmt.Errorf("parse chunk error:%v", err)
 		}
+		rollupData.BlockNum += uint64(chunk.BlockNum())
+		rollupData.TxNum += uint64(len(chunk.TxHashes()))
 		chunks.Append(chunk.BlockContext(), chunk.TxsPayload(), chunk.TxHashes())
 		ck := Chunk{}
 		var txsNum uint64

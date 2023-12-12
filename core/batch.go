@@ -447,7 +447,7 @@ func DecodeTxsPayload(txsPayload []byte) ([]*eth.Transaction, error) {
 		}
 		txBz := make([]byte, txLen)
 		if err := binary.Read(reader, binary.BigEndian, &txBz); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("redad txBz error:%v", err)
 		}
 		var tx *eth.Transaction
 		if err := tx.UnmarshalBinary(txBz); err != nil {
