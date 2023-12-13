@@ -424,7 +424,7 @@ func ParseBatch(batch geth.RPCRollupBatch) (*RollupData, error) {
 		var txsNum uint64
 		for i := 0; i < chunk.BlockNum(); i++ {
 			var block BlockContext
-			err := block.Decode(chunk.BlockContext()[i : i+60])
+			err = block.Decode(chunk.BlockContext()[i : i+60])
 			if err != nil {
 				return nil, fmt.Errorf("decode chunk block context error:%v", err)
 			}
