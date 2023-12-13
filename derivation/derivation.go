@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
@@ -225,6 +226,7 @@ func (d *Derivation) derivationBlock(ctx context.Context) {
 		d.logger.Info("fetch rollup transaction success", "txNonce", rollupData.Nonce, "txHash", rollupData.TxHash,
 			"l1BlockNumber", rollupData.L1BlockNumber, "firstL2BlockNumber", rollupData.FirstBlockNumber, "lastL2BlockNumber", rollupData.LastBlockNumber)
 		// derivation
+
 		//for _, batchData := range rollupData.Blocks {
 		lastHeader, err := d.derive(rollupData)
 		if err != nil {
@@ -235,7 +237,7 @@ func (d *Derivation) derivationBlock(ctx context.Context) {
 		d.logger.Info("batch derivation complete", "currentBatchEndBlock", lastHeader.Number.Uint64())
 		d.metrics.SetL2DeriveHeight(lastHeader.Number.Uint64())
 		if !bytes.Equal(lastHeader.Root.Bytes(), rollupData.Root.Bytes()) && d.validator != nil && d.validator.ChallengeEnable() {
-			//d.logger.Info("root hash is not equal", "originStateRootHash", batchData[len(batchData)-1].Root.Hex(), "deriveStateRootHash", lastHeader.Root.Hex())
+			d.logger.Info("root hash is not equal", "originStateRootHash", rollupData.Root, "deriveStateRootHash", lastHeader.Root.Hex())
 			//batchIndex, err := d.findBatchIndex(rollupData.TxHash, batchData[len(batchData)-1].SafeL2Data.Number)
 			//if err != nil {
 			//	d.logger.Error("find batch index failed", "error", err)
@@ -244,6 +246,7 @@ func (d *Derivation) derivationBlock(ctx context.Context) {
 			//d.logger.Info("validator start challenge", "batchIndex", batchIndex)
 			//if err := d.validator.ChallengeState(batchIndex); err != nil {
 			//	d.logger.Error("challenge state failed", "error", err)
+			//
 			//}
 			return
 		}
@@ -283,6 +286,8 @@ func (d *Derivation) fetchRollupDataByTxHash(txHash common.Hash, blockNumber uin
 	if err != nil {
 		return nil, err
 	}
+	inputHex := hexutil.Encode(tx.Data())
+	fmt.Println("inputHex=============", inputHex)
 	args, err := abi.Methods["commitBatch"].Inputs.Unpack(tx.Data()[4:])
 	if err != nil {
 		return nil, fmt.Errorf("submitBatches Unpack error:%v", err)
@@ -377,15 +382,31 @@ func parseChunk(chunkBytes []byte) (*types.Chunk, error) {
 	if err := binary.Read(reader, binary.BigEndian, &blockNum); err != nil {
 		return nil, err
 	}
-	blockCtx := make([]byte, blockNum*60)
-	if err := binary.Read(reader, binary.BigEndian, &blockCtx); err != nil {
-		return nil, err
+	chunkJson, err := json.Marshal(chunkBytes)
+	if err != nil {
+		panic(err)
 	}
+	fmt.Println("chunk json:", chunkJson)
+	fmt.Println("chunkBytes len=============", len(chunkBytes))
+
+	fmt.Println("block num=============", blockNum)
+	blockCtx := make([]byte, 0)
+	for i := 0; i < int(blockNum); i++ {
+		bc := make([]byte, 60)
+		if err := binary.Read(reader, binary.BigEndian, &bc); err != nil {
+			fmt.Println("binary.Read(reader, binary.BigEndian, &blockCtx) error:", err)
+
+			fmt.Println("i=========", i)
+			return nil, err
+		}
+		blockCtx = append(blockCtx, bc...)
+	}
+	fmt.Println("blockCtx len===========", len(blockCtx))
 	txsPayload := make([]byte, len(chunkBytes)-int(blockNum)*60-1)
 	if err := binary.Read(reader, binary.BigEndian, &txsPayload); err != nil {
 		return nil, err
 	}
-	chunk := types.NewChunk(blockCtx, txsPayload, nil)
+	chunk := types.NewChunk(blockCtx, txsPayload, nil, nil)
 	chunk.ResetBlockNum(int(blockNum))
 	return chunk, nil
 }
@@ -419,12 +440,17 @@ func ParseBatch(batch geth.RPCRollupBatch) (*RollupData, error) {
 		}
 		rollupData.BlockNum += uint64(chunk.BlockNum())
 		rollupData.TxNum += uint64(len(chunk.TxHashes()))
-		chunks.Append(chunk.BlockContext(), chunk.TxsPayload(), chunk.TxHashes())
+		chunks.Append(chunk.BlockContext(), chunk.TxsPayload(), nil, nil)
 		ck := Chunk{}
 		var txsNum uint64
+		var l1MsgNum uint64
+		fmt.Println("chunk.BlockNum()==========", chunk.BlockNum())
+		fmt.Println("chunk.BlockContext()==========", len(chunk.BlockContext()))
+		reader := bytes.NewReader(chunk.TxsPayload())
 		for i := 0; i < chunk.BlockNum(); i++ {
 			var block BlockContext
-			err = block.Decode(chunk.BlockContext()[i : i+60])
+			err = block.Decode(chunk.BlockContext()[i*60 : i*60+60])
+			fmt.Println("BlockContext blocknumber================== ", block.Number)
 			if err != nil {
 				return nil, fmt.Errorf("decode chunk block context error:%v", err)
 			}
@@ -445,11 +471,17 @@ func ParseBatch(batch geth.RPCRollupBatch) (*RollupData, error) {
 			if block.txsNum < block.l1MsgNum {
 				return nil, fmt.Errorf("txsNum must be or equal to or greater than l1MsgNum,txsNum:%v,l1MsgNum:%v", block.txsNum, block.l1MsgNum)
 			}
-			txs, err := node.DecodeTxsPayload(chunk.TxsPayload()[txsNum : txsNum+uint64(block.txsNum)-uint64(block.l1MsgNum)])
+			fmt.Println("block.txsNum:============", block.txsNum)
+			fmt.Println("block.l1MsgNum:============", block.l1MsgNum)
+			fmt.Println("txsNum", txsNum)
+
+			txs, err := node.DecodeTxsPayload(reader, int(block.txsNum)-int(block.l1MsgNum))
 			if err != nil {
+				fmt.Println("len (chunk.TxsPayload()==========", len(chunk.TxsPayload()))
 				return nil, fmt.Errorf("DecodeTxsPayload error:%v", err)
 			}
 			txsNum += uint64(block.txsNum)
+			l1MsgNum += uint64(block.l1MsgNum)
 			safeL2Data.Transactions = encodeTransactions(txs)
 			if block.txsNum > 0 {
 				safeL2Data.Transactions = encodeTransactions(txs)
@@ -500,6 +532,7 @@ func (d *Derivation) handleL1Message(rollupData *RollupData, parentBatchHeader *
 	batchHeader.TotalL1MessagePopped = totalL1MessagePopped
 	batchHeader.L1MessagePopped = l1MessagePopped
 	batchHeader.Encode()
+	rollupData.BatchHash = batchHeader.Hash()
 	return nil
 }
 
@@ -513,6 +546,8 @@ func (d *Derivation) derive(rollupData *RollupData) (*eth.Header, error) {
 	var lastHeader *eth.Header
 	for _, chunk := range rollupData.Chunks {
 		for _, blockData := range chunk.blockContext {
+			blockData.SafeL2Data.BatchHash = &rollupData.BatchHash
+			fmt.Printf("blockData.SafeL2Data===========%+v\n", blockData.SafeL2Data)
 			latestBlockNumber, err := d.l2Client.BlockNumber(context.Background())
 			if err != nil {
 				return nil, fmt.Errorf("get derivation geth block number error:%v", err)
@@ -522,11 +557,17 @@ func (d *Derivation) derive(rollupData *RollupData) (*eth.Header, error) {
 				lastHeader, err = d.l2Client.HeaderByNumber(d.ctx, big.NewInt(int64(latestBlockNumber)))
 				continue
 			}
-			blockData.SafeL2Data.BatchHash = &rollupData.BatchHash
+			if blockData.SafeL2Data.Number == 101 {
+				fmt.Printf("blockData.SafeL2Data======================start\n")
+			}
+
 			lastHeader, err = d.l2Client.NewSafeL2Block(context.Background(), blockData.SafeL2Data)
 			if err != nil {
 				d.logger.Error("NewL2Block failed", "latestBlockNumber", latestBlockNumber, "error", err)
 				return nil, err
+			}
+			if blockData.SafeL2Data.Number == 101 {
+				fmt.Printf("blockData.SafeL2Data======================end\n")
 			}
 		}
 	}

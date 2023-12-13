@@ -444,10 +444,9 @@ func ParsingTxs(transactions tmtypes.Txs, totalL1MessagePoppedBeforeTheBatch, to
 	return
 }
 
-func DecodeTxsPayload(txsPayload []byte) ([]*eth.Transaction, error) {
-	reader := bytes.NewReader(txsPayload)
+func DecodeTxsPayload(reader *bytes.Reader, txNum int) ([]*eth.Transaction, error) {
 	var txs []*eth.Transaction
-	for {
+	for i := 0; i < txNum; i++ {
 		var txLen uint32
 		if err := binary.Read(reader, binary.BigEndian, &txLen); err != nil {
 			if err == io.EOF {
@@ -455,14 +454,16 @@ func DecodeTxsPayload(txsPayload []byte) ([]*eth.Transaction, error) {
 			}
 			return nil, err
 		}
+		fmt.Println("len txlen ==============", txLen)
 		txBz := make([]byte, txLen)
 		if err := binary.Read(reader, binary.BigEndian, &txBz); err != nil {
 			return nil, fmt.Errorf("redad txBz error:%v", err)
 		}
-		var tx *eth.Transaction
+		var tx eth.Transaction
 		if err := tx.UnmarshalBinary(txBz); err != nil {
 			return nil, fmt.Errorf("transaction is not valid: %v", err)
 		}
+		txs = append(txs, &tx)
 	}
 	return txs, nil
 }
