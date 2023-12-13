@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
@@ -286,8 +285,6 @@ func (d *Derivation) fetchRollupDataByTxHash(txHash common.Hash, blockNumber uin
 	if err != nil {
 		return nil, err
 	}
-	inputHex := hexutil.Encode(tx.Data())
-	fmt.Println("inputHex=============", inputHex)
 	args, err := abi.Methods["commitBatch"].Inputs.Unpack(tx.Data()[4:])
 	if err != nil {
 		return nil, fmt.Errorf("submitBatches Unpack error:%v", err)
@@ -382,26 +379,15 @@ func parseChunk(chunkBytes []byte) (*types.Chunk, error) {
 	if err := binary.Read(reader, binary.BigEndian, &blockNum); err != nil {
 		return nil, err
 	}
-	chunkJson, err := json.Marshal(chunkBytes)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println("chunk json:", chunkJson)
-	fmt.Println("chunkBytes len=============", len(chunkBytes))
 
-	fmt.Println("block num=============", blockNum)
 	blockCtx := make([]byte, 0)
 	for i := 0; i < int(blockNum); i++ {
 		bc := make([]byte, 60)
 		if err := binary.Read(reader, binary.BigEndian, &bc); err != nil {
-			fmt.Println("binary.Read(reader, binary.BigEndian, &blockCtx) error:", err)
-
-			fmt.Println("i=========", i)
 			return nil, err
 		}
 		blockCtx = append(blockCtx, bc...)
 	}
-	fmt.Println("blockCtx len===========", len(blockCtx))
 	txsPayload := make([]byte, len(chunkBytes)-int(blockNum)*60-1)
 	if err := binary.Read(reader, binary.BigEndian, &txsPayload); err != nil {
 		return nil, err
@@ -444,13 +430,10 @@ func ParseBatch(batch geth.RPCRollupBatch) (*RollupData, error) {
 		ck := Chunk{}
 		var txsNum uint64
 		var l1MsgNum uint64
-		fmt.Println("chunk.BlockNum()==========", chunk.BlockNum())
-		fmt.Println("chunk.BlockContext()==========", len(chunk.BlockContext()))
 		reader := bytes.NewReader(chunk.TxsPayload())
 		for i := 0; i < chunk.BlockNum(); i++ {
 			var block BlockContext
 			err = block.Decode(chunk.BlockContext()[i*60 : i*60+60])
-			fmt.Println("BlockContext blocknumber================== ", block.Number)
 			if err != nil {
 				return nil, fmt.Errorf("decode chunk block context error:%v", err)
 			}
@@ -471,13 +454,9 @@ func ParseBatch(batch geth.RPCRollupBatch) (*RollupData, error) {
 			if block.txsNum < block.l1MsgNum {
 				return nil, fmt.Errorf("txsNum must be or equal to or greater than l1MsgNum,txsNum:%v,l1MsgNum:%v", block.txsNum, block.l1MsgNum)
 			}
-			fmt.Println("block.txsNum:============", block.txsNum)
-			fmt.Println("block.l1MsgNum:============", block.l1MsgNum)
-			fmt.Println("txsNum", txsNum)
 
 			txs, err := node.DecodeTxsPayload(reader, int(block.txsNum)-int(block.l1MsgNum))
 			if err != nil {
-				fmt.Println("len (chunk.TxsPayload()==========", len(chunk.TxsPayload()))
 				return nil, fmt.Errorf("DecodeTxsPayload error:%v", err)
 			}
 			txsNum += uint64(block.txsNum)
@@ -547,7 +526,6 @@ func (d *Derivation) derive(rollupData *RollupData) (*eth.Header, error) {
 	for _, chunk := range rollupData.Chunks {
 		for _, blockData := range chunk.blockContext {
 			blockData.SafeL2Data.BatchHash = &rollupData.BatchHash
-			fmt.Printf("blockData.SafeL2Data===========%+v\n", blockData.SafeL2Data)
 			latestBlockNumber, err := d.l2Client.BlockNumber(context.Background())
 			if err != nil {
 				return nil, fmt.Errorf("get derivation geth block number error:%v", err)
@@ -557,13 +535,14 @@ func (d *Derivation) derive(rollupData *RollupData) (*eth.Header, error) {
 				lastHeader, err = d.l2Client.HeaderByNumber(d.ctx, big.NewInt(int64(latestBlockNumber)))
 				continue
 			}
-			fmt.Printf("blockData.SafeL2Data======================start\n")
+			d.logger.Info("NewSafeL2Block start...", "blockNumber", blockData.Number)
+			fmt.Printf("blockData.SafeL2Data===========%+v\n", blockData.SafeL2Data)
 			lastHeader, err = d.l2Client.NewSafeL2Block(d.ctx, blockData.SafeL2Data)
 			if err != nil {
 				d.logger.Error("NewL2Block failed", "latestBlockNumber", latestBlockNumber, "error", err)
 				return nil, err
 			}
-			fmt.Printf("blockData.SafeL2Data======================end\n")
+			d.logger.Info("NewSafeL2Block end...")
 		}
 	}
 
