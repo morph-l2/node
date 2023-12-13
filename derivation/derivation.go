@@ -557,18 +557,14 @@ func (d *Derivation) derive(rollupData *RollupData) (*eth.Header, error) {
 				lastHeader, err = d.l2Client.HeaderByNumber(d.ctx, big.NewInt(int64(latestBlockNumber)))
 				continue
 			}
-			if blockData.SafeL2Data.Number == 101 {
-				fmt.Printf("blockData.SafeL2Data======================start\n")
-			}
+			fmt.Printf("blockData.SafeL2Data======================start\n")
 
 			lastHeader, err = d.l2Client.NewSafeL2Block(context.Background(), blockData.SafeL2Data)
 			if err != nil {
 				d.logger.Error("NewL2Block failed", "latestBlockNumber", latestBlockNumber, "error", err)
 				return nil, err
 			}
-			if blockData.SafeL2Data.Number == 101 {
-				fmt.Printf("blockData.SafeL2Data======================end\n")
-			}
+			fmt.Printf("blockData.SafeL2Data======================end\n")
 		}
 	}
 
