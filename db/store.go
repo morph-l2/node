@@ -90,8 +90,9 @@ func (s *Store) ReadL1MessagesInRange(start, end uint64) []types.L1Message {
 	if start > end {
 		return nil
 	}
-	expectedCount := end - start + 1
-	messages := make([]types.L1Message, 0, expectedCount)
+	//expectedCount := end - start + 1
+	//messages := make([]types.L1Message, 0, expectedCount)
+	var messages []types.L1Message
 	it := IterateL1MessagesFrom(s.db, start)
 	defer it.Release()
 

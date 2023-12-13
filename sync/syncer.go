@@ -24,6 +24,7 @@ type Syncer struct {
 	pollInterval        time.Duration
 	logProgressInterval time.Duration
 	stop                chan struct{}
+	isFake              bool
 }
 
 func NewSyncer(ctx context.Context, db Database, config *Config, logger tmlog.Logger) (*Syncer, error) {
@@ -74,6 +75,9 @@ func NewSyncer(ctx context.Context, db Database, config *Config, logger tmlog.Lo
 }
 
 func (s *Syncer) Start() {
+	if s.isFake {
+		return
+	}
 	// block node startup during initial sync and print some helpful logs
 	s.logger.Info("initial sync start", "msg", "Running initial sync of L1 messages before starting sequencer, this might take a while...")
 	s.fetchL1Messages()

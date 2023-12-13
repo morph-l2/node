@@ -3,12 +3,13 @@ package node
 import (
 	"context"
 	"fmt"
+
 	"github.com/morph-l2/node/db"
 	"github.com/morph-l2/node/sync"
 	"github.com/urfave/cli"
 )
 
-func newSyncer(ctx *cli.Context, home string, config *Config) (*sync.Syncer, error) {
+func NewSyncer(ctx *cli.Context, home string, config *Config) (*sync.Syncer, error) {
 	// configure store
 	dbConfig := db.DefaultConfig()
 	dbConfig.SetCliContext(ctx)
