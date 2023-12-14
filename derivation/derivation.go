@@ -539,7 +539,7 @@ func (d *Derivation) derive(rollupData *BatchInfo) (*eth.Header, error) {
 			err = func() error {
 				ctx, cancel := context.WithTimeout(context.Background(), time.Duration(60)*time.Second)
 				defer cancel()
-				lastHeader, err = d.l2Client.NewSafeL2Block(ctx, blockData.SafeL2Data)
+				lastHeader, err = d.l2Client.OnceNewSafeL2Block(ctx, blockData.SafeL2Data)
 				if err != nil {
 					d.logger.Error("NewL2Block failed", "latestBlockNumber", latestBlockNumber, "error", err)
 					return err
