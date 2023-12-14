@@ -34,8 +34,8 @@ var (
 	RollupEventTopicHash = crypto.Keccak256Hash([]byte(RollupEventTopic))
 )
 
-// RollupData is all rollup data of one l1 block,maybe contain many rollup batch
-type RollupData struct {
+// BatchInfo is all rollup data of one l1 block,maybe contain many rollup batch
+type BatchInfo struct {
 	BatchIndex       uint64
 	BlockNum         uint64
 	TxNum            uint64
@@ -53,8 +53,8 @@ type RollupData struct {
 	skippedL1MessageBitmap *big.Int
 }
 
-func newRollupData(blockNumber uint64, txHash common.Hash, nonce uint64) *RollupData {
-	return &RollupData{
+func newRollupData(blockNumber uint64, txHash common.Hash, nonce uint64) *BatchInfo {
+	return &BatchInfo{
 		L1BlockNumber: blockNumber,
 		TxHash:        txHash,
 		Nonce:         nonce,
@@ -208,7 +208,7 @@ func (d *Derivation) derivationBlock(ctx context.Context) {
 	d.logger.Info("fetched rollup tx", "txNum", len(logs))
 
 	for _, lg := range logs {
-		rollupData, err := d.fetchRollupDataByTxHash(lg.TxHash, lg.BlockNumber)
+		batchInfo, err := d.fetchRollupDataByTxHash(lg.TxHash, lg.BlockNumber)
 		if err != nil {
 			rollupCommitBatch, parseErr := d.rollup.ParseCommitBatch(lg)
 			//blockNumber, err := d.l2Client.BlockNumber(ctx)
@@ -219,15 +219,14 @@ func (d *Derivation) derivationBlock(ctx context.Context) {
 			if rollupCommitBatch.BatchIndex.Uint64() == 0 {
 				continue
 			}
-			d.logger.Error("fetch rollup data failed", "txHash", lg.TxHash, "blockNumber", lg.BlockNumber, "error", err)
+			d.logger.Error("fetch batch info failed", "txHash", lg.TxHash, "blockNumber", lg.BlockNumber, "error", err)
 			return
 		}
-		d.logger.Info("fetch rollup transaction success", "txNonce", rollupData.Nonce, "txHash", rollupData.TxHash,
-			"l1BlockNumber", rollupData.L1BlockNumber, "firstL2BlockNumber", rollupData.FirstBlockNumber, "lastL2BlockNumber", rollupData.LastBlockNumber)
-		// derivation
+		d.logger.Info("fetch rollup transaction success", "txNonce", batchInfo.Nonce, "txHash", batchInfo.TxHash,
+			"l1BlockNumber", batchInfo.L1BlockNumber, "firstL2BlockNumber", batchInfo.FirstBlockNumber, "lastL2BlockNumber", batchInfo.LastBlockNumber)
 
-		//for _, batchData := range rollupData.Blocks {
-		lastHeader, err := d.derive(rollupData)
+		// derivation
+		lastHeader, err := d.derive(batchInfo)
 		if err != nil {
 			d.logger.Error("derive blocks interrupt", "error", err)
 			return
@@ -235,9 +234,9 @@ func (d *Derivation) derivationBlock(ctx context.Context) {
 		// only last block of batch
 		d.logger.Info("batch derivation complete", "currentBatchEndBlock", lastHeader.Number.Uint64())
 		d.metrics.SetL2DeriveHeight(lastHeader.Number.Uint64())
-		if !bytes.Equal(lastHeader.Root.Bytes(), rollupData.Root.Bytes()) && d.validator != nil && d.validator.ChallengeEnable() {
-			d.logger.Info("root hash is not equal", "originStateRootHash", rollupData.Root, "deriveStateRootHash", lastHeader.Root.Hex())
-			//batchIndex, err := d.findBatchIndex(rollupData.TxHash, batchData[len(batchData)-1].SafeL2Data.Number)
+		if !bytes.Equal(lastHeader.Root.Bytes(), batchInfo.Root.Bytes()) && d.validator != nil && d.validator.ChallengeEnable() {
+			d.logger.Info("root hash is not equal", "originStateRootHash", batchInfo.Root, "deriveStateRootHash", lastHeader.Root.Hex())
+			//batchIndex, err := d.findBatchIndex(batchInfo.TxHash, batchInfo[len(batchInfo)-1].SafeL2Data.Number)
 			//if err != nil {
 			//	d.logger.Error("find batch index failed", "error", err)
 			//	return
@@ -273,7 +272,7 @@ func (d *Derivation) fetchRollupLog(ctx context.Context, from, to uint64) ([]eth
 	return d.l1Client.FilterLogs(ctx, query)
 }
 
-func (d *Derivation) fetchRollupDataByTxHash(txHash common.Hash, blockNumber uint64) (*RollupData, error) {
+func (d *Derivation) fetchRollupDataByTxHash(txHash common.Hash, blockNumber uint64) (*BatchInfo, error) {
 	tx, pending, err := d.l1Client.TransactionByHash(context.Background(), txHash)
 	if err != nil {
 		return nil, err
@@ -397,7 +396,7 @@ func parseChunk(chunkBytes []byte) (*types.Chunk, error) {
 	return chunk, nil
 }
 
-func (d *Derivation) parseBatch(batch geth.RPCRollupBatch) (*RollupData, error) {
+func (d *Derivation) parseBatch(batch geth.RPCRollupBatch) (*BatchInfo, error) {
 	parentBatchHeader, err := types.DecodeBatchHeader(batch.ParentBatchHeader)
 	if err != nil {
 		return nil, fmt.Errorf("DecodeBatchHeader error:%v", err)
@@ -413,8 +412,8 @@ func (d *Derivation) parseBatch(batch geth.RPCRollupBatch) (*RollupData, error) 
 	return rollupData, nil
 }
 
-func ParseBatch(batch geth.RPCRollupBatch) (*RollupData, error) {
-	var rollupData RollupData
+func ParseBatch(batch geth.RPCRollupBatch) (*BatchInfo, error) {
+	var rollupData BatchInfo
 	rollupData.Root = batch.PostStateRoot
 	rollupData.skippedL1MessageBitmap = new(big.Int).SetBytes(batch.SkippedL1MessageBitmap[:])
 	rollupData.Version = uint64(batch.Version)
@@ -476,7 +475,7 @@ func ParseBatch(batch geth.RPCRollupBatch) (*RollupData, error) {
 	return &rollupData, nil
 }
 
-func (d *Derivation) handleL1Message(rollupData *RollupData, parentBatchHeader *types.BatchHeader) error {
+func (d *Derivation) handleL1Message(rollupData *BatchInfo, parentBatchHeader *types.BatchHeader) error {
 	batchHeader := types.BatchHeader{
 		Version:                uint8(rollupData.Version),
 		BatchIndex:             parentBatchHeader.BatchIndex + 1,
@@ -521,7 +520,7 @@ func (d *Derivation) getL1Message(l1MessagePopped, l1MsgNum uint64) ([]types.L1M
 	return d.syncer.ReadL1MessagesInRange(start, end), nil
 }
 
-func (d *Derivation) derive(rollupData *RollupData) (*eth.Header, error) {
+func (d *Derivation) derive(rollupData *BatchInfo) (*eth.Header, error) {
 	var lastHeader *eth.Header
 	for _, chunk := range rollupData.Chunks {
 		for _, blockData := range chunk.blockContext {
@@ -548,7 +547,7 @@ func (d *Derivation) derive(rollupData *RollupData) (*eth.Header, error) {
 				return nil
 			}()
 			if err != nil {
-
+				return nil, fmt.Errorf("derivation error:%v", err)
 			}
 			d.logger.Info("NewSafeL2Block end...")
 		}
