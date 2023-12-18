@@ -126,7 +126,6 @@ func (s *Syncer) fetchL1Messages() {
 	// ticker for logging progress
 	t := time.NewTicker(s.logProgressInterval)
 	numMessagesCollected := 0
-
 	// query in batches
 	for from := s.latestSynced + 1; from <= latestConfirmed; from += s.fetchBlockRange {
 		select {
@@ -191,4 +190,8 @@ func (s *Syncer) GetL1Message(index uint64, txHash common.Hash) (*types.L1Messag
 
 func (s *Syncer) ReadL1MessagesInRange(start, end uint64) []types.L1Message {
 	return s.db.ReadL1MessagesInRange(start, end)
+}
+
+func (s *Syncer) LatestSynced() uint64 {
+	return s.latestSynced
 }
