@@ -581,7 +581,6 @@ func (d *Derivation) derive(rollupData *BatchInfo) (*eth.Header, error) {
 				continue
 			}
 			d.logger.Info("NewSafeL2Block start...", "blockNumber", blockData.Number)
-			fmt.Printf("blockData.SafeL2Data===========%+v\n", blockData.SafeL2Data)
 			err = func() error {
 				ctx, cancel := context.WithTimeout(context.Background(), time.Duration(60)*time.Second)
 				defer cancel()
