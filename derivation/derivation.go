@@ -176,11 +176,6 @@ func (d *Derivation) Stop() {
 
 func (d *Derivation) derivationBlock(ctx context.Context) {
 	latestDerivation := d.db.ReadLatestDerivationL1Height()
-	//latest, err := nodecommon.GetLatestConfirmedBlockNumber(ctx, d.l1Client.(*ethclient.Client), d.confirmations)
-	//if err != nil {
-	//	d.logger.Error("GetLatestConfirmedBlockNumber failed", "error", err)
-	//	return
-	//}
 	latest := d.syncer.LatestSynced()
 	start := *latestDerivation + 1
 	end := latest
@@ -211,7 +206,6 @@ func (d *Derivation) derivationBlock(ctx context.Context) {
 		batchInfo, err := d.fetchRollupDataByTxHash(lg.TxHash, lg.BlockNumber)
 		if err != nil {
 			rollupCommitBatch, parseErr := d.rollup.ParseCommitBatch(lg)
-			//blockNumber, err := d.l2Client.BlockNumber(ctx)
 			if parseErr != nil {
 				d.logger.Error("get l2 BlockNumber", "err", err)
 				return
@@ -236,16 +230,6 @@ func (d *Derivation) derivationBlock(ctx context.Context) {
 		d.metrics.SetL2DeriveHeight(lastHeader.Number.Uint64())
 		if !bytes.Equal(lastHeader.Root.Bytes(), batchInfo.Root.Bytes()) && d.validator != nil && d.validator.ChallengeEnable() {
 			d.logger.Info("root hash is not equal", "originStateRootHash", batchInfo.Root, "deriveStateRootHash", lastHeader.Root.Hex())
-			//batchIndex, err := d.findBatchIndex(batchInfo.TxHash, batchInfo[len(batchInfo)-1].SafeL2Data.Number)
-			//if err != nil {
-			//	d.logger.Error("find batch index failed", "error", err)
-			//	return
-			//}
-			//d.logger.Info("validator start challenge", "batchIndex", batchIndex)
-			//if err := d.validator.ChallengeState(batchIndex); err != nil {
-			//	d.logger.Error("challenge state failed", "error", err)
-			//
-			//}
 			return
 		}
 		//}
@@ -316,7 +300,6 @@ func (d *Derivation) fetchRollupDataByTxHash(txHash common.Hash, blockNumber uin
 		PostStateRoot:          common.BytesToHash(rollupBatchData.PostStateRoot[:]),
 		WithdrawRoot:           common.BytesToHash(rollupBatchData.WithdrawalRoot[:]),
 	}
-	//rollupData := newRollupData(blockNumber, txHash, tx.Nonce())
 	rollupData, err := d.parseBatch(batch)
 	if err != nil {
 		d.logger.Error("ParseBatch failed", "txNonce", tx.Nonce(), "txHash", txHash,
@@ -565,15 +548,7 @@ func (d *Derivation) findBatchIndex(txHash common.Hash, blockNumber uint64) (uin
 	if receipt.Status == eth.ReceiptStatusFailed {
 		return 0, err
 	}
-	//for _, lg := range receipt.Logs {
-	//	batchStorage, err := d.rollup.ParseBatchStorage(*lg)
-	//	if err != nil {
-	//		continue
-	//	}
-	//	if batchStorage.BlockNumber == blockNumber {
-	//		return batchStorage.BatchIndex, nil
-	//	}
-	//}
+
 	return 0, fmt.Errorf("event not found")
 }
 
