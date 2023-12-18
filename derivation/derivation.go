@@ -73,9 +73,6 @@ type Derivation struct {
 	rollup                *bindings.Rollup
 	metrics               *Metrics
 
-	// TODO delete
-	sequencerClient *ethclient.Client
-
 	latestDerivation uint64
 	db               Database
 
@@ -108,11 +105,6 @@ func NewDerivationClient(ctx context.Context, cfg *Config, syncer *sync.Syncer, 
 	if err != nil {
 		return nil, err
 	}
-	// TODO delete
-	sequencerClient, err := ethclient.Dial("http://172.17.0.1:8545")
-	if err != nil {
-		return nil, err
-	}
 	ctx, cancel := context.WithCancel(ctx)
 	logger = logger.With("module", "derivation")
 	metrics := PrometheusMetrics("morphnode")
@@ -142,9 +134,6 @@ func NewDerivationClient(ctx context.Context, cfg *Config, syncer *sync.Syncer, 
 		pollInterval:          cfg.PollInterval,
 		logProgressInterval:   cfg.LogProgressInterval,
 		metrics:               metrics,
-
-		// TODO delete
-		sequencerClient: sequencerClient,
 	}, nil
 }
 
@@ -548,7 +537,6 @@ func (d *Derivation) derive(rollupData *BatchInfo) (*eth.Header, error) {
 				lastHeader, err = d.l2Client.HeaderByNumber(d.ctx, big.NewInt(int64(latestBlockNumber)))
 				continue
 			}
-			d.logger.Info("NewSafeL2Block start...", "blockNumber", blockData.Number)
 			err = func() error {
 				ctx, cancel := context.WithTimeout(context.Background(), time.Duration(60)*time.Second)
 				defer cancel()
@@ -562,13 +550,7 @@ func (d *Derivation) derive(rollupData *BatchInfo) (*eth.Header, error) {
 			if err != nil {
 				return nil, fmt.Errorf("derivation error:%v", err)
 			}
-			sqeHeader, err := d.sequencerClient.HeaderByNumber(d.ctx, lastHeader.Number)
-			// TODO delete
-			if lastHeader.Hash().String() != sqeHeader.Hash().String() {
-				fmt.Println("block hash not equal", "lastHeaderHash", lastHeader.Hash(), "sqeHeaderHash", sqeHeader.Hash())
-				fmt.Println("derive root equal seq root")
-			}
-			d.logger.Info("NewSafeL2Block end...", "blockNumber", blockData.Number)
+			d.logger.Info("NewSafeL2Block success", "blockNumber", blockData.Number)
 		}
 	}
 
