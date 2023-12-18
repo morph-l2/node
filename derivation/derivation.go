@@ -526,8 +526,11 @@ func (d *Derivation) handleL1Message(rollupData *BatchInfo, parentBatchHeader *t
 }
 
 func (d *Derivation) getL1Message(l1MessagePopped, l1MsgNum uint64) ([]types.L1Message, error) {
-	start := l1MessagePopped + 1
-	end := l1MessagePopped + l1MsgNum
+	if l1MsgNum == 0 {
+		return nil, nil
+	}
+	start := l1MessagePopped
+	end := l1MessagePopped + l1MsgNum - 1
 	return d.syncer.ReadL1MessagesInRange(start, end), nil
 }
 
