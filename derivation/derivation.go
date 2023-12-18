@@ -73,6 +73,9 @@ type Derivation struct {
 	rollup                *bindings.Rollup
 	metrics               *Metrics
 
+	// TODO delete
+	sequencerClient *ethclient.Client
+
 	latestDerivation uint64
 	db               Database
 
@@ -105,6 +108,11 @@ func NewDerivationClient(ctx context.Context, cfg *Config, syncer *sync.Syncer, 
 	if err != nil {
 		return nil, err
 	}
+	// TODO delete
+	sequencerClient, err := ethclient.Dial("http://morhp-geth-0:8545")
+	if err != nil {
+		return nil, err
+	}
 	ctx, cancel := context.WithCancel(ctx)
 	logger = logger.With("module", "derivation")
 	metrics := PrometheusMetrics("morphnode")
@@ -134,6 +142,9 @@ func NewDerivationClient(ctx context.Context, cfg *Config, syncer *sync.Syncer, 
 		pollInterval:          cfg.PollInterval,
 		logProgressInterval:   cfg.LogProgressInterval,
 		metrics:               metrics,
+
+		// TODO delete
+		sequencerClient: sequencerClient,
 	}, nil
 }
 
@@ -536,6 +547,19 @@ func (d *Derivation) derive(rollupData *BatchInfo) (*eth.Header, error) {
 				return nil, fmt.Errorf("invalid block nums")
 			} else {
 				fmt.Println("txnums equal txs length")
+			}
+			block, err := d.sequencerClient.BlockByNumber(d.ctx, big.NewInt(int64(blockData.Number)))
+			//blockTxs := encodeTransactions(block.Transactions())
+			for i := 0; i < len(block.Transactions()); i++ {
+				var tx eth.Transaction
+				if err := tx.UnmarshalBinary(blockData.SafeL2Data.Transactions[i]); err != nil {
+					fmt.Println("tx.UnmarshalBinary error", err)
+				}
+				if block.Transactions()[i].Hash() == tx.Hash() {
+					fmt.Println("block.Transactions()[i].Hash()=========", block.Transactions()[i].Hash())
+					fmt.Println("tx.Hash()=========", block.Transactions()[i].Hash())
+					return nil, fmt.Errorf("tx hash not equal")
+				}
 			}
 			time.Sleep(time.Second)
 			if blockData.SafeL2Data.Number <= latestBlockNumber {
