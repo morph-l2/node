@@ -553,16 +553,24 @@ func (d *Derivation) derive(rollupData *BatchInfo) (*eth.Header, error) {
 				return nil, err
 			}
 			//blockTxs := encodeTransactions(block.Transactions())
+			var hashErr error
 			for i := 0; i < len(block.Transactions()); i++ {
 				var tx eth.Transaction
 				if err := tx.UnmarshalBinary(blockData.SafeL2Data.Transactions[i]); err != nil {
 					return nil, fmt.Errorf("tx.UnmarshalBinary error:%v", err)
 				}
 				if block.Transactions()[i].Hash().String() != tx.Hash().String() {
+					hashErr = fmt.Errorf("tx hash not equal")
+					fmt.Println("tx index==", i)
+					fmt.Println("block tx type ==", block.Transactions()[i].Type())
+					fmt.Println("derive tx type==", tx.Type())
 					fmt.Println("block.Transactions()[i].Hash()=========", block.Transactions()[i].Hash())
-					fmt.Println("tx.Hash()=========", block.Transactions()[i].Hash())
-					return nil, fmt.Errorf("tx hash not equal")
+					fmt.Println("tx.Hash()=========                      ", tx.Hash().String())
+					continue
 				}
+			}
+			if hashErr != nil {
+				return nil, err
 			}
 			time.Sleep(time.Second)
 			if blockData.SafeL2Data.Number <= latestBlockNumber {
