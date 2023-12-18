@@ -541,6 +541,8 @@ func (d *Derivation) derive(rollupData *BatchInfo) (*eth.Header, error) {
 				fmt.Println("block data txsNum:", blockData.txsNum)
 				fmt.Println("blockData.SafeL2Data.Transactions len:", len(blockData.SafeL2Data.Transactions))
 				return nil, fmt.Errorf("invalid block nums")
+			} else {
+				fmt.Println("txnums equal txs length")
 			}
 			time.Sleep(time.Second)
 			err = func() error {
