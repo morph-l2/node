@@ -562,6 +562,12 @@ func (d *Derivation) derive(rollupData *BatchInfo) (*eth.Header, error) {
 			if err != nil {
 				return nil, fmt.Errorf("derivation error:%v", err)
 			}
+			sqeHeader, err := d.sequencerClient.HeaderByNumber(d.ctx, lastHeader.Number)
+			// TODO delete
+			if lastHeader.Hash().String() != sqeHeader.Hash().String() {
+				fmt.Println("block hash not equal", "lastHeaderHash", lastHeader.Hash(), "sqeHeaderHash", sqeHeader.Hash())
+				fmt.Println("derive root equal seq root")
+			}
 			d.logger.Info("NewSafeL2Block end...", "blockNumber", blockData.Number)
 		}
 	}
