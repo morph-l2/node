@@ -529,13 +529,6 @@ func (d *Derivation) derive(rollupData *BatchInfo) (*eth.Header, error) {
 			if err != nil {
 				return nil, fmt.Errorf("get derivation geth block number error:%v", err)
 			}
-			if blockData.SafeL2Data.Number <= latestBlockNumber {
-				d.logger.Info("SafeL2Data block number less than latestBlockNumber", "safeL2DataNumber", blockData.SafeL2Data.Number, "latestBlockNumber", latestBlockNumber)
-				lastHeader, err = d.l2Client.HeaderByNumber(d.ctx, big.NewInt(int64(latestBlockNumber)))
-				continue
-			}
-			d.logger.Info("NewSafeL2Block start...", "blockNumber", blockData.Number)
-			fmt.Printf("blockData.SafeL2Data===========%+v\n", blockData.SafeL2Data)
 			// TODO delete
 			if int(blockData.txsNum) != len(blockData.SafeL2Data.Transactions) {
 				fmt.Println("block data txsNum:", blockData.txsNum)
@@ -545,6 +538,13 @@ func (d *Derivation) derive(rollupData *BatchInfo) (*eth.Header, error) {
 				fmt.Println("txnums equal txs length")
 			}
 			time.Sleep(time.Second)
+			if blockData.SafeL2Data.Number <= latestBlockNumber {
+				d.logger.Info("SafeL2Data block number less than latestBlockNumber", "safeL2DataNumber", blockData.SafeL2Data.Number, "latestBlockNumber", latestBlockNumber)
+				lastHeader, err = d.l2Client.HeaderByNumber(d.ctx, big.NewInt(int64(latestBlockNumber)))
+				continue
+			}
+			d.logger.Info("NewSafeL2Block start...", "blockNumber", blockData.Number)
+			fmt.Printf("blockData.SafeL2Data===========%+v\n", blockData.SafeL2Data)
 			err = func() error {
 				ctx, cancel := context.WithTimeout(context.Background(), time.Duration(60)*time.Second)
 				defer cancel()
