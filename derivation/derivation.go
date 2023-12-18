@@ -514,7 +514,7 @@ func (d *Derivation) handleL1Message(rollupData *BatchInfo, parentBatchHeader *t
 					l1Transactions = append(l1Transactions, transaction)
 				}
 			}
-			rollupData.Chunks[index].blockContext[bIndex].SafeL2Data.Transactions = append(chunk.blockContext[bIndex].SafeL2Data.Transactions, encodeTransactions(l1Transactions)...)
+			rollupData.Chunks[index].blockContext[bIndex].SafeL2Data.Transactions = append(encodeTransactions(l1Transactions), chunk.blockContext[bIndex].SafeL2Data.Transactions...)
 		}
 
 	}
