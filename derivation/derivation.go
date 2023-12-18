@@ -558,7 +558,7 @@ func (d *Derivation) derive(rollupData *BatchInfo) (*eth.Header, error) {
 				if err := tx.UnmarshalBinary(blockData.SafeL2Data.Transactions[i]); err != nil {
 					return nil, fmt.Errorf("tx.UnmarshalBinary error:%v", err)
 				}
-				if block.Transactions()[i].Hash() == tx.Hash() {
+				if block.Transactions()[i].Hash() != tx.Hash() {
 					fmt.Println("block.Transactions()[i].Hash()=========", block.Transactions()[i].Hash())
 					fmt.Println("tx.Hash()=========", block.Transactions()[i].Hash())
 					return nil, fmt.Errorf("tx hash not equal")
