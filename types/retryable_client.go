@@ -112,10 +112,6 @@ func (rc *RetryableClient) NewSafeL2Block(ctx context.Context, safeL2Data *catal
 	return
 }
 
-func (rc *RetryableClient) OnceNewSafeL2Block(ctx context.Context, safeL2Data *catalyst.SafeL2Data) (ret *eth.Header, err error) {
-	return rc.authClient.NewSafeL2Block(ctx, safeL2Data)
-}
-
 func (rc *RetryableClient) CommitBatch(ctx context.Context, batch *eth.RollupBatch, signatures []eth.BatchSignature) (err error) {
 	if retryErr := backoff.Retry(func() error {
 		respErr := rc.authClient.CommitBatch(ctx, batch, signatures)

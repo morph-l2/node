@@ -485,7 +485,7 @@ func (d *Derivation) handleL1Message(rollupData *BatchInfo, parentBatchHeader *t
 	}
 	var l1MessagePopped, totalL1MessagePopped uint64
 	totalL1MessagePopped = parentBatchHeader.TotalL1MessagePopped
-	for _, chunk := range rollupData.Chunks {
+	for index, chunk := range rollupData.Chunks {
 		for bIndex, block := range chunk.blockContext {
 			var l1Transactions []*eth.Transaction
 			l1Messages, err := d.getL1Message(totalL1MessagePopped, uint64(block.l1MsgNum))
@@ -503,7 +503,7 @@ func (d *Derivation) handleL1Message(rollupData *BatchInfo, parentBatchHeader *t
 					l1Transactions = append(l1Transactions, transaction)
 				}
 			}
-			chunk.blockContext[bIndex].SafeL2Data.Transactions = append(chunk.blockContext[bIndex].SafeL2Data.Transactions, encodeTransactions(l1Transactions)...)
+			rollupData.Chunks[index].blockContext[bIndex].SafeL2Data.Transactions = append(chunk.blockContext[bIndex].SafeL2Data.Transactions, encodeTransactions(l1Transactions)...)
 		}
 
 	}
@@ -536,10 +536,16 @@ func (d *Derivation) derive(rollupData *BatchInfo) (*eth.Header, error) {
 			}
 			d.logger.Info("NewSafeL2Block start...", "blockNumber", blockData.Number)
 			fmt.Printf("blockData.SafeL2Data===========%+v\n", blockData.SafeL2Data)
+			// TODO delete
+			if int(blockData.txsNum) != len(blockData.SafeL2Data.Transactions) {
+				fmt.Println("block data txsNum:", blockData.txsNum)
+				fmt.Println("blockData.SafeL2Data.Transactions len:", len(blockData.SafeL2Data.Transactions))
+				return nil, fmt.Errorf("invalid block nums")
+			}
 			err = func() error {
 				ctx, cancel := context.WithTimeout(context.Background(), time.Duration(60)*time.Second)
 				defer cancel()
-				lastHeader, err = d.l2Client.OnceNewSafeL2Block(ctx, blockData.SafeL2Data)
+				lastHeader, err = d.l2Client.NewSafeL2Block(ctx, blockData.SafeL2Data)
 				if err != nil {
 					d.logger.Error("NewL2Block failed", "latestBlockNumber", latestBlockNumber, "error", err)
 					return err
