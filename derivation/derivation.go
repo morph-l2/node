@@ -109,7 +109,7 @@ func NewDerivationClient(ctx context.Context, cfg *Config, syncer *sync.Syncer, 
 		return nil, err
 	}
 	// TODO delete
-	sequencerClient, err := ethclient.Dial("http://morhp-geth-0:8545")
+	sequencerClient, err := ethclient.Dial("http://172.17.0.1:8545")
 	if err != nil {
 		return nil, err
 	}
