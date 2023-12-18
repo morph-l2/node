@@ -549,6 +549,9 @@ func (d *Derivation) derive(rollupData *BatchInfo) (*eth.Header, error) {
 				fmt.Println("txnums equal txs length")
 			}
 			block, err := d.sequencerClient.BlockByNumber(d.ctx, big.NewInt(int64(blockData.Number)))
+			if err != nil {
+				return nil, err
+			}
 			//blockTxs := encodeTransactions(block.Transactions())
 			for i := 0; i < len(block.Transactions()); i++ {
 				var tx eth.Transaction
