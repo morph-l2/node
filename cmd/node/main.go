@@ -82,6 +82,14 @@ func L2NodeMain(ctx *cli.Context) error {
 		if err := derivationCfg.SetCliContext(ctx); err != nil {
 			return fmt.Errorf("derivation set cli context error: %v", err)
 		}
+		syncConfig := sync.DefaultConfig()
+		if err = syncConfig.SetCliContext(ctx); err != nil {
+			return err
+		}
+		syncer, err = sync.NewSyncer(context.Background(), store, syncConfig, nodeConfig.Logger)
+		if err != nil {
+			return fmt.Errorf("failed to create syncer, error: %v", err)
+		}
 		validatorCfg := validator.NewConfig()
 		if err := validatorCfg.SetCliContext(ctx); err != nil {
 			return fmt.Errorf("validator set cli context error: %v", err)
@@ -99,7 +107,7 @@ func L2NodeMain(ctx *cli.Context) error {
 			return fmt.Errorf("new validator client error: %v", err)
 		}
 
-		dvNode, err = derivation.NewDerivationClient(context.Background(), derivationCfg, store, vt, rollup, nodeConfig.Logger)
+		dvNode, err = derivation.NewDerivationClient(context.Background(), derivationCfg, syncer, store, vt, rollup, nodeConfig.Logger)
 		if err != nil {
 			return fmt.Errorf("new derivation client error: %v", err)
 		}

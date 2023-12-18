@@ -2,9 +2,9 @@ package types
 
 import (
 	"errors"
-	"github.com/scroll-tech/go-ethereum/core/types"
 
 	"github.com/scroll-tech/go-ethereum/common"
+	"github.com/scroll-tech/go-ethereum/core/types"
 	"github.com/scroll-tech/go-ethereum/crypto"
 )
 
@@ -79,6 +79,26 @@ func maxRowNumber(rc types.RowConsumption) (max uint64) {
 		}
 	}
 	return
+}
+
+func (ck *Chunk) ResetBlockNum(blockNum int) {
+	ck.blockNum = blockNum
+}
+
+func (ck *Chunk) BlockContext() []byte {
+	return ck.blockContext
+}
+
+func (ck *Chunk) TxsPayload() []byte {
+	return ck.txsPayload
+}
+
+func (ck *Chunk) TxHashes() []common.Hash {
+	return ck.txHashes
+}
+
+func (ck *Chunk) BlockNum() int {
+	return ck.blockNum
 }
 
 // Encode encodes the chunk into bytes
