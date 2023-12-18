@@ -542,6 +542,7 @@ func (d *Derivation) derive(rollupData *BatchInfo) (*eth.Header, error) {
 				fmt.Println("blockData.SafeL2Data.Transactions len:", len(blockData.SafeL2Data.Transactions))
 				return nil, fmt.Errorf("invalid block nums")
 			}
+			time.Sleep(time.Second)
 			err = func() error {
 				ctx, cancel := context.WithTimeout(context.Background(), time.Duration(60)*time.Second)
 				defer cancel()
