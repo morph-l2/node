@@ -543,38 +543,6 @@ func (d *Derivation) derive(rollupData *BatchInfo) (*eth.Header, error) {
 			if err != nil {
 				return nil, fmt.Errorf("get derivation geth block number error:%v", err)
 			}
-			// TODO delete
-			if int(blockData.txsNum) != len(blockData.SafeL2Data.Transactions) {
-				fmt.Println("block data txsNum:", blockData.txsNum)
-				fmt.Println("blockData.SafeL2Data.Transactions len:", len(blockData.SafeL2Data.Transactions))
-				return nil, fmt.Errorf("invalid block nums")
-			} else {
-				fmt.Println("txnums equal txs length")
-			}
-			block, err := d.sequencerClient.BlockByNumber(d.ctx, big.NewInt(int64(blockData.Number)))
-			if err != nil {
-				return nil, err
-			}
-			//blockTxs := encodeTransactions(block.Transactions())
-			var hashErr error
-			for i := 0; i < len(block.Transactions()); i++ {
-				var tx eth.Transaction
-				if err := tx.UnmarshalBinary(blockData.SafeL2Data.Transactions[i]); err != nil {
-					return nil, fmt.Errorf("tx.UnmarshalBinary error:%v", err)
-				}
-				if block.Transactions()[i].Hash().String() != tx.Hash().String() {
-					hashErr = fmt.Errorf("tx hash not equal")
-					fmt.Println("tx index==", i)
-					fmt.Println("block tx type ==", block.Transactions()[i].Type())
-					fmt.Println("derive tx type==", tx.Type())
-					fmt.Println("block.Transactions()[i].Hash()=========", block.Transactions()[i].Hash())
-					fmt.Println("tx.Hash()=========                      ", tx.Hash().String())
-					continue
-				}
-			}
-			if hashErr != nil {
-				return nil, err
-			}
 			if blockData.SafeL2Data.Number <= latestBlockNumber {
 				d.logger.Info("SafeL2Data block number less than latestBlockNumber", "safeL2DataNumber", blockData.SafeL2Data.Number, "latestBlockNumber", latestBlockNumber)
 				lastHeader, err = d.l2Client.HeaderByNumber(d.ctx, big.NewInt(int64(latestBlockNumber)))
@@ -594,7 +562,7 @@ func (d *Derivation) derive(rollupData *BatchInfo) (*eth.Header, error) {
 			if err != nil {
 				return nil, fmt.Errorf("derivation error:%v", err)
 			}
-			d.logger.Info("NewSafeL2Block end...")
+			d.logger.Info("NewSafeL2Block end...", "blockNumber", blockData.Number)
 		}
 	}
 
