@@ -415,7 +415,6 @@ func ParseBatch(batch geth.RPCRollupBatch) (*BatchInfo, error) {
 			return nil, fmt.Errorf("parse chunk error:%v", err)
 		}
 		rollupData.blockNum += uint64(chunk.BlockNum())
-		rollupData.txNum += uint64(len(chunk.TxHashes()))
 		chunks.Append(chunk.BlockContext(), chunk.TxsPayload(), nil, nil)
 		ck := Chunk{}
 		var txsNum uint64
@@ -460,6 +459,7 @@ func ParseBatch(batch geth.RPCRollupBatch) (*BatchInfo, error) {
 			block.SafeL2Data = &safeL2Data
 			ck.blockContext = append(ck.blockContext, &block)
 		}
+		rollupData.txNum += txsNum
 		rollupData.chunks = append(rollupData.chunks, &ck)
 	}
 	rollupData.dataHash = chunks.DataHash()
