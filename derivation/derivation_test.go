@@ -72,18 +72,6 @@ func TestFetchRollupData(t *testing.T) {
 	d := testNewDerivationClient(t)
 	_, err := d.fetchRollupDataByTxHash(common.HexToHash("0x27deefd6883567dec94fa3eca918de6a4a6d330e6f225b6282a5ab7e3c1a50dc"), 390)
 	require.NoError(t, err)
-	//logs, err := d.fetchRollupLog(context.Background(), 390, 390)
-	//require.NoError(t, err)
-	//for _, lg := range logs {
-	//	rollupData, err := d.fetchRollupDataByTxHash(lg.TxHash, lg.BlockNumber)
-	//	if err != nil {
-	//		d.logger.Error("fetch rollup data failed", "txHash", lg.TxHash, "blockNumber", lg.BlockNumber)
-	//		return
-	//	}
-	//	d.logger.Info("fetch rollup transaction success", "txNonce", rollupData.Nonce, "txHash", rollupData.TxHash,
-	//		"l1BlockNumber", rollupData.L1BlockNumber, "firstL2BlockNumber", rollupData.FirstBlockNumber, "lastL2BlockNumber", rollupData.LastBlockNumber)
-	//
-	//}
 }
 
 func newSimulatedBackend(key *ecdsa.PrivateKey) (*backends.SimulatedBackend, ethdb.Database) {
