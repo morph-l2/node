@@ -75,13 +75,13 @@ func TestFetchRollupData(t *testing.T) {
 	//logs, err := d.fetchRollupLog(context.Background(), 390, 390)
 	//require.NoError(t, err)
 	//for _, lg := range logs {
-	//	rollupData, err := d.fetchRollupDataByTxHash(lg.TxHash, lg.BlockNumber)
+	//	rollupData, err := d.fetchRollupDataByTxHash(lg.txHash, lg.BlockNumber)
 	//	if err != nil {
-	//		d.logger.Error("fetch rollup data failed", "txHash", lg.TxHash, "blockNumber", lg.BlockNumber)
+	//		d.logger.Error("fetch rollup data failed", "txHash", lg.txHash, "blockNumber", lg.BlockNumber)
 	//		return
 	//	}
-	//	d.logger.Info("fetch rollup transaction success", "txNonce", rollupData.Nonce, "txHash", rollupData.TxHash,
-	//		"l1BlockNumber", rollupData.L1BlockNumber, "firstL2BlockNumber", rollupData.FirstBlockNumber, "lastL2BlockNumber", rollupData.LastBlockNumber)
+	//	d.logger.Info("fetch rollup transaction success", "txNonce", rollupData.nonce, "txHash", rollupData.txHash,
+	//		"l1BlockNumber", rollupData.l1BlockNumber, "firstL2BlockNumber", rollupData.firstBlockNumber, "lastL2BlockNumber", rollupData.lastBlockNumber)
 	//
 	//}
 }
