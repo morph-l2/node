@@ -3,6 +3,7 @@ package validator
 import (
 	"crypto/ecdsa"
 	"math/big"
+	"strings"
 
 	"github.com/morph-l2/node/flags"
 	"github.com/scroll-tech/go-ethereum/common"
@@ -25,7 +26,8 @@ func NewConfig() *Config {
 func (c *Config) SetCliContext(ctx *cli.Context) error {
 	l1NodeAddr := ctx.GlobalString(flags.L1NodeAddr.Name)
 	l1ChainID := ctx.GlobalUint64(flags.L1ChainID.Name)
-	hex := ctx.GlobalString(flags.ValidatorPrivateKey.Name)
+	hexPrvKey := ctx.GlobalString(flags.ValidatorPrivateKey.Name)
+	hex := strings.TrimPrefix(hexPrvKey, "0x")
 	privateKey, err := crypto.HexToECDSA(hex)
 	if err != nil {
 		return err
