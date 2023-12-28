@@ -53,10 +53,3 @@ func TestSyncedL1Messages(t *testing.T) {
 	msg = db.ReadL1MessageByIndex(200)
 	require.Nil(t, msg)
 }
-
-func TestStore_WriteLatestBatchBls(t *testing.T) {
-	db := NewMemoryStore()
-	var batchBls types.BatchBls
-	db.WriteLatestBatchBls(batchBls)
-	batchBls = db.ReadLatestBatchBls()
-}
