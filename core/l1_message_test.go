@@ -240,6 +240,10 @@ func (r *testL1MsgReader) ReadL1MessagesInRange(start, end uint64) []types.L1Mes
 	return nil
 }
 
+func (r *testL1MsgReader) LatestSynced() uint64 {
+	return 0
+}
+
 func exchangeL1Msg(origin []types.L1Message, a, b int) []types.L1Message {
 	after := make([]types.L1Message, len(origin))
 	for i, msg := range origin {
