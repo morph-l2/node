@@ -216,7 +216,11 @@ func (e *Executor) SealBatch() ([]byte, []byte, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	e.batchingCache.sealedBatchHeader = types.NewBatchHeaderWithBlobHashes(batchHeader, sidecar.BlobHashes())
+	var blobHashes []common.Hash
+	if sidecar != nil && len(sidecar.Blobs) > 0 {
+		blobHashes = sidecar.BlobHashes()
+	}
+	e.batchingCache.sealedBatchHeader = types.NewBatchHeaderWithBlobHashes(batchHeader, blobHashes)
 	e.batchingCache.sealedSidecar = sidecar
 	batchHash := e.batchingCache.sealedBatchHeader.BatchHash()
 	e.logger.Info("Sealed batch header", "batchHash", batchHash.Hex())
