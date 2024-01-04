@@ -14,11 +14,10 @@ import (
 	"github.com/scroll-tech/go-ethereum/common"
 	eth "github.com/scroll-tech/go-ethereum/core/types"
 	"github.com/scroll-tech/go-ethereum/crypto/bls12381"
+	"github.com/scroll-tech/go-ethereum/crypto/kzg4844"
 	"github.com/tendermint/tendermint/l2node"
 	tmtypes "github.com/tendermint/tendermint/types"
 )
-
-const maxBlobSize = 128 * 1024 // 128K for one blob
 
 type BatchingCache struct {
 	parentBatchHeader *types.BatchHeaderWithBlobHashes
@@ -180,7 +179,7 @@ func (e *Executor) CalculateCapWithProposalBlock(currentBlockBytes []byte, curre
 
 	var exceeded bool
 	blobSizeWithCurBlock := e.batchingCache.chunks.TxPayloadSize() + len(e.batchingCache.currentTxsPayload)
-	if blobSizeWithCurBlock > maxBlobSize {
+	if blobSizeWithCurBlock > kzg4844.MaxBlobDataSize {
 		exceeded = true
 	}
 	e.logger.Info("CalculateCapWithProposalBlock response", "blobSizeWithCurBlock", blobSizeWithCurBlock, "exceeded", exceeded)
