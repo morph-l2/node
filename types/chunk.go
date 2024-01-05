@@ -13,16 +13,20 @@ const NormalizedRowLimit = 1_000_000
 type Chunk struct {
 	blockContext  []byte
 	txsPayload    []byte
-	txHashes      []common.Hash
+	txHashes      []byte
 	accumulatedRc types.RowConsumption
 	blockNum      int
 }
 
 func NewChunk(blockContext, txsPayload []byte, txHashes []common.Hash, rc types.RowConsumption) *Chunk {
+	var txHashBytes []byte
+	for _, txHash := range txHashes {
+		txHashBytes = append(txHashBytes, txHash.Bytes()...)
+	}
 	return &Chunk{
 		blockContext:  blockContext,
 		txsPayload:    txsPayload,
-		txHashes:      txHashes,
+		txHashes:      txHashBytes,
 		accumulatedRc: rc,
 		blockNum:      1,
 	}
@@ -31,9 +35,11 @@ func NewChunk(blockContext, txsPayload []byte, txHashes []common.Hash, rc types.
 func (ck *Chunk) append(blockContext, txsPayload []byte, txHashes []common.Hash, accRc types.RowConsumption) {
 	ck.blockContext = append(ck.blockContext, blockContext...)
 	ck.txsPayload = append(ck.txsPayload, txsPayload...)
-	ck.txHashes = append(ck.txHashes, txHashes...)
 	ck.accumulatedRc = accRc
 	ck.blockNum++
+	for _, txHash := range txHashes {
+		ck.txHashes = append(ck.txHashes, txHash.Bytes()...)
+	}
 }
 
 func (ck *Chunk) accumulateRowUsages(rc types.RowConsumption) (accRc types.RowConsumption, max uint64) {
@@ -93,17 +99,13 @@ func (ck *Chunk) TxsPayload() []byte {
 	return ck.txsPayload
 }
 
-func (ck *Chunk) TxHashes() []common.Hash {
-	return ck.txHashes
-}
-
 func (ck *Chunk) BlockNum() int {
 	return ck.blockNum
 }
 
 // Encode encodes the chunk into bytes
 // Below is the encoding for `Chunk`, total 60*n+1+m bytes.
-// Field           Bytes       Type            Index       Comments
+// Field           EncodedBytes       Type            Index       Comments
 // numBlocks       1           uint8           0           The number of blocks in this chunk
 // block[0]        60          BlockContext    1           The first block in this chunk
 // ......
@@ -121,7 +123,7 @@ func (ck *Chunk) Encode() ([]byte, error) {
 	var chunkBytes []byte
 	chunkBytes = append(chunkBytes, byte(ck.blockNum))
 	chunkBytes = append(chunkBytes, ck.blockContext...)
-	chunkBytes = append(chunkBytes, ck.txsPayload...)
+	chunkBytes = append(chunkBytes, ck.txHashes...)
 	return chunkBytes, nil
 }
 
@@ -130,9 +132,7 @@ func (ck *Chunk) Hash() common.Hash {
 	for i := 0; i < ck.blockNum; i++ {
 		bytes = append(bytes, ck.blockContext[i*60:i*60+58]...)
 	}
-	for _, txHash := range ck.txHashes {
-		bytes = append(bytes, txHash[:]...)
-	}
+	bytes = append(bytes, ck.txHashes...)
 	return crypto.Keccak256Hash(bytes)
 }
 
@@ -140,8 +140,9 @@ type Chunks struct {
 	data     []*Chunk
 	blockNum int
 
-	size int
-	hash *common.Hash
+	size   int
+	txSize int
+	hash   *common.Hash
 }
 
 func NewChunks() *Chunks {
@@ -155,7 +156,8 @@ func (cks *Chunks) Append(blockContext, txsPayload []byte, txHashes []common.Has
 		return
 	}
 	defer func() {
-		cks.size += len(blockContext) + len(txsPayload)
+		cks.size += len(blockContext) + len(txHashes)*common.HashLength
+		cks.txSize += len(txsPayload)
 		cks.blockNum++
 		cks.hash = nil // clear hash when data is updated
 	}()
@@ -187,6 +189,14 @@ func (cks *Chunks) Encode() ([][]byte, error) {
 	return bytes, nil
 }
 
+func (cks *Chunks) TxPayload() []byte {
+	var bytes []byte
+	for _, ck := range cks.data {
+		bytes = append(bytes, ck.txsPayload...)
+	}
+	return bytes
+}
+
 func (cks *Chunks) DataHash() common.Hash {
 	if cks.hash != nil {
 		return *cks.hash
@@ -201,9 +211,10 @@ func (cks *Chunks) DataHash() common.Hash {
 	return hash
 }
 
-func (cks *Chunks) BlockNum() int { return cks.blockNum }
-func (cks *Chunks) ChunkNum() int { return len(cks.data) }
-func (cks *Chunks) Size() int     { return cks.size }
+func (cks *Chunks) BlockNum() int      { return cks.blockNum }
+func (cks *Chunks) ChunkNum() int      { return len(cks.data) }
+func (cks *Chunks) Size() int          { return cks.size }
+func (cks *Chunks) TxPayloadSize() int { return cks.txSize }
 func (cks *Chunks) IsChunksAppendedWithAddedRc(rc types.RowConsumption) bool {
 	if len(cks.data) == 0 {
 		return true
