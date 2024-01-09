@@ -69,6 +69,10 @@ func (bi *BatchInfo) TxNum() uint64 {
 	return bi.txNum
 }
 
+func (bi *BatchInfo) Chunks() []*Chunk {
+	return bi.chunks
+}
+
 type Derivation struct {
 	ctx                   context.Context
 	syncer                *sync.Syncer
@@ -325,6 +329,10 @@ type Chunk struct {
 	txsPayload   [][]*eth.Transaction
 	txHashes     [][]common.Hash
 	blockNum     int
+}
+
+func (ck *Chunk) GetClockContext() []*BlockContext {
+	return ck.blockContext
 }
 
 type BlockContext struct {
