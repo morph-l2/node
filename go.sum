@@ -333,10 +333,10 @@ github.com/mitchellh/pointerstructure v1.2.0 h1:O+i9nHnXS3l/9Wu7r4NrEdwA2VFTicjU
 github.com/mitchellh/pointerstructure v1.2.0/go.mod h1:BRAsLI5zgXmw97Lf6s25bs8ohIXc3tViBH44KcwB2g4=
 github.com/morph-l2/bindings v0.0.0-20231208022223-d54807f047d2 h1:aV8JGMsHmBgjSOWql9P8Vuxf48zqmoTYGC1jDcIPPNk=
 github.com/morph-l2/bindings v0.0.0-20231208022223-d54807f047d2/go.mod h1:dRhm0mjX3tYsWL0ScqcyBueYDKnE27V7YJCNNoQOnv8=
-github.com/morph-l2/go-ethereum v1.10.14-0.20231221035445-b641d8451ff7 h1:/REct1SIKvvrmZ5LnOoUCDWNxeIzIt2f1CKf/HdWJCc=
-github.com/morph-l2/go-ethereum v1.10.14-0.20231221035445-b641d8451ff7/go.mod h1:9BGKc4l0m6qXgfXBGzp1aFHPE3dXzm2fi+rDtXpr8HM=
-github.com/morph-l2/tendermint v0.0.0-20231226013507-b4c408d81f55 h1:an1MqTeGMywqgiPUA5Uqj2N96fiAC5MzM4WonWdDDuk=
-github.com/morph-l2/tendermint v0.0.0-20231226013507-b4c408d81f55/go.mod h1:zJcxhzs3kbX6xs90IBX1vIQy1KmSfm4MgNbv3Lt+Rns=
+github.com/morph-l2/go-ethereum v1.10.14-0.20240105030148-da6185c8d1cb h1:Lp02ROE0OnDF36GSaA8lN+kzbQGNK+Nj2cGdZworbuc=
+github.com/morph-l2/go-ethereum v1.10.14-0.20240105030148-da6185c8d1cb/go.mod h1:9BGKc4l0m6qXgfXBGzp1aFHPE3dXzm2fi+rDtXpr8HM=
+github.com/morph-l2/tendermint v0.0.0-20240109085452-f7cf181d017a h1:pAW6Af//4JMCCWbGU/aUisLN9J/gu3zWs6uBXo3nGWI=
+github.com/morph-l2/tendermint v0.0.0-20240109085452-f7cf181d017a/go.mod h1:zJcxhzs3kbX6xs90IBX1vIQy1KmSfm4MgNbv3Lt+Rns=
 github.com/nxadm/tail v1.4.4/go.mod h1:kenIhsEOeOJmVchQTgglprH7qJGnHDVpk1VPCcaMI8A=
 github.com/nxadm/tail v1.4.8 h1:nPr65rt6Y5JFSKQO7qToXr7pePgD6Gwiw05lkbyAQTE=
 github.com/nxadm/tail v1.4.8/go.mod h1:+ncqLTQzXmGhMZNUePPaPqPvBxHAIsmXswZKocGu+AU=

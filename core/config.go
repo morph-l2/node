@@ -46,14 +46,15 @@ func (c *Config) SetCliContext(ctx *cli.Context) error {
 		logger = tmlog.NewTMJSONLogger(tmlog.NewSyncWriter(os.Stdout))
 	}
 
+	logLevel := "info"
 	if ctx.GlobalIsSet(flags.LogLevel.Name) {
-		logLevel := ctx.GlobalString(flags.LogLevel.Name)
-		option, err := tmlog.AllowLevel(logLevel)
-		if err != nil {
-			return err
-		}
-		logger = tmlog.NewFilter(logger, option)
+		logLevel = ctx.GlobalString(flags.LogLevel.Name)
 	}
+	option, err := tmlog.AllowLevel(logLevel)
+	if err != nil {
+		return err
+	}
+	logger = tmlog.NewFilter(logger, option)
 	c.Logger = logger
 
 	l2EthAddr := ctx.GlobalString(flags.L2EthAddr.Name)
