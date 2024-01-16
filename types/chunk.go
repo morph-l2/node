@@ -8,7 +8,10 @@ import (
 	"github.com/scroll-tech/go-ethereum/crypto"
 )
 
-const NormalizedRowLimit = 1_000_000
+const (
+	NormalizedRowLimit = 1_000_000
+	MaxBlocksPerChunk  = 100
+)
 
 type Chunk struct {
 	blockContext  []byte
@@ -166,7 +169,7 @@ func (cks *Chunks) Append(blockContext, txsPayload []byte, txHashes []common.Has
 	}
 	lastChunk := cks.data[len(cks.data)-1]
 	accRc, max := lastChunk.accumulateRowUsages(rc)
-	if lastChunk.blockNum+1 > 100 || max > NormalizedRowLimit { // add a new chunk
+	if lastChunk.blockNum+1 > MaxBlocksPerChunk || max > NormalizedRowLimit { // add a new chunk
 		cks.data = append(cks.data, NewChunk(blockContext, txsPayload, txHashes, rc))
 		cks.size += 1
 		return
@@ -209,7 +212,7 @@ func (cks *Chunks) IsChunksAppendedWithNewBlock(blockRc types.RowConsumption) bo
 		return true
 	}
 	lastChunk := cks.data[len(cks.data)-1]
-	if lastChunk.blockNum+1 > 100 {
+	if lastChunk.blockNum+1 > MaxBlocksPerChunk {
 		return true
 	}
 	_, max := lastChunk.accumulateRowUsages(blockRc)
