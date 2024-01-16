@@ -166,7 +166,7 @@ func (cks *Chunks) Append(blockContext, txsPayload []byte, txHashes []common.Has
 	}
 	lastChunk := cks.data[len(cks.data)-1]
 	accRc, max := lastChunk.accumulateRowUsages(rc)
-	if max > NormalizedRowLimit { // add a new chunk
+	if lastChunk.blockNum+1 > 100 || max > NormalizedRowLimit { // add a new chunk
 		cks.data = append(cks.data, NewChunk(blockContext, txsPayload, txHashes, rc))
 		cks.size += 1
 		return
@@ -204,11 +204,14 @@ func (cks *Chunks) DataHash() common.Hash {
 func (cks *Chunks) BlockNum() int { return cks.blockNum }
 func (cks *Chunks) ChunkNum() int { return len(cks.data) }
 func (cks *Chunks) Size() int     { return cks.size }
-func (cks *Chunks) IsChunksAppendedWithAddedRc(rc types.RowConsumption) bool {
+func (cks *Chunks) IsChunksAppendedWithNewBlock(blockRc types.RowConsumption) bool {
 	if len(cks.data) == 0 {
 		return true
 	}
 	lastChunk := cks.data[len(cks.data)-1]
-	_, max := lastChunk.accumulateRowUsages(rc)
+	if lastChunk.blockNum+1 > 100 {
+		return true
+	}
+	_, max := lastChunk.accumulateRowUsages(blockRc)
 	return max > NormalizedRowLimit
 }
